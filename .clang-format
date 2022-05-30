@@ -1,0 +1,7 @@
+UseTab:          Never
+
+---
+Language:        Cpp
+BasedOnStyle:    Google
+
+ReflowComments: false
