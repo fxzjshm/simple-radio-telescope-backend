@@ -36,7 +36,8 @@ inline srtb::memory::cached_allocator<
     srtb::memory::device_allocator<std::byte, srtb::MEMORY_ALIGNMENT> >
     device_allocator{queue};
 
-inline srtb::work_queue<srtb::work<void*> > unpacker_queue;
+inline srtb::work_queue<srtb::work<void*> > unpacker_queue{
+    srtb::work_queue_initial_capacity};
 
 }  // namespace srtb
 

@@ -26,10 +26,15 @@ typedef double real;
 
 // TODO: check should use queue or spsc_queue here
 template <typename... Args>
-using work_queue = boost::lockfree::queue<Args...>;
+using work_queue = boost::lockfree::spsc_queue<Args...>;
 
 // TODO: is this necessary or too large?
 constexpr size_t MEMORY_ALIGNMENT = 64ul;
+
+/**
+ * @brief initial capacity of boost::lockfree::{queue, spsc_queue}
+ */
+constexpr size_t work_queue_initial_capacity = 64;
 
 // ------ Runtime configuration ------
 
