@@ -14,10 +14,10 @@
 #include <iostream>
 #include <vector>
 
-#include "commons.hpp"
-#include "naive_fft.hpp"
-#include "coherent_dedispersion.hpp"
-#include "frequency_domain_filterbank.hpp"
+#include "srtb/coherent_dedispersion.hpp"
+#include "srtb/commons.hpp"
+#include "srtb/frequency_domain_filterbank.hpp"
+#include "srtb/io/udp_receiver.hpp"
 
 int main() {
     return 0;

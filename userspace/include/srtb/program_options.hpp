@@ -11,41 +11,17 @@
  ******************************************************************************/
 
 #pragma once
-#ifndef __SRTB_COMMONS__
-#define __SRTB_COMMONS__
+#ifndef __SRTB_PROGRAM_OPTIONS__
+#define __SRTB_PROGRAM_OPTIONS__
 
-/**
- * This file should contain commonly included headers, and forward
- * declaration if needed.
- */
-
-#if __has_include(<sycl/sycl.hpp>)
-#include <sycl/sycl.hpp>
-#else
-#include <CL/sycl.hpp>
-#endif
-
-#include "config.hpp"
-
-#include <boost/lockfree/spsc_queue.hpp>
-
-// TODO: platform specific things
-//#if defined()
-//#define __SRTB_CUDA__
-//#endif
+#include <boost/program_options.hpp>
 
 namespace srtb {
 
-// TODO: maybe float on GPU?
-typedef double real;
+void parse_arguments(){
+    // TODO parse arguments
+}
 
-// TODO: check should use queue or spsc_queue here
-template <typename... Args>
-using queue = boost::lockfree::spsc_queue<Args>;
+}
 
-}  // namespace srtb
-
-#include "global_variables.hpp"
-#include "logger.hpp"
-
-#endif  // __SRTB_COMMONS__
+#endif  // __SRTB_PROGRAM_OPTIONS__

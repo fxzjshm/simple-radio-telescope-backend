@@ -5,8 +5,8 @@
 #include <iostream>
 #include <vector>
 
-#include "commons.hpp"
-#include "fft/naive_fft.hpp"
+#include "srtb/commons.hpp"
+#include "srtb/fft/naive_fft.hpp"
 
 // Adapted from https://www.cnblogs.com/CaCO3/p/15996732.html by CaO
 // original post is licensed under CC BY-NC-SA

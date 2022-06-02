@@ -1,20 +1,20 @@
 /******************************************************************************* 
  * Copyright (c) 2022 fxzjshm
  * This software is licensed under Mulan PubL v2.
- * You can use this software according to the terms and conditions of the Mulan
- * PubL v2. You may obtain a copy of Mulan PubL v2 at:
+ * You can use this software according to the terms and conditions of the Mulan PubL v2.
+ * You may obtain a copy of Mulan PubL v2 at:
  *          http://license.coscl.org.cn/MulanPubL-2.0
- * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY
- * KIND, EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO
- * NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE. See the
- * Mulan PubL v2 for more details.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
+ * EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
+ * MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
+ * See the Mulan PubL v2 for more details.
  ******************************************************************************/
 
 #pragma once
 #ifndef __SRTB_FREQUENCY_DOMAIN_FILTERBANK__
 #define __SRTB_FREQUENCY_DOMAIN_FILTERBANK__
 
-#include "coherent_dedispersion.hpp"
+#include "srtb/coherent_dedispersion.hpp"
 
 /**
  * A frequency domain filterbank.
@@ -32,10 +32,10 @@
  */
 template <typename T, typename C = std::complex<T> >
 inline void frequency_domain_filterbank(T* input, T* output, size_t N, size_t M,
-                                 sycl::queue& q) {
+                                        sycl::queue& q) {
   std::vector<sycl::event> events(M * 2);
   const size_t L = N / M, L_2 = L / 2 /* == N / 2M */;
-  for (size_t m = 1; m = M; ++m) {
+  for (size_t m = 1; m <= M; ++m) {
     const auto event =
         q.copy(input + (m - 1) * L_2, output + (m - 1) * L_2, L_2);
     events.push_back(event);
@@ -50,8 +50,8 @@ inline void frequency_domain_filterbank(T* input, T* output, size_t N, size_t M,
   }
 }
 
-
 // TODO: kernel fusion
+//       does this really runs faster? can index computations be reduced?
 // TODO: RFI
 template <typename T, typename C = std::complex<T>, typename Iterator = T*>
 inline void coherent_dedispersion_and_frequency_domain_filterbank(
@@ -64,7 +64,7 @@ inline void coherent_dedispersion_and_frequency_domain_filterbank(
   const size_t j = id.get_id(0), N = id.get_range(0), L = N / M,
                L_2 = L / 2 /* == N / 2M */, m = j / L + 1, k = j - (m - 1) * L;
   assert(0 <= k && k < L && k == j % L);
-  const size_t i;
+  size_t i;
   if (0 <= k && k <= L_2 - 1) {
     i = k + L_2 * (m - 1);
   } else {
@@ -74,9 +74,8 @@ inline void coherent_dedispersion_and_frequency_domain_filterbank(
   // coherent dedispersion
   // TODO: does pre-computing delta_phi saves time?
   const T f = f_min + delta_f * i;
-  output[j] = input[i] * coherent_dedispersion_factor(f, dm);
+  output[j] = input[i] * coherent_dedispersion_factor(f, f_min, dm);
 }
-
 
 // TODO: fft windowing + ring buffer
 
