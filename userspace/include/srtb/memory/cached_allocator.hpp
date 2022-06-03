@@ -16,6 +16,10 @@
 
 #include <map>
 #include <memory>
+#include <type_traits>
+
+#include "srtb/config.hpp"
+#include "srtb/logger.hpp"
 
 namespace srtb {
 namespace memory {
@@ -23,17 +27,20 @@ namespace memory {
 /**
  * @brief An allocator that wraps the real allocator and caches allocation requests.
  * 
- * @tparam T Type to be allocated. To reuse memory, maybe void* is best.
- * @tparam Allocator The real allocator to allocate new memory.
+ * @tparam T Type to be allocated. To reuse memory, maybe std::byte is best.
+ * @tparam RealAllocator The real allocator to allocate new memory.
  *         This is a parameter in case different types of memory need to be allocated, 
  *         e.g. host memory, device memory, USM memory, etc.
- * @note std::mutex is used, but problem like dead locks need to be checked.
+ * @note TODO: std::mutex is used, but problem like dead locks need to be checked.
+ * @note template template parameters seems not supporting Nontype template parameters...
  */
-template <typename T, typename Allocator = std::allocator<T> >
+template <typename RealAllocator>
 class cached_allocator {
  public:
-  using size_type = typename std::allocator_traits<Allocator>::size_type;
-  using pointer = typename std::allocator_traits<Allocator>::pointer;
+  using value_type = typename std::allocator_traits<RealAllocator>::value_type;
+  using size_type = typename std::allocator_traits<RealAllocator>::size_type;
+  using pointer = typename std::allocator_traits<RealAllocator>::pointer;
+  using smart_pointer = std::shared_ptr<value_type>;
 
   template <typename... Args>
   explicit cached_allocator(Args... args) : allocator(args...){};
@@ -48,23 +55,44 @@ class cached_allocator {
 
     if (iter == free_ptrs.end()) {
       // not found
-      ptr = allocator.allocate(n);
+      // pay attention to alignment
+      if (n > 0) [[likely]] {
+        ptr_size =
+            ((n - 1) / srtb::MEMORY_ALIGNMENT + 1) * srtb::MEMORY_ALIGNMENT;
+      } else {
+        ptr_size = srtb::MEMORY_ALIGNMENT;
+      }
+      ptr = allocator.allocate(ptr_size);
       if (ptr == nullptr) [[unlikely]] {
         throw std::runtime_error(
             std::string("Cached allocator: cannot allocate memory of size ") +
-            std::to_string(n * sizeof(T)));
+            std::to_string(ptr_size * sizeof(value_type)));
       }
-      ptr_size = n;
+
+      SRTB_LOGI << " [cached allocator] "
+                << "allocated new memory of size "
+                << ptr_size * sizeof(value_type) << std::endl;
     } else {
       // found. notice the real ptr size may be larger than requested n
       auto pair = *iter;
       ptr = pair.second;
       ptr_size = pair.first;
       free_ptrs.erase(iter);
+
+      SRTB_LOGD << " [cached allocator] "
+                << "cached allocation of memory of size "
+                << ptr_size * sizeof(value_type) << std::endl;
     }
 
     used_ptrs.insert(std::make_pair(ptr, ptr_size));
     return ptr;
+  }
+
+  // TODO: check this
+  smart_pointer allocate_smart(size_type n) {
+    pointer ptr = allocate(n);
+    return std::shared_ptr<value_type>{ptr,
+                                       [&](pointer ptr) { deallocate(ptr); }};
   }
 
   void deallocate(pointer ptr) {
@@ -78,6 +106,9 @@ class cached_allocator {
     size_type ptr_size = (*iter).second;
     used_ptrs.erase(iter);
     free_ptrs.insert(std::make_pair(ptr_size, ptr));
+    SRTB_LOGD << " [cached allocator] "
+              << "take back memory of size " << ptr_size * sizeof(value_type)
+              << std::endl;
   }
 
   void deallocate_all_free_ptrs() {
@@ -88,16 +119,17 @@ class cached_allocator {
       allocator.deallocate(ptr, ptr_size);
     }
     free_ptrs.clear();
-
-    // TODO: should used_ptrs be cleared?
   }
 
-  ~cached_allocator() { deallocate_all_free_ptrs(); }
+  ~cached_allocator() {
+    deallocate_all_free_ptrs();
+    // TODO: should used_ptrs be cleared?
+  }
 
  protected:
   std::multimap<size_type, pointer> free_ptrs;
   std::map<pointer, size_type> used_ptrs;
-  Allocator allocator;
+  RealAllocator allocator;
   std::mutex mutex;
 };
 

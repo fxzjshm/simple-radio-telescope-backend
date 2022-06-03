@@ -27,7 +27,7 @@ namespace memory {
 template <typename T, size_t align = sizeof(T)>
 class device_allocator {
  public:
-  template <typename U, size_t new_align = ((sizeof(T) > 0) ? sizeof(U) : 0)>
+  template <typename U, size_t new_align = align>
   struct rebind {
     typedef device_allocator<U, new_align> other;
   };

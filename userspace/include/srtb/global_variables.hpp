@@ -15,10 +15,7 @@
 #define __SRTB_GLOBAL_VARIABLES__
 
 #include "srtb/config.hpp"
-#include "srtb/memory/cached_allocator.hpp"
-#include "srtb/memory/sycl_device_allocator.hpp"
 #include "srtb/sycl.hpp"
-#include "srtb/work.hpp"
 
 namespace srtb {
 
@@ -26,17 +23,25 @@ inline srtb::configs config;
 
 inline sycl::queue queue;
 
-inline srtb::memory::cached_allocator<
-    std::byte, sycl::usm_allocator<std::byte, sycl::usm::alloc::host,
-                                   srtb::MEMORY_ALIGNMENT> >
+}  // namespace srtb
+
+#include "srtb/memory/cached_allocator.hpp"
+#include "srtb/memory/sycl_device_allocator.hpp"
+#include "srtb/work.hpp"
+
+namespace srtb {
+
+inline srtb::memory::cached_allocator<sycl::usm_allocator<
+    std::byte, sycl::usm::alloc::host, srtb::MEMORY_ALIGNMENT> >
     host_allocator{queue};
 
 inline srtb::memory::cached_allocator<
-    std::byte,
     srtb::memory::device_allocator<std::byte, srtb::MEMORY_ALIGNMENT> >
     device_allocator{queue};
 
-inline srtb::work_queue<srtb::work<void*> > unpacker_queue{
+typedef srtb::work<std::shared_ptr<std::byte> > unpacker_work_type;
+
+inline srtb::work_queue<unpacker_work_type> unpacker_queue{
     srtb::work_queue_initial_capacity};
 
 }  // namespace srtb
