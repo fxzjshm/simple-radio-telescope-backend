@@ -56,11 +56,15 @@ class cached_allocator {
     if (iter == free_ptrs.end()) {
       // not found
       // pay attention to alignment
-      if (n > 0) [[likely]] {
-        ptr_size =
-            ((n - 1) / srtb::MEMORY_ALIGNMENT + 1) * srtb::MEMORY_ALIGNMENT;
+      if constexpr (srtb::MEMORY_ALIGNMENT != 0) {
+        if (n > 0) [[likely]] {
+          ptr_size =
+              ((n - 1) / srtb::MEMORY_ALIGNMENT + 1) * srtb::MEMORY_ALIGNMENT;
+        } else {
+          ptr_size = srtb::MEMORY_ALIGNMENT;
+        }
       } else {
-        ptr_size = srtb::MEMORY_ALIGNMENT;
+        ptr_size = n;
       }
       ptr = allocator.allocate(ptr_size);
       if (ptr == nullptr) [[unlikely]] {
