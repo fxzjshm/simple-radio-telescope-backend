@@ -18,7 +18,7 @@
 
 #include "srtb/global_variables.hpp"
 
-// reference: hipSYCL logger
+// reference: hipSYCL logger at hipSYCL/common/debug.hpp
 #define SRTB_LOG(level)                     \
   if (level < srtb::config.log_debug_level) \
   std::cout << srtb::log::get_log_prefix(level)
@@ -31,13 +31,13 @@ enum debug_levels { NONE = 0, ERROR = 1, WARNING = 2, INFO = 3, DEBUG = 4 };
 inline constexpr auto get_log_prefix(const debug_levels level) {
   switch (level) {
     case srtb::log::debug_levels::ERROR:
-      return "[SRTB ERROR]";
+      return "\033[1;31m[SRTB ERROR]\033[0m";  // bright red
     case srtb::log::debug_levels::WARNING:
-      return "[SRTB  WARN]";
+      return "\033[;35m[SRTB  WARN]\033[0m";  // magenta
     case srtb::log::debug_levels::INFO:
-      return "[SRTB  INFO]";
+      return "\033[;32m[SRTB  INFO]\033[0m";  // green
     case srtb::log::debug_levels::DEBUG:
-      return "[SRTB DEBUG]";
+      return "\033[;36m[SRTB DEBUG]\033[0m";  // cyan
     case srtb::log::debug_levels::NONE:
     default:
       return "";
