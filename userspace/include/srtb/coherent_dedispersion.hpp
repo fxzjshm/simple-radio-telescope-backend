@@ -40,13 +40,38 @@ namespace codd {
 constexpr srtb::real D = 4.148808e3;
 
 /**
- * @brief delay time caused by dispersion.
+ * @brief delay time caused by dispersion relative to f_c, assuming f > f_c (for positive result).
  * For reference, the first FRB found has a delay time of 0.3 ~ 0.4 ms (Lorimer, et al. 2007).
  * The edge of dedispersed time series should be dropped as it is not reliable.
+ * @see coherent_dedispersion_factor
  */
 template <typename T>
 inline T dispersion_delay_time(const T f, const T f_c, const T dm) {
-  return D * dm * (T(1.0) / (f * f) - T(1.0) / (f_c * f_c));
+  return -D * dm * (T(1.0) / (f * f) - T(1.0) / (f_c * f_c));
+}
+
+inline srtb::real max_delay_time() {
+  return dispersion_delay_time(
+      srtb::config.baseband_freq_low + srtb::config.baseband_bandwidth,
+      srtb::config.baseband_freq_low, srtb::config.dm);
+}
+
+/** @brief count of samples to be reused in next round of baseband data submission,
+  *        as dedispersed signal at two edges is not accurate
+  * 
+  * e.g. baseband_input_length = 20, max delayed samples = 5,
+  *      x = not accurate signals after dedispersion
+  *         ..............................
+  *         |---  round  i  ---|
+  *         xxxxx..........xxxxx
+  *                   |---  round i+1 ---|
+  *                   xxxxx..........xxxxx
+  * hence nsamps_reserved = 2 * max delayed samples.
+  * TODO: check this
+  */
+inline size_t nsamps_reserved() {
+  return 2 * std::round(srtb::codd::max_delay_time() *
+                        srtb::config.baseband_sample_rate);
 }
 
 /**

@@ -46,26 +46,48 @@ constexpr size_t work_queue_initial_capacity = 64;
  */
 struct configs {
   /**
-   * @brief Length of data to be transferred to GPU for once processing, in bytes
+   * @brief Length of data to be transferred to GPU for once processing, in bytes.
+   *        Should be power of 2 so that FFT and channelizing can work properly.
    */
   size_t baseband_input_length = 1 << 25;
 
   /**
-   * @brief Lowerest frequency of received baseband signal.
+   * @brief Lowerest frequency of received baseband signal, in MHz.
    */
   srtb::real baseband_freq_low = 1000.0;
 
   /**
-   * @brief Band width of received baseband signal.
+   * @brief Band width of received baseband signal, in MHz.
    * 
    */
   srtb::real baseband_bandwidth = 500.0;
 
   /**
-    * @brief Buffer size for receving one udp packet.
+   * @brief Baseband sample rate, in samples / second
+   */
+  srtb::real baseband_sample_rate = 400 * 1e6;
+
+  /**
+   * @brief Target dispersion measurement for coherent dedispersion
+   * TODO: DM search list for unknown source
+   */
+  srtb::real dm = 375;
+
+  /**
+    * @brief Buffer size of socket for receving udp packet.
     * @see srtb::io::udp_receiver
     */
   int udp_receiver_buffer_size = 1 << 24;
+
+  /**
+   * @brief Address to receive baseband UDP packets
+   */
+  std::string udp_receiver_sender_address = "10.0.1.2";
+
+  /**
+   * @brief Port to receive baseband UDP packets
+   */
+  unsigned short udp_receiver_sender_port = 12004;
 
   /**
     * @brief debug level for log
