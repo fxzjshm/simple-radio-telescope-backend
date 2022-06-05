@@ -31,7 +31,7 @@ namespace memory {
  * @tparam RealAllocator The real allocator to allocate new memory.
  *         This is a parameter in case different types of memory need to be allocated, 
  *         e.g. host memory, device memory, USM memory, etc.
- * @note TODO: std::mutex is used, but problem like dead locks need to be checked.
+ * @note TODO: @c std::mutex is used, but problem like dead locks need to be checked.
  * @note template template parameters seems not supporting Nontype template parameters...
  */
 template <typename RealAllocator>
@@ -104,6 +104,17 @@ class cached_allocator {
 
     auto iter = used_ptrs.find(ptr);
     if (iter == used_ptrs.end()) [[unlikely]] {
+      for (auto pair : free_ptrs) {
+        if (pair.second == ptr) {
+          size_t ptr_size = pair.first;
+          SRTB_LOGW << " [cached_allocator] "
+                    << "double free of ptr (size "
+                    << ptr_size * sizeof(value_type) << ") detected!"
+                    << std::endl;
+          return;
+        }
+      }
+      // not a double free
       throw std::runtime_error(
           "Cached allocator: cannot handle unknown pointer.");
     }
