@@ -20,7 +20,7 @@
 
 // reference: hipSYCL logger at hipSYCL/common/debug.hpp
 #define SRTB_LOG(level)                     \
-  if (level < srtb::config.log_debug_level) \
+  if (level <= srtb::config.log_debug_level) \
   std::cout << srtb::log::get_log_prefix(level)
 
 namespace srtb {

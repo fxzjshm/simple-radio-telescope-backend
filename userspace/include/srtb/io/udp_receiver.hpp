@@ -79,7 +79,7 @@ inline void udp_receiver_worker(std::stop_token stop_token,
     } else {
       SRTB_LOGD << " [udp_receiver] "
                 << "Pushed work of size " << baseband_input_length
-                << "to unpacker_queue." << std::endl;
+                << " to unpacker_queue." << std::endl;
     }
 
     // reserved some samples for next round

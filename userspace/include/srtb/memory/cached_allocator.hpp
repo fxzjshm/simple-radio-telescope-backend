@@ -112,7 +112,7 @@ class cached_allocator {
     free_ptrs.insert(std::make_pair(ptr_size, ptr));
     SRTB_LOGD << " [cached allocator] "
               << "take back memory of size " << ptr_size * sizeof(value_type)
-              << std::endl;
+              << " bytes" << std::endl;
   }
 
   void deallocate_all_free_ptrs() {
@@ -121,6 +121,9 @@ class cached_allocator {
       size_type ptr_size = iter.first;
       pointer ptr = iter.second;
       allocator.deallocate(ptr, ptr_size);
+      SRTB_LOGD << " [cached allocator] "
+                << "free memory of size " << ptr_size * sizeof(value_type)
+                << " bytes" << std::endl;
     }
     free_ptrs.clear();
   }

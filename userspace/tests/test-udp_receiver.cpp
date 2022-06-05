@@ -54,6 +54,8 @@ int main() {
 
   // send data
   server_socket.send_to(boost::asio::buffer(data), ep1);
+  SRTB_LOGI << " [test-udp_receiver] "
+            << "data sent" << std::endl;
 
   // wait to be processed
   // https://stackoverflow.com/a/51850018/5269168
