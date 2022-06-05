@@ -38,6 +38,7 @@ int main() {
 
   // set up receiver
   auto udp_receiver_thread = srtb::io::udp_receiver::run_udp_receiver_worker();
+  std::this_thread::sleep_for(std::chrono::seconds(1));
 
   // set up server
   // https://www.boost.org/doc/libs/1_79_0/doc/html/boost_asio/example/cpp11/multicast/sender.cpp
