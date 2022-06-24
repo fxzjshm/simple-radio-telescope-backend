@@ -38,13 +38,11 @@ def generate_filterbank_header():
     header += sigproc.addto_hdr("HEADER_END", None)
     return header
 
-if __name__ == "__main__":
+def main():
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     # on this port, listen ONLY to MCAST_GRP
     sock.bind((srtb_config.MCAST_GRP, srtb_config.MCAST_PORT))
-    mreq = struct.pack("4sl", socket.inet_aton(srtb_config.MCAST_GRP), socket.INADDR_ANY)
-    #sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
 
     datas = bytearray()
     counter = -1
@@ -61,8 +59,8 @@ if __name__ == "__main__":
             data = sock.recv(srtb_config.BUFFER_SIZE)
             # 8 byte uint64 counter + 4096 FFT content
             data_counter = struct.unpack("Q", data[:8])[0]
-            data_content = data[9:]
-            data_length = len(data) - 8
+            data_content = data[8:]
+            data_length = len(data_content)
             if data_length != srtb_config.nchans * srtb_config.nbits / 8 :
                 print(f"[WARNING] length mismatch, received length = {data_length}, nchan = {srtb_config.nchans}, nbits = {srtb_config.nbits}, ignoring.")
                 continue
@@ -71,7 +69,7 @@ if __name__ == "__main__":
             nsamples += 1
             counter = data_counter
             #print(f"[DEBUG] nsamples = {nsamples}")
-            datas += data
+            datas += data_content
         
         assert nsamples == srtb_config.nsamples
 
@@ -80,3 +78,6 @@ if __name__ == "__main__":
         outfile.write(header)
         outfile.write(datas)
         outfile.close()
+
+if __name__ == "__main__":
+    main()
