@@ -1,3 +1,6 @@
 .idea/
 .vs/
 .vscode/
+
+# generatd filterbank files
+/*.fil
