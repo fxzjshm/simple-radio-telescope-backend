@@ -1,6 +1,4 @@
 
-#import matplotlib.pyplot as pyplot
-
 try:
     import presto.sigproc as sigproc
 except ImportError:
@@ -50,19 +48,26 @@ if __name__ == "__main__":
 
     while True:
         srtb_config.tstart = astropy.time.Time(time.time(), format="unix").mjd
-        file_name = str(srtb_config.tstart) + ".fil"
+        file_name = srtb_config.filename_prefix + str("_{:.8f}.fil").format(srtb_config.tstart)
         print(f"[INFO] receiving to {file_name}") 
         srtb_config.rawdatafile = file_name
         nsamples = 0
         datas = bytearray()
+        counter = 2**64 - 1
 
         while nsamples < srtb_config.nsamples:
             data = sock.recv(srtb_config.BUFFER_SIZE)
-            data_length = len(data)
+            # 8 byte uint64 counter + 4096 FFT content
+            data_counter = struct.unpack("Q", data[:8])[0]
+            data_content = data[9:]
+            data_length = len(data) - 8
             if data_length != srtb_config.nchans * srtb_config.nbits / 8 :
-                print(f"[WARNING] length mismatch, received length = {data_length}, nchan = {srtb_config.nchans}, nbits = {srtb_config.nbits}")
+                print(f"[WARNING] length mismatch, received length = {data_length}, nchan = {srtb_config.nchans}, nbits = {srtb_config.nbits}, ignoring.")
                 continue
+            if data_counter != counter + 1:
+                print(f"[WARNING] data lost detected: skipping {data_counter - counter - 1} packets.")
             nsamples += 1
+            counter = data_counter
             #print(f"[DEBUG] nsamples = {nsamples}")
             datas += data
         

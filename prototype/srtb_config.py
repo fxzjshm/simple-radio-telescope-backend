@@ -7,7 +7,7 @@ source_name = ""
 data_type = 1  # filterbank data = 1, time series = 2
 fch1 = 1000.0
 foff = -1.0
-nchans = 4104  # should be checked during runtime
+nchans = 4096  # should be checked during runtime
 tsamp = 0.001
 nbeams = 1
 nbits = 8
@@ -20,3 +20,6 @@ nsamples = 10000  # target nsamples for a file
 MCAST_GRP = '10.0.1.2'
 MCAST_PORT = 12001
 BUFFER_SIZE = 10240
+
+# misc
+filename_prefix = "pp" # pp = pku_pulsar
