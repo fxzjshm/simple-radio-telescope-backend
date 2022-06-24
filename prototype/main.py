@@ -46,14 +46,16 @@ if __name__ == "__main__":
     mreq = struct.pack("4sl", socket.inet_aton(srtb_config.MCAST_GRP), socket.INADDR_ANY)
     #sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
 
+    datas = bytearray()
+    counter = -1
+
     while True:
         srtb_config.tstart = astropy.time.Time(time.time(), format="unix").mjd
         file_name = srtb_config.filename_prefix + str("_{:.8f}.fil").format(srtb_config.tstart)
         print(f"[INFO] receiving to {file_name}") 
         srtb_config.rawdatafile = file_name
         nsamples = 0
-        datas = bytearray()
-        counter = 2**64 - 1
+        datas.clear()
 
         while nsamples < srtb_config.nsamples:
             data = sock.recv(srtb_config.BUFFER_SIZE)
@@ -65,7 +67,7 @@ if __name__ == "__main__":
                 print(f"[WARNING] length mismatch, received length = {data_length}, nchan = {srtb_config.nchans}, nbits = {srtb_config.nbits}, ignoring.")
                 continue
             if data_counter != counter + 1:
-                print(f"[WARNING] data lost detected: skipping {data_counter - counter - 1} packets.")
+                print(f"[WARNING] data loss detected: skipping {data_counter - counter - 1} packets.")
             nsamples += 1
             counter = data_counter
             #print(f"[DEBUG] nsamples = {nsamples}")
