@@ -19,14 +19,20 @@
 #include "srtb/global_variables.hpp"
 
 // reference: hipSYCL logger at hipSYCL/common/debug.hpp
-#define SRTB_LOG(level)                      \
-  if (level <= srtb::config.log_debug_level) \
+#define SRTB_LOG(level)                                        \
+  if (static_cast<int>(level) <= srtb::config.log_debug_level) \
   std::cout << srtb::log::get_log_prefix(level)
 
 namespace srtb {
 namespace log {
 
-enum debug_levels { NONE = 0, ERROR = 1, WARNING = 2, INFO = 3, DEBUG = 4 };
+enum class debug_levels : int {
+  NONE = 0,
+  ERROR = 1,
+  WARNING = 2,
+  INFO = 3,
+  DEBUG = 4
+};
 
 inline constexpr auto get_log_prefix(const debug_levels level) {
   switch (level) {
