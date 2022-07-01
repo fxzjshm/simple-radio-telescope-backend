@@ -20,13 +20,13 @@
 
 // reference: hipSYCL logger at hipSYCL/common/debug.hpp
 #define SRTB_LOG(level)                                        \
-  if (static_cast<int>(level) <= srtb::config.log_debug_level) \
+  if (static_cast<int>(level) <= srtb::config.log_level) \
   std::cout << srtb::log::get_log_prefix(level)
 
 namespace srtb {
 namespace log {
 
-enum class debug_levels : int {
+enum class levels : int {
   NONE = 0,
   ERROR = 1,
   WARNING = 2,
@@ -34,17 +34,17 @@ enum class debug_levels : int {
   DEBUG = 4
 };
 
-inline constexpr auto get_log_prefix(const debug_levels level) {
+inline constexpr auto get_log_prefix(const log::levels level) {
   switch (level) {
-    case srtb::log::debug_levels::ERROR:
+    case srtb::log::levels::ERROR:
       return "\033[1;31m[SRTB ERROR]\033[0m";  // bright red
-    case srtb::log::debug_levels::WARNING:
+    case srtb::log::levels::WARNING:
       return "\033[;35m[SRTB  WARN]\033[0m";  // magenta
-    case srtb::log::debug_levels::INFO:
+    case srtb::log::levels::INFO:
       return "\033[;32m[SRTB  INFO]\033[0m";  // green
-    case srtb::log::debug_levels::DEBUG:
+    case srtb::log::levels::DEBUG:
       return "\033[;36m[SRTB DEBUG]\033[0m";  // cyan
-    case srtb::log::debug_levels::NONE:
+    case srtb::log::levels::NONE:
     default:
       return "";
   }
@@ -53,9 +53,9 @@ inline constexpr auto get_log_prefix(const debug_levels level) {
 }  // namespace log
 }  // namespace srtb
 
-#define SRTB_LOGE SRTB_LOG(srtb::log::debug_levels::ERROR)
-#define SRTB_LOGW SRTB_LOG(srtb::log::debug_levels::WARNING)
-#define SRTB_LOGI SRTB_LOG(srtb::log::debug_levels::INFO)
-#define SRTB_LOGD SRTB_LOG(srtb::log::debug_levels::DEBUG)
+#define SRTB_LOGE SRTB_LOG(srtb::log::levels::ERROR)
+#define SRTB_LOGW SRTB_LOG(srtb::log::levels::WARNING)
+#define SRTB_LOGI SRTB_LOG(srtb::log::levels::INFO)
+#define SRTB_LOGD SRTB_LOG(srtb::log::levels::DEBUG)
 
 #endif  // __SRTB_LOGGER__

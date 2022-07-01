@@ -91,9 +91,9 @@ struct configs {
 
   /**
     * @brief debug level for log
-    * @see srtb::log::debug_levels
+    * @see srtb::log::levels
     */
-  int log_debug_level = 4;
+  /* srtb::log::levels */ int log_level = /* srtb::log::levels::DEBUG */ 4;
 };
 
 }  // namespace srtb
