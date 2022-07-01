@@ -27,12 +27,12 @@ namespace memory {
 /**
  * @brief An allocator that wraps the real allocator and caches allocation requests.
  * 
- * @tparam T Type to be allocated. To reuse memory, maybe std::byte is best.
  * @tparam RealAllocator The real allocator to allocate new memory.
  *         This is a parameter in case different types of memory need to be allocated, 
  *         e.g. host memory, device memory, USM memory, etc.
  * @note TODO: @c std::mutex is used, but problem like dead locks need to be checked.
  * @note template template parameters seems not supporting Nontype template parameters...
+ * @note TODO: read/write lock?
  */
 template <typename RealAllocator>
 class cached_allocator {
@@ -40,13 +40,12 @@ class cached_allocator {
   using value_type = typename std::allocator_traits<RealAllocator>::value_type;
   using size_type = typename std::allocator_traits<RealAllocator>::size_type;
   using pointer = typename std::allocator_traits<RealAllocator>::pointer;
-  using smart_pointer = std::shared_ptr<value_type>;
 
   template <typename... Args>
   explicit cached_allocator(Args... args) : allocator(args...){};
 
   pointer allocate(size_type n) {
-    std::lock_guard lock(mutex);
+    std::lock_guard lock{mutex};
 
     // find a memory region that is cached
     auto iter = free_ptrs.lower_bound(n);
@@ -54,7 +53,7 @@ class cached_allocator {
     size_type ptr_size = 0;
 
     if (iter == free_ptrs.end()) {
-      // not found
+      // not found, allocate a new one
       // pay attention to alignment
       if constexpr (srtb::MEMORY_ALIGNMENT != 0) {
         if (n > 0) [[likely]] {
@@ -93,28 +92,33 @@ class cached_allocator {
   }
 
   // TODO: check this
-  smart_pointer allocate_smart(size_type n) {
-    pointer ptr = allocate(n);
-    return std::shared_ptr<value_type>{ptr,
+  template<typename U = value_type, typename = typename std::enable_if<std::is_convertible_v<typename std::remove_cv<pointer>::type, value_type*> >::type>
+  std::shared_ptr<U> allocate_smart(size_type n_U) {
+    using T = value_type;
+    size_type n_T = (std::max(n_U, size_type{1}) * sizeof(U) - 1)/sizeof(T) + 1;
+    assert(n_T * sizeof(T) >= n_U * sizeof(U));
+
+    pointer ptr = allocate(n_T);
+    return std::shared_ptr<U>{reinterpret_cast<U*>(ptr),
                                        [&](pointer ptr) { deallocate(ptr); }};
   }
 
   void deallocate(pointer ptr) {
-    std::lock_guard lock(mutex);
+    std::lock_guard lock{mutex};
 
     auto iter = used_ptrs.find(ptr);
     if (iter == used_ptrs.end()) [[unlikely]] {
-      for (auto pair : free_ptrs) {
-        if (pair.second == ptr) {
-          size_t ptr_size = pair.first;
-          SRTB_LOGW << " [cached_allocator] "
+      // something wrong here, check double free
+      for (auto [ptr_size, ptr2] : free_ptrs) {
+        if (ptr2 == ptr) {
+          SRTB_LOGE << " [cached_allocator] "
                     << "double free of ptr (size "
                     << ptr_size * sizeof(value_type) << ") detected!"
                     << std::endl;
           return;
         }
       }
-      // not a double free
+      // not a double free, but something more serious
       throw std::runtime_error(
           "Cached allocator: cannot handle unknown pointer.");
     }
@@ -127,13 +131,13 @@ class cached_allocator {
   }
 
   void deallocate_all_free_ptrs() {
-    std::lock_guard lock(mutex);
+    std::lock_guard lock{mutex};
     for (auto iter : free_ptrs) {
       size_type ptr_size = iter.first;
       pointer ptr = iter.second;
       allocator.deallocate(ptr, ptr_size);
       SRTB_LOGD << " [cached allocator] "
-                << "free memory of size " << ptr_size * sizeof(value_type)
+                << "deallocate memory of size " << ptr_size * sizeof(value_type)
                 << " bytes" << std::endl;
     }
     free_ptrs.clear();
@@ -141,7 +145,12 @@ class cached_allocator {
 
   ~cached_allocator() {
     deallocate_all_free_ptrs();
+
     // TODO: should used_ptrs be cleared?
+    if (used_ptrs.size() > 0) {
+      SRTB_LOGW << " [cached allocator] " << used_ptrs.size()
+                << " pointer(s) still in use!" << std::endl;
+    }
   }
 
  protected:
