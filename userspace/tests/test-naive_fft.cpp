@@ -81,7 +81,7 @@ int main(int argc, char** argv) {
       x = double(std::rand()) / (0xcafebabe);
       y = double(std::rand()) / (0xbeefcace);
       f[i].real(x);
-      f[i].real(y);
+      f[i].imag(y);
     }
   }
 
