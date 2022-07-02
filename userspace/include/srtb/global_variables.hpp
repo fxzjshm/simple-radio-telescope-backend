@@ -46,4 +46,6 @@ inline srtb::work_queue<unpacker_work_type> unpacker_queue{
 
 }  // namespace srtb
 
+// FFT dispatch in srtb/fft/fft.hpp due to forward declaration
+
 #endif  // __SRTB_GLOBAL_VARIABLES__

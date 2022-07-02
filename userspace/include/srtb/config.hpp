@@ -17,12 +17,15 @@
 #include <boost/lockfree/queue.hpp>
 #include <boost/lockfree/spsc_queue.hpp>
 
+#include <complex>
+
 namespace srtb {
 
 // ------ Compile time configuration ------
 
 // TODO: maybe float on GPU?
 typedef double real;
+typedef std::complex<srtb::real> complex;
 
 // TODO: check should use queue or spsc_queue here
 template <typename... Args>
@@ -30,6 +33,8 @@ using work_queue = boost::lockfree::spsc_queue<Args...>;
 
 // TODO: is this necessary or too large?
 constexpr size_t MEMORY_ALIGNMENT = 64ul;
+
+constexpr size_t BITS_PER_BYTE = 8ul;
 
 /**
  * @brief initial capacity of boost::lockfree::{queue, spsc_queue}
@@ -50,6 +55,12 @@ struct configs {
    *        Should be power of 2 so that FFT and channelizing can work properly.
    */
   size_t baseband_input_length = 1 << 25;
+
+  /**
+   * @brief Length of a single input data, used in unpack.
+   *        TODO: 32 -> uint32 or float?
+   */
+  size_t baseband_input_bits = 8;
 
   /**
    * @brief Lowerest frequency of received baseband signal, in MHz.
@@ -94,6 +105,12 @@ struct configs {
     * @see srtb::log::levels
     */
   /* srtb::log::levels */ int log_level = /* srtb::log::levels::DEBUG */ 4;
+
+  inline size_t unpacked_input_count() {
+    return baseband_input_length * BITS_PER_BYTE / baseband_input_bits;
+  }
+
+  std::string fft_fftw_wisdom_path = "srtb_fftw_wisdom.txt";
 };
 
 }  // namespace srtb
