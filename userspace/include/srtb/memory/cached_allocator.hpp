@@ -92,15 +92,19 @@ class cached_allocator {
   }
 
   // TODO: check this
-  template<typename U = value_type, typename = typename std::enable_if<std::is_convertible_v<typename std::remove_cv<pointer>::type, value_type*> >::type>
+  template <typename U = value_type,
+            typename = typename std::enable_if<std::is_convertible_v<
+                typename std::remove_cv<pointer>::type, value_type*> >::type>
   std::shared_ptr<U> allocate_smart(size_type n_U) {
     using T = value_type;
-    size_type n_T = (std::max(n_U, size_type{1}) * sizeof(U) - 1)/sizeof(T) + 1;
+    size_type n_T =
+        (std::max(n_U, size_type{1}) * sizeof(U) - 1) / sizeof(T) + 1;
     assert(n_T * sizeof(T) >= n_U * sizeof(U));
 
     pointer ptr = allocate(n_T);
-    return std::shared_ptr<U>{reinterpret_cast<U*>(ptr),
-                                       [&](pointer ptr) { deallocate(ptr); }};
+    return std::shared_ptr<U>{reinterpret_cast<U*>(ptr), [&](U* ptr) {
+                                deallocate(reinterpret_cast<pointer>(ptr));
+                              }};
   }
 
   void deallocate(pointer ptr) {
