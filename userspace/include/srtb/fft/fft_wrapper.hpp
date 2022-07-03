@@ -43,29 +43,38 @@ class fft_wrapper {
  public:
   using sub_class = Derived<T, C>;
 
+  sub_class& sub() { return static_cast<sub_class&>(*this); }
+
+  friend sub_class;
+
   void create(size_t n = srtb::config.unpacked_input_count()) {
     std::lock_guard lock{fft_mutex};
-    static_cast<sub_class&>(*this).create_impl(n);
+    if (has_inited()) {
+      sub().destroy_impl();
+    }
+    sub().create_impl(n);
   }
 
   void destroy() {
     std::lock_guard lock{fft_mutex};
-    static_cast<sub_class&>(*this).destroy_impl();
+    if (has_inited()) [[likely]] {
+      sub().destroy_impl();
+    }
   }
+
+  bool has_inited() { return sub().has_inited_impl(); }
 
   void process(T* in, C* out) {
     //std::lock_guard lock{fft_mutex};
-    static_cast<sub_class&>(*this).process_impl(in, out);
+    sub().process_impl(in, out);
   }
 
   void update_config() {
     // a lock may be required so that a call to process() won't be inserted between
     std::lock_guard lock{fft_mutex};
-    static_cast<sub_class&>(*this).destroy_impl();
-    static_cast<sub_class&>(*this).create_impl();
+    sub().destroy_impl();
+    sub().create_impl();
   }
-
-  friend sub_class;
 
  private:
   fft_wrapper() { create(); }
