@@ -13,7 +13,7 @@ foreach (file ${files})
 endforeach()
 
 # test naive fft
-target_link_libraries(test-naive_fft PUBLIC fftw3) # TODO maybe findFFTW
+target_link_libraries(test-naive_fft PUBLIC fftw3_omp fftw3) # TODO maybe findFFTW
 foreach(bit RANGE 5 25 7)
 add_test(NAME test-naive_fft-${bit} COMMAND test-naive_fft ${bit})
 endforeach()

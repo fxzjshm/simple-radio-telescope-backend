@@ -63,6 +63,15 @@ int main(int argc, char** argv) {
   rev.reserve(siz + 5);
   rev[0] = 0;
 
+{
+  int ret = fftw_init_threads();
+      if (ret == 0) [[unlikely]] {
+        throw std::runtime_error("[fft] init fftw failed!");
+      }
+      int n_threads = std::max(std::thread::hardware_concurrency(), 1u);
+      fftw_plan_with_nthreads(n_threads);
+}
+
   auto fftw_plan_start = std::chrono::system_clock::now();
   fftw_plan p = fftw_plan_dft_1d(siz, reinterpret_cast<fftw_complex*>(&f[0]),
                                  reinterpret_cast<fftw_complex*>(&h[0]),
@@ -135,6 +144,8 @@ int main(int argc, char** argv) {
             << double(naive_fft_time.count()) /
                    double(sequencial_fft_time.count())
             << std::endl;
+
+  fftw_cleanup_threads();
 
   return 0;
 }
