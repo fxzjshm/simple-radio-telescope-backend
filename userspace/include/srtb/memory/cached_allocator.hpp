@@ -16,6 +16,7 @@
 
 #include <map>
 #include <memory>
+#include <mutex>
 #include <type_traits>
 
 #include "srtb/config.hpp"
@@ -42,10 +43,12 @@ class cached_allocator {
   using pointer = typename std::allocator_traits<RealAllocator>::pointer;
 
   template <typename... Args>
-  explicit cached_allocator(Args... args) : allocator(args...){};
+  explicit cached_allocator(Args... args) : allocator(args...) {
+    p_mutex = std::make_shared<std::mutex>();
+  };
 
   pointer allocate(size_type n) {
-    std::lock_guard lock{mutex};
+    std::lock_guard lock{*p_mutex};
 
     // find a memory region that is cached
     auto iter = free_ptrs.lower_bound(n);
@@ -108,7 +111,7 @@ class cached_allocator {
   }
 
   void deallocate(pointer ptr) {
-    std::lock_guard lock{mutex};
+    std::lock_guard lock{*p_mutex};
 
     auto iter = used_ptrs.find(ptr);
     if (iter == used_ptrs.end()) [[unlikely]] {
@@ -135,7 +138,7 @@ class cached_allocator {
   }
 
   void deallocate_all_free_ptrs() {
-    std::lock_guard lock{mutex};
+    std::lock_guard lock{*p_mutex};
     for (auto iter : free_ptrs) {
       size_type ptr_size = iter.first;
       pointer ptr = iter.second;
@@ -161,7 +164,8 @@ class cached_allocator {
   std::multimap<size_type, pointer> free_ptrs;
   std::map<pointer, size_type> used_ptrs;
   RealAllocator allocator;
-  std::mutex mutex;
+  // TODO: is a shared_ptr here appropriate?
+  std::shared_ptr<std::mutex> p_mutex;
 };
 
 }  // namespace memory
