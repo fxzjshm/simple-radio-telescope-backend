@@ -43,6 +43,25 @@ inline void save_fftw_wisdom() {
   }
 }
 
+inline bool fftw_inited = false;
+
+inline void fftw_init() {
+  if (!fftw_inited) {
+    // should called from a thread that has already locked
+    //std::unique_lock lock{srtb::fft::fft_mutex};
+    if (!fftw_inited) {
+      int ret = fftw_init_threads();
+      if (ret == 0) [[unlikely]] {
+        throw std::runtime_error("[fft] init fftw failed!");
+      }
+      int n_threads = std::max(std::thread::hardware_concurrency(), 1u);
+      fftw_plan_with_nthreads(n_threads);
+      load_fftw_wisdom();
+      fftw_inited = true;
+    }
+  }
+}
+
 // TODO: enable multi thread
 
 template <std::floating_point T, typename Complex = std::complex<T> >
@@ -53,12 +72,7 @@ class fftw_1d_r2c_wrapper<double, Complex>
     : public fft_wrapper<fftw_1d_r2c_wrapper, double, Complex> {
  public:
   void create_impl(size_t n) {
-    if (plan != nullptr) {
-      fftw_destroy_plan(plan);
-      plan = nullptr;
-    }
-
-    load_fftw_wisdom();
+    fftw_init();
 
     auto tmp_in = srtb::device_allocator.allocate_smart<double>(n);
     auto tmp_out = srtb::device_allocator.allocate_smart<Complex>(n / 2 + 1);
@@ -90,6 +104,8 @@ class fftw_1d_r2c_wrapper<double, Complex>
       fftw_destroy_plan(plan);
     }
   }
+
+  bool has_inited_impl() { return (plan != nullptr); }
 
   void process_impl(double* in, Complex* out) {
     fftw_execute_dft_r2c(plan, in, reinterpret_cast<fftw_complex*>(out));
