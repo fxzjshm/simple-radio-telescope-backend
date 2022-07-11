@@ -24,14 +24,7 @@ namespace srtb {
 namespace fft {
 
 /**
- * @brief As functions beside `fftw_execute` are not thread-safe, lock this mutex
- *        when calling other functions
- * @see https://github.com/wenyan4work/SafeFFT
- */
-inline std::mutex fft_mutex;
-
-/**
- * @brief Abstract interface of backend-specific FFTs.
+ * @brief Abstract interface of backend-specific FFTs. Should be called within one thread.
  * 
  * @tparam T Data type
  * @tparam Derived CRTP requirement.
@@ -47,39 +40,34 @@ class fft_wrapper {
 
   friend sub_class;
 
-  void create(size_t n = srtb::config.unpacked_input_count()) {
-    std::lock_guard lock{fft_mutex};
-    if (has_inited()) {
-      sub().destroy_impl();
-    }
-    sub().create_impl(n);
-  }
-
-  void destroy() {
-    std::lock_guard lock{fft_mutex};
-    if (has_inited()) [[likely]] {
-      sub().destroy_impl();
-    }
-  }
-
   bool has_inited() { return sub().has_inited_impl(); }
 
-  void process(T* in, C* out) {
-    //std::lock_guard lock{fft_mutex};
-    sub().process_impl(in, out);
-  }
+  void process(T* in, C* out) { sub().process_impl(in, out); }
 
   void update_config() {
-    // a lock may be required so that a call to process() won't be inserted between
-    std::lock_guard lock{fft_mutex};
     sub().destroy_impl();
     sub().create_impl();
   }
+
+  /**
+   * @see macro SRTB_FFT_DISPATCH
+   */
+  void dummy() {}
 
  private:
   fft_wrapper() { create(); }
 
   ~fft_wrapper() { destroy(); }
+
+  void create(size_t n = srtb::config.unpacked_input_count()) {
+    sub().create_impl(n);
+  }
+
+  void destroy() {
+    if (has_inited()) [[likely]] {
+      sub().destroy_impl();
+    }
+  }
 };
 
 }  // namespace fft

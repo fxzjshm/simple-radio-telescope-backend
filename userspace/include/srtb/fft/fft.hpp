@@ -49,7 +49,7 @@ inline fftw_1d_r2c_wrapper<T, C>& get_fftw_1d_r2c_wrapper() {
   }
 
 inline void init_1d_r2c(sycl::queue& queue = srtb::queue) {
-  SRTB_FFT_DISPATCH(queue, 1d_r2c, create);
+  SRTB_FFT_DISPATCH(queue, 1d_r2c, dummy);
 }
 
 template <typename T = srtb::real, typename C = std::complex<T> >
