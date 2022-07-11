@@ -43,22 +43,18 @@ inline void save_fftw_wisdom() {
   }
 }
 
-inline bool fftw_inited = false;
+inline bool inited_fftw = false;
 
-inline void fftw_init() {
-  if (!fftw_inited) {
-    // should called from a thread that has already locked
-    //std::unique_lock lock{srtb::fft::fft_mutex};
-    if (!fftw_inited) {
-      int ret = fftw_init_threads();
-      if (ret == 0) [[unlikely]] {
-        throw std::runtime_error("[fft] init fftw failed!");
-      }
-      int n_threads = std::max(std::thread::hardware_concurrency(), 1u);
-      fftw_plan_with_nthreads(n_threads);
-      load_fftw_wisdom();
-      fftw_inited = true;
+inline void init_fftw() {
+  if (!inited_fftw) {
+    int ret = fftw_init_threads();
+    if (ret == 0) [[unlikely]] {
+      throw std::runtime_error("[fft] init fftw failed!");
     }
+    int n_threads = std::max(std::thread::hardware_concurrency(), 1u);
+    fftw_plan_with_nthreads(n_threads);
+    load_fftw_wisdom();
+    inited_fftw = true;
   }
 }
 
@@ -72,7 +68,7 @@ class fftw_1d_r2c_wrapper<double, Complex>
     : public fft_wrapper<fftw_1d_r2c_wrapper, double, Complex> {
  public:
   void create_impl(size_t n) {
-    fftw_init();
+    srtb::fft::init_fftw();
 
     auto tmp_in = srtb::device_allocator.allocate_smart<double>(n);
     auto tmp_out = srtb::device_allocator.allocate_smart<Complex>(n / 2 + 1);
