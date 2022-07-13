@@ -19,13 +19,13 @@
  * declaration if needed.
  */
 
-#include "srtb/config.hpp"
 #include "srtb/sycl.hpp"
 
-// TODO: platform specific things
-//#if defined()
-//#define __SRTB_CUDA__
-//#endif
+// ------ dividing line for clang-format ------
+
+#include "srtb/config.hpp"
+
+// ------ dividing line for clang-format ------
 
 #include "srtb/global_variables.hpp"
 #include "srtb/logger.hpp"

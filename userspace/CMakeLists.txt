@@ -36,4 +36,7 @@ else()
 
 endif()
 
+# TODO: SRTB_CUDA, etc
+find_package(CUDAToolkit)
+
 add_subdirectory("tests")

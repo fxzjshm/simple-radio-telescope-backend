@@ -17,7 +17,16 @@
 #include <boost/lockfree/queue.hpp>
 #include <boost/lockfree/spsc_queue.hpp>
 
+#include "srtb/sycl.hpp"
+
+#ifdef SYCL_IMPLEMENTATION_ONEAPI
+#ifndef SYCL_EXT_ONEAPI_COMPLEX
+#define SYCL_EXT_ONEAPI_COMPLEX
+#endif  // SYCL_EXT_ONEAPI_COMPLEX
+#include <sycl/ext/oneapi/experimental/sycl_complex.hpp>
+#else
 #include <complex>
+#endif  // SYCL_IMPLEMENTATION_ONEAPI
 
 namespace srtb {
 
@@ -25,7 +34,13 @@ namespace srtb {
 
 // TODO: maybe float on GPU?
 typedef double real;
-typedef std::complex<srtb::real> complex;
+#ifdef SYCL_IMPLEMENTATION_ONEAPI
+template <typename T>
+using complex = sycl::ext::oneapi::experimental::complex<T>;
+#else
+template <typename T>
+using complex = std::complex<T>;
+#endif  // SYCL_IMPLEMENTATION_ONEAPI
 
 // TODO: check should use queue or spsc_queue here
 template <typename... Args>

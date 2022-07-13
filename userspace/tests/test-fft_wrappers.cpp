@@ -39,7 +39,8 @@ int main(int argc, char** argv) {
       srtb::fft::init_1d_r2c();
       auto in = srtb::device_allocator.allocate_smart<srtb::real>(n);
       auto out =
-          srtb::device_allocator.allocate_smart<srtb::complex>(n / 2 + 1);
+          srtb::device_allocator.allocate_smart<srtb::complex<srtb::real> >(
+              n / 2 + 1);
       auto start_time = std::chrono::system_clock::now();
       srtb::fft::dispatch_1d_r2c(in.get(), out.get());
       auto end_time = std::chrono::system_clock::now();

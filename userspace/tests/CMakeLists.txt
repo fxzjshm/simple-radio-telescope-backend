@@ -7,7 +7,6 @@ foreach (file ${files})
     # add SYCL to targets
     if(SYCL_IMPLEMENTION STREQUAL "hipSYCL")
         add_sycl_to_target(TARGET ${name})
-        add_sycl_to_target(TARGET ${name})
     endif()
     add_test(NAME ${name} COMMAND ${name})
 endforeach()
@@ -19,4 +18,4 @@ add_test(NAME test-naive_fft-${bit} COMMAND test-naive_fft ${bit})
 endforeach()
 
 # test FFT wrappers
-target_link_libraries(test-fft_wrappers PUBLIC fftw3_omp fftw3) # TODO maybe findFFTW
+target_link_libraries(test-fft_wrappers PUBLIC CUDA::cufft fftw3_omp fftw3) # TODO maybe findFFTW

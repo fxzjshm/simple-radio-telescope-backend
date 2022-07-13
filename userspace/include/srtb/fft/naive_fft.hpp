@@ -15,10 +15,10 @@
 #define __SRTB_NAIVE_FFT__
 
 #include <cmath>
-#include <complex>
 #include <concepts>
 
 #include "srtb/sycl.hpp"
+#include "srtb/config.hpp"
 
 /** 
  * very naive SYCL FFT, currently Gauss-Cooley-Tukey algorithm
@@ -60,7 +60,7 @@ inline void bit_reverse_swap(const size_t k, const size_t i, Accessor input,
  * @param output Accessor or pointer or something like that of output buffer
  * @param invert 1 -> forward, -1 -> backward
  */
-template <typename T, typename C = std::complex<T>, typename Accessor>
+template <typename T, typename C = srtb::complex<T>, typename Accessor>
 inline void fft_1d_c2c_butterfly(const size_t n, const size_t k, const size_t m,
                                  const size_t i, Accessor output,
                                  const int direction) noexcept {
@@ -98,7 +98,7 @@ inline void fft_1d_c2c_butterfly(const size_t n, const size_t k, const size_t m,
  * @param output Accessor or pointer or something like that of output buffer
  * @param invert 1 -> forward, -1 -> backward
  */
-template <typename T, typename C = std::complex<T>, typename Accessor>
+template <typename T, typename C = srtb::complex<T>, typename Accessor>
 inline void fft_1d_c2c(const size_t k, sycl::queue& q, Accessor input,
                        Accessor output, const int direction) noexcept {
   const size_t n = 1 << k;

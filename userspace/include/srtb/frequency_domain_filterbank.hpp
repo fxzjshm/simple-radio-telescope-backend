@@ -30,7 +30,7 @@
  * @param N length of input
  * @param M channel count. If N % 2M != 0, behaviour is undefined/unknown.
  */
-template <typename T, typename C = std::complex<T> >
+template <typename T, typename C = srtb::complex<T> >
 inline void frequency_domain_filterbank(T* input, T* output, size_t N, size_t M,
                                         sycl::queue& q) {
   std::vector<sycl::event> events(M * 2);
@@ -53,7 +53,7 @@ inline void frequency_domain_filterbank(T* input, T* output, size_t N, size_t M,
 // TODO: kernel fusion
 //       does this really runs faster? can index computations be reduced?
 // TODO: RFI
-template <typename T, typename C = std::complex<T>, typename Iterator = T*>
+template <typename T, typename C = srtb::complex<T>, typename Iterator = T*>
 inline void coherent_dedispersion_and_frequency_domain_filterbank(
     Iterator input, Iterator output, const T f_min, const T delta_f, const T dm,
     const size_t M, const sycl::item<1>& id) {

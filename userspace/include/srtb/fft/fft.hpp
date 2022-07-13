@@ -14,14 +14,17 @@
 #ifndef __SRTB_FFT__
 #define __SRTB_FFT__
 
-#include <complex>
 #include <exception>
 
 #include "srtb/config.hpp"
 #include "srtb/fft/fft_wrapper.hpp"
 #include "srtb/fft/fftw_wrapper.hpp"
-//#include "srtb/fft/cufft_wrapper.hpp"
+#ifdef SRTB_ENABLE_CUDA_INTEROP
+#include "srtb/fft/cufft_wrapper.hpp"
+#endif  // SRTB_ENABLE_CUDA_INTEROP
+#ifdef SRTB_ENABLE_HIP_INTEROP
 //#include "srtb/fft/rocfft_wrapper.hpp"
+#endif  // SRTB_ENABLE_HIP_INTEROP
 
 namespace srtb {
 namespace fft {
@@ -32,27 +35,51 @@ namespace fft {
  *        if not used, thus incorrect device_allocator won't cause 
  *        segmentation fault, maybe...
  */
-template <typename T = srtb::real, typename C = std::complex<T> >
+template <typename T = srtb::real, typename C = srtb::complex<T> >
 inline fftw_1d_r2c_wrapper<T, C>& get_fftw_1d_r2c_wrapper() {
   static fftw_1d_r2c_wrapper<T, C> fftw_1d_r2c_wrapper_instance;
   return fftw_1d_r2c_wrapper_instance;
 }
 
-#define SRTB_FFT_DISPATCH(queue, type, func, ...)                  \
-  {                                                                \
-    auto device = queue.get_device();                              \
-    if (device.is_cpu() || device.is_host()) {                     \
-      get_fftw_##type##_wrapper().func(__VA_ARGS__);               \
-    } else {                                                       \
-      throw std::runtime_error{" [fft] dispatch_" #type ": TODO"}; \
-    }                                                              \
+#ifdef SRTB_ENABLE_CUDA_INTEROP
+/**
+ * @brief Get the cufft 1d r2c wrapper object. 
+ */
+template <typename T = srtb::real, typename C = srtb::complex<T> >
+inline cufft_1d_r2c_wrapper<T, C>& get_cufft_1d_r2c_wrapper() {
+  static cufft_1d_r2c_wrapper<T, C> cufft_1d_r2c_wrapper_instance;
+  return cufft_1d_r2c_wrapper_instance;
+}
+#endif  // SRTB_ENABLE_CUDA_INTEROP
+
+#define SRTB_FFT_DISPATCH(queue, type, func, ...)                   \
+  {                                                                 \
+    do {                                                            \
+      auto device = queue.get_device();                             \
+      SRTB_IF_ENABLED_CUDA_INTEROP({                                \
+        try {                                                       \
+          sycl::get_native<sycl::backend::ext_oneapi_cuda>(device); \
+          get_cufft_##type##_wrapper().func(__VA_ARGS__);           \
+          break;                                                    \
+        } catch (...) {                                             \
+        };                                                          \
+      });                                                           \
+                                                                    \
+      if (device.is_cpu() || device.is_host()) {                    \
+        get_fftw_##type##_wrapper().func(__VA_ARGS__);              \
+        break;                                                      \
+      }                                                             \
+                                                                    \
+      throw std::runtime_error{"[fft] dispatch_" #type ": TODO"};   \
+    } while (0);                                                    \
   }
 
 inline void init_1d_r2c(sycl::queue& queue = srtb::queue) {
-  SRTB_FFT_DISPATCH(queue, 1d_r2c, dummy);
+  // not only construct the object by accessing it, but also set queue to be used.
+  SRTB_FFT_DISPATCH(queue, 1d_r2c, set_queue, queue);
 }
 
-template <typename T = srtb::real, typename C = std::complex<T> >
+template <typename T = srtb::real, typename C = srtb::complex<T> >
 inline void dispatch_1d_r2c(T* in, C* out, sycl::queue& queue = srtb::queue) {
   SRTB_FFT_DISPATCH(queue, 1d_r2c, process, in, out);
 }

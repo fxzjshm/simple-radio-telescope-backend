@@ -17,6 +17,7 @@
 #include <fftw3.h>
 
 #include <concepts>
+#include <thread>
 
 #include "srtb/fft/fft_wrapper.hpp"
 #include "srtb/global_variables.hpp"
@@ -60,13 +61,15 @@ inline void init_fftw() {
 
 // TODO: enable multi thread
 
-template <std::floating_point T, typename Complex = std::complex<T> >
+template <std::floating_point T, typename Complex = srtb::complex<T> >
 class fftw_1d_r2c_wrapper;
 
 template <typename Complex>
 class fftw_1d_r2c_wrapper<double, Complex>
     : public fft_wrapper<fftw_1d_r2c_wrapper, double, Complex> {
- public:
+  friend fft_wrapper<fftw_1d_r2c_wrapper, double, Complex>;
+
+ protected:
   void create_impl(size_t n) {
     srtb::fft::init_fftw();
 
@@ -95,10 +98,7 @@ class fftw_1d_r2c_wrapper<double, Complex>
 
   void destroy_impl() {
     save_fftw_wisdom();
-
-    if (plan != nullptr) [[likely]] {
-      fftw_destroy_plan(plan);
-    }
+    fftw_destroy_plan(plan);
   }
 
   bool has_inited_impl() { return (plan != nullptr); }
@@ -106,6 +106,8 @@ class fftw_1d_r2c_wrapper<double, Complex>
   void process_impl(double* in, Complex* out) {
     fftw_execute_dft_r2c(plan, in, reinterpret_cast<fftw_complex*>(out));
   }
+
+  void set_queue_impl(sycl::queue& queue) {}
 
  private:
   fftw_plan plan;

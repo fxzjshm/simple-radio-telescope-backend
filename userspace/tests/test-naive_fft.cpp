@@ -1,8 +1,9 @@
 #include <fftw3.h>
 
+#include <algorithm>
 #include <chrono>
-#include <complex>
 #include <iostream>
+#include <thread>
 #include <vector>
 
 #include "srtb/commons.hpp"
@@ -11,7 +12,7 @@
 // Adapted from https://www.cnblogs.com/CaCO3/p/15996732.html by CaO
 // original post is licensed under CC BY-NC-SA
 #define reg
-typedef std::complex<double> Complex;
+typedef srtb::complex<double> Complex;
 std::vector<Complex> f, g, h;
 const auto PI = M_PI;
 int siz = 1;
@@ -26,7 +27,7 @@ void fft(Complex* arr,
                      1));  //预处理二进制反转，思考一下为什么这样能够行得通 QwQ
 
   for (reg int i(0); i < siz; ++i) {
-    if (i < rev[i]) swap(arr[i], arr[rev[i]]);  //蝴蝶变换
+    if (i < rev[i]) std::swap(arr[i], arr[rev[i]]);  //蝴蝶变换
   }
 
   for (reg int mid(1); mid < siz; mid <<= 1) {  //枚举每次合并区间的半长度
@@ -63,14 +64,14 @@ int main(int argc, char** argv) {
   rev.reserve(siz + 5);
   rev[0] = 0;
 
-{
-  int ret = fftw_init_threads();
-      if (ret == 0) [[unlikely]] {
-        throw std::runtime_error("[fft] init fftw failed!");
-      }
-      int n_threads = std::max(std::thread::hardware_concurrency(), 1u);
-      fftw_plan_with_nthreads(n_threads);
-}
+  {
+    int ret = fftw_init_threads();
+    if (ret == 0) [[unlikely]] {
+      throw std::runtime_error("[fft] init fftw failed!");
+    }
+    int n_threads = std::max(std::thread::hardware_concurrency(), 1u);
+    fftw_plan_with_nthreads(n_threads);
+  }
 
   auto fftw_plan_start = std::chrono::system_clock::now();
   fftw_plan p = fftw_plan_dft_1d(siz, reinterpret_cast<fftw_complex*>(&f[0]),
@@ -131,8 +132,9 @@ int main(int argc, char** argv) {
     std::cout << std::endl;
   }
   for (int i = 0; i < siz; i++) {
-    if (std::abs((f[i] - g[i]) / f[i]) > 1e-5 ||
-        std::abs((h[i] - g[i]) / h[i]) > 1e-5) {
+    auto df = (f[i] - g[i]) / f[i], dh = (h[i] - g[i]) / h[i];
+    if (std::sqrt(df.real() * df.real() + df.imag() * df.imag()) > 1e-5 ||
+        std::sqrt(dh.real() * dh.real() + dh.imag() * dh.imag()) > 1e-5) {
       std::cerr << "Difference at i = " << i << ", "
                 << "f[i] = " << f[i] << ", "
                 << "g[i] = " << g[i] << ", "

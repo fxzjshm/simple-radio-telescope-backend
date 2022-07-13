@@ -15,7 +15,7 @@
 #define __SRTB_SYCL__
 
 /**
- * @brief Just a wrapper for SYCL headers
+ * @brief SYCL headers and platform-specific things
  */
 
 #if __has_include(<sycl/sycl.hpp>)
@@ -23,5 +23,40 @@
 #else
 #include <CL/sycl.hpp>
 #endif
+
+// TODO: platform specific things
+// clang-format off
+#if defined(SYCL_IMPLEMENTATION_ONEAPI)
+    #if defined(SYCL_EXT_ONEAPI_BACKEND_CUDA)
+        #define SRTB_ENABLE_CUDA_INTEROP 1
+    #else
+        #warning "Detected OneAPI but no known advice. (TODO)"
+    #endif  // defined(SYCL_EXT_ONEAPI_BACKEND_CUDA)
+#elif defined(__HIPSYCL__)
+    #if defined(__HIPSYCL_ENABLE_CUDA_TARGET__)
+        #define SRTB_ENABLE_CUDA_INTEROP 1
+    #endif
+    #if defined(__HIPSYCL_ENABLE_HIP_TARGET__)
+        #define SRTB_ENABLE_ROCM_INTEROP 1
+    #endif
+    #if defined(__HIPSYCL_ENABLE_OMPHOST_TARGET__)
+        // no need to define introp macro
+    #endif
+#else
+    #warning "Unknown SYCL backend"
+#endif
+// clang-format on
+
+#ifdef SRTB_ENABLE_CUDA_INTEROP
+#define SRTB_IF_ENABLED_CUDA_INTEROP(...) __VA_ARGS__
+#else
+#define SRTB_IF_ENABLED_CUDA_INTEROP(...)
+#endif  // SRTB_ENABLE_CUDA_INTEROP
+
+#ifdef SRTB_ENABLE_ROCM_INTEROP
+#define SRTB_IF_ENABLED_ROCM_INTEROP(...) __VA_ARGS__
+#else
+#define SRTB_IF_ENABLED_ROCM_INTEROP(...)
+#endif  // SRTB_ENABLE_ROCM_INTEROP
 
 #endif  // __SRTB_SYCL__

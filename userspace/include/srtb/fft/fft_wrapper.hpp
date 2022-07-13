@@ -14,7 +14,6 @@
 #ifndef __SRTB_FFT_WRAPPER__
 #define __SRTB_FFT_WRAPPER__
 
-#include <complex>
 #include <concepts>
 #include <mutex>
 
@@ -28,13 +27,18 @@ namespace fft {
  * 
  * @tparam T Data type
  * @tparam Derived CRTP requirement.
- * @tparam C Complex type of T, default to std::complex<T>
+ * @tparam C Complex type of T, default to srtb::complex<T>
  */
 template <template <typename, typename> class Derived, std::floating_point T,
-          typename C = std::complex<T> >
+          typename C = srtb::complex<T> >
 class fft_wrapper {
  public:
   using sub_class = Derived<T, C>;
+  static_assert(sizeof(T) * 2 == sizeof(C));
+
+  fft_wrapper() { create(); }
+
+  ~fft_wrapper() { destroy(); }
 
   sub_class& sub() { return static_cast<sub_class&>(*this); }
 
@@ -49,16 +53,9 @@ class fft_wrapper {
     sub().create_impl();
   }
 
-  /**
-   * @see macro SRTB_FFT_DISPATCH
-   */
-  void dummy() {}
+  void set_queue(sycl::queue& queue) { sub().set_queue_impl(queue); }
 
  private:
-  fft_wrapper() { create(); }
-
-  ~fft_wrapper() { destroy(); }
-
   void create(size_t n = srtb::config.unpacked_input_count()) {
     sub().create_impl(n);
   }

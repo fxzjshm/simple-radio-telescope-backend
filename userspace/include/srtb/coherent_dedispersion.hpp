@@ -14,8 +14,6 @@
 #ifndef __SRTB_COHERENT_DEDISPERSION__
 #define __SRTB_COHERENT_DEDISPERSION__
 
-#include <complex>
-
 #include "srtb/commons.hpp"
 
 namespace srtb {
@@ -85,7 +83,7 @@ inline size_t nsamps_reserved() {
  * @param f_c reference signal frequency in MHz
  * @param dm dispersion measurement
  */
-template <typename T, typename C = std::complex<T> >
+template <typename T, typename C = srtb::complex<T> >
 inline C coherent_dedispersion_factor(const T f, const T f_c, const T dm) {
   // TODO: does pre-computing delta_phi saves time?
   const T delta_phi =
@@ -100,7 +98,7 @@ inline C coherent_dedispersion_factor(const T f, const T f_c, const T dm) {
  * @see srtb::codd::D
  * @see crtb::codd::coherent_dedispertion
  */
-template <typename T, typename C = std::complex<T>, typename Accessor>
+template <typename T, typename C = srtb::complex<T>, typename Accessor>
 inline void coherent_dedispertion_item(Accessor input, const T f_min,
                                        const T delta_f, const T dm,
                                        const size_t i) {
@@ -116,7 +114,7 @@ inline void coherent_dedispertion_item(Accessor input, const T f_min,
  * @param dm disperse measurement, note: use "accurate" value
  * @see srtb::codd::D
  */
-template <typename T, typename C = std::complex<T>, typename Accessor>
+template <typename T, typename C = srtb::complex<T>, typename Accessor>
 inline void coherent_dedispertion(Accessor input, const size_t length,
                                   const T f_min, const T f_max, const T dm,
                                   sycl::queue& q) {
