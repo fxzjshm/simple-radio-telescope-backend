@@ -49,7 +49,7 @@ int main(int argc, char** argv) {
 
   const int manual_thereshold = 10;
 
-  bit = 23;
+  bit = 20;
   if (argc > 1) {
     try {
       bit = std::stoi(argv[1]);
