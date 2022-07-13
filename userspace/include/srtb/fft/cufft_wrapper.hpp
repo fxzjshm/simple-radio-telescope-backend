@@ -90,15 +90,24 @@ class cufft_1d_r2c_wrapper_abstract
   }
 
   void set_queue_impl(sycl::queue& queue) {
-#ifdef SYCL_EXT_ONEAPI_BACKEND_CUDA
+    cufftResult ret = CUFFT_SUCCESS;
+#if defined(SYCL_EXT_ONEAPI_BACKEND_CUDA)
     auto stream = sycl::get_native<sycl::backend::ext_oneapi_cuda>(queue);
-    cufftResult ret = cufftSetStream(plan, stream);
+    ret = cufftSetStream(plan, stream);
+#elif defined(__HIPSYCL__)
+    q.submit([&](sycl::handler& cgh) {
+       cgh.hipSYCL_enqueue_custom_operation([&](sycl::interop_handle& h) {
+         auto stream = h.get_native_queue<sycl::backend::cuda>();
+         ret = cufftSetStream(plan, stream);
+       });
+     }).wait();
+#elif
+#warning cufft_wrapper::set_queue_impl does nothing
+#endif  // SYCL_EXT_ONEAPI_BACKEND_CUDA or __HIPSYCL__
     if (ret != CUFFT_SUCCESS) [[unlikely]] {
       throw std::runtime_error("[cufft_wrapper] cufftSetStream returned " +
                                std::to_string(ret));
     }
-#endif
-    // TODO: equivalent one in hipSYCL?
   }
 
  protected:
