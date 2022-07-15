@@ -12,8 +12,17 @@
 
 #include "srtb/fft/fft.hpp"
 
+/**
+ * use as a benchmark:
+ * ```bash
+ * export SYCL_DEVICE_FILTER=host  # for intel-llvm
+ * export HIPSYCL_VISIBILITY_MASK=omp  # for hipSYCL
+ * export SRTB_LOG_LEVEL=0
+ * for bit in {0..26}; do ./test-fft_wrappers $bit; done
+ * ```
+ */
 int main(int argc, char** argv) {
-  int bit = 24;
+  int bit = 24, test_count = 3;
   if (argc > 1) {
     try {
       bit = std::stoi(argv[1]);
@@ -21,15 +30,36 @@ int main(int argc, char** argv) {
       // bit should remain unchanged
     }
   }
-  size_t n = 1 << bit;
+  if (argc > 2) {
+    try {
+      test_count = std::stoi(argv[2]);
+    } catch (std::invalid_argument& ignored) {
+      // test_count should remain unchanged
+    }
+  }
 
+  try {
+    char* log_env = std::getenv("SRTB_LOG_LEVEL");
+    if (log_env == nullptr) {
+      throw std::invalid_argument{""};
+    }
+    srtb::config.log_level = std::stoi(log_env);
+  } catch (const std::invalid_argument& ignored) {
+    // maybe unset. no, usually unset.
+    srtb::config.log_level = static_cast<int>(srtb::log::levels::DEBUG);
+  }
+  size_t n = static_cast<size_t>(1) << bit;
   srtb::config.baseband_input_length =
       n * srtb::config.baseband_input_bits / srtb::BITS_PER_BYTE;
+  SRTB_LOGD << " [test fft wrappers] "
+            << "n = " << n << ", "
+            << "unpacked_input_count = " << srtb::config.unpacked_input_count()
+            << std::endl;
   assert(srtb::config.unpacked_input_count() == n);
-  srtb::config.log_level = static_cast<int>(srtb::log::levels::DEBUG);
 
   std::vector<sycl::device> devices = sycl::device::get_devices();
   for (auto device : devices) {
+    // set up test environment
     srtb::queue = sycl::queue{device};
     srtb::device_allocator = std::move(
         srtb::memory::cached_allocator<
@@ -37,19 +67,26 @@ int main(int argc, char** argv) {
             srtb::queue});
     {
       srtb::fft::init_1d_r2c();
-      auto in = srtb::device_allocator.allocate_smart<srtb::real>(n);
-      auto out =
+      auto shared_in = srtb::device_allocator.allocate_smart<srtb::real>(n);
+      auto shared_out =
           srtb::device_allocator.allocate_smart<srtb::complex<srtb::real> >(
               n / 2 + 1);
-      auto start_time = std::chrono::system_clock::now();
-      srtb::fft::dispatch_1d_r2c(in.get(), out.get());
-      auto end_time = std::chrono::system_clock::now();
-      auto run_time = end_time - start_time;
-      SRTB_LOGI << " [test fft wrappers] "
-                << "size = 2^" << bit << ", time = " << run_time.count()
-                << "ns, device name = " << '\"'
-                << device.get_info<sycl::info::device::name>() << '\"'
-                << std::endl;
+      auto in = shared_in.get();
+      auto out = shared_out.get();
+      for (int i = 0; i < test_count; i++) {
+        auto start_time = std::chrono::system_clock::now();
+        srtb::fft::dispatch_1d_r2c(in, out);
+        auto end_time = std::chrono::system_clock::now();
+        auto run_time = end_time - start_time;
+        SRTB_LOGI << " [test fft wrappers] "
+                  << "size = 2^" << bit << ", time = " << run_time.count()
+                  << "ns, device name = " << '\"'
+                  << device.get_info<sycl::info::device::name>() << '\"'
+                  << std::endl;
+        if (i == test_count - 1) {
+          std::cerr << bit << " " << run_time.count() << std::endl;
+        }
+      }
     }
 
     {
