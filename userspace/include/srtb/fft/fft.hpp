@@ -61,7 +61,7 @@ inline cufft_1d_r2c_wrapper<T, C>& get_cufft_1d_r2c_wrapper() {
           sycl::get_native<sycl::backend::ext_oneapi_cuda>(device); \
           get_cufft_##type##_wrapper().func(__VA_ARGS__);           \
           break;                                                    \
-        } catch (...) {                                             \
+        } catch (const sycl::exception& ignored) {                  \
         };                                                          \
       });                                                           \
                                                                     \

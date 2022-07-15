@@ -53,6 +53,8 @@ inline void init_fftw() {
       throw std::runtime_error("[fft] init fftw failed!");
     }
     int n_threads = std::max(std::thread::hardware_concurrency(), 1u);
+    SRTB_LOGD << " [init_fftw] "
+              << "n_threads = " << n_threads << std::endl;
     fftw_plan_with_nthreads(n_threads);
     load_fftw_wisdom();
     inited_fftw = true;
