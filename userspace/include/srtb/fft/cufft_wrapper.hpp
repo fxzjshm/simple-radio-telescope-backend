@@ -98,6 +98,7 @@ class cufft_1d_r2c_wrapper_abstract
     stream = sycl::get_native<sycl::backend::ext_oneapi_cuda>(queue);
     ret = cufftSetStream(plan, stream);
 #elif defined(__HIPSYCL__)
+    // ref: https://github.com/illuhad/hipSYCL/issues/722
     q.submit([&](sycl::handler& cgh) {
        cgh.hipSYCL_enqueue_custom_operation([&](sycl::interop_handle& h) {
          stream = h.get_native_queue<sycl::backend::cuda>();
