@@ -23,6 +23,10 @@ endif()
 # set C++ language version requirement
 set(CMAKE_CXX_STANDARD 20)
 
+# dependency
+find_package(Boost REQUIRED)
+include_directories(${Boost_INCLUDE_DIRS})
+
 include_directories("include")
 
 add_executable(simple-radio-telescope-backend src/main.cpp)
