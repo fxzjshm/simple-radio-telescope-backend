@@ -25,6 +25,14 @@
 
 #include "srtb/config.hpp"
 
+#define SRTB_CHECK(expr, expected, handle) \
+  {                                        \
+    auto ret = expr;                       \
+    if (ret != expected) [[unlikely]] {    \
+      handle;                              \
+    }                                      \
+  }
+
 // ------ dividing line for clang-format ------
 
 #include "srtb/global_variables.hpp"

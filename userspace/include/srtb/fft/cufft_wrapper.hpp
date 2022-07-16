@@ -22,6 +22,16 @@
 #include "srtb/fft/fft_wrapper.hpp"
 #include "srtb/global_variables.hpp"
 
+#define SRTB_CHECK_CUFFT_WRAPPER(expr, expected)                      \
+  SRTB_CHECK(expr, expected,                                          \
+             throw std::runtime_error(                                \
+                 std::string("[cufft_wrapper] " #expr " returned ") + \
+                 std::to_string(ret)););
+
+#define SRTB_CHECK_CUFFT(expr) SRTB_CHECK_CUFFT_WRAPPER(expr, CUFFT_SUCCESS)
+
+#define SRTB_CHECK_CUDA(expr) SRTB_CHECK_CUFFT_WRAPPER(expr, cudaSuccess)
+
 namespace srtb {
 namespace fft {
 
@@ -42,50 +52,24 @@ class cufft_1d_r2c_wrapper_abstract
                                FFTW_PATIENT |  FFTW_DESTROY_INPUT);
     */
 
-    cufftResult ret = cufftCreate(&plan);
-    if (ret != CUFFT_SUCCESS) [[unlikely]] {
-      throw std::runtime_error("[cufft_wrapper] cufftCreate returned " +
-                               std::to_string(ret));
-    }
+    SRTB_CHECK_CUFFT(cufftCreate(&plan));
     long long int n_ = static_cast<long long int>(n);
-    //ret = cufftMakePlanMany64(/* plan = */ plan,
-    //                          /* rank = */ 1,
-    //                          /* n = */ &n_,
-    //                          /* inembed = */ NULL,
-    //                          /* istride = */ 1,
-    //                          /* idist = */ 0,
-    //                          /* onenbed = */ NULL,
-    //                          /* ostride = */ 1,
-    //                          /* odist = */ 0,
-    //                          /* type = */ cufft_type,
-    //                          /* batch = */ 1,
-    //                          /* worksize = */ &workSize);
     long long int inembed[1] = {n_}, onembed[1] = {n_ / 2 + 1};
-    ret = cufftMakePlanMany64(/* plan = */ plan,
-                              /* rank = */ 1,
-                              /* n = */ &n_,
-                              /* inembed = */ inembed,
-                              /* istride = */ 1,
-                              /* idist = */ n_,
-                              /* onembed = */ onembed,
-                              /* ostride = */ 1,
-                              /* odist = */ n_,
-                              /* type = */ cufft_type,
-                              /* batch = */ 1,
-                              /* worksize = */ &workSize);
-    if (ret != CUFFT_SUCCESS) [[unlikely]] {
-      throw std::runtime_error("[cufft_wrapper] cufftMakePlanMany64 returned " +
-                               std::to_string(ret));
-    }
+    SRTB_CHECK_CUFFT(cufftMakePlanMany64(/* plan = */ plan,
+                                         /* rank = */ 1,
+                                         /* n = */ &n_,
+                                         /* inembed = */ inembed,
+                                         /* istride = */ 1,
+                                         /* idist = */ n_,
+                                         /* onembed = */ onembed,
+                                         /* ostride = */ 1,
+                                         /* odist = */ n_,
+                                         /* type = */ cufft_type,
+                                         /* batch = */ 1,
+                                         /* worksize = */ &workSize));
   }
 
-  void destroy_impl() {
-    cufftResult ret = cufftDestroy(plan);
-    if (ret != CUFFT_SUCCESS) [[unlikely]] {
-      throw std::runtime_error("[cufft_wrapper] cufftDestroy returned " +
-                               std::to_string(ret));
-    }
-  }
+  void destroy_impl() { SRTB_CHECK_CUFFT(cufftDestroy(plan)); }
 
   bool has_inited_impl() {
     // TODO: check plan?
@@ -93,26 +77,28 @@ class cufft_1d_r2c_wrapper_abstract
   }
 
   void set_queue_impl(sycl::queue& queue) {
-    cufftResult ret = CUFFT_SUCCESS;
 #if defined(SYCL_EXT_ONEAPI_BACKEND_CUDA)
     stream = sycl::get_native<sycl::backend::ext_oneapi_cuda>(queue);
-    ret = cufftSetStream(plan, stream);
+    SRTB_CHECK_CUFFT(cufftSetStream(plan, stream));
 #elif defined(__HIPSYCL__)
     // ref: https://github.com/illuhad/hipSYCL/issues/722
+    cufftResult ret = CUFFT_SUCCESS;
     q.submit([&](sycl::handler& cgh) {
        cgh.hipSYCL_enqueue_custom_operation([&](sycl::interop_handle& h) {
          stream = h.get_native_queue<sycl::backend::cuda>();
          ret = cufftSetStream(plan, stream);
        });
      }).wait();
-#elif
-#warning cufft_wrapper::set_queue_impl does nothing
-#endif  // SYCL_EXT_ONEAPI_BACKEND_CUDA or __HIPSYCL__
     if (ret != CUFFT_SUCCESS) [[unlikely]] {
       throw std::runtime_error("[cufft_wrapper] cufftSetStream returned " +
                                std::to_string(ret));
     }
+#elif
+#warning cufft_wrapper::set_queue_impl does nothing
+#endif  // SYCL_EXT_ONEAPI_BACKEND_CUDA or __HIPSYCL__
   }
+
+  void flush() { SRTB_CHECK_CUDA(cudaStreamSynchronize((*this).stream)); }
 
  protected:
   cufftHandle plan;
@@ -129,20 +115,9 @@ class cufft_1d_r2c_wrapper<float, Complex>
   void create_impl(size_t n) { (*this).create_abstract(n, CUFFT_R2C); }
 
   void process_impl(float* in, Complex* out) {
-    cufftResult fft_ret = CUFFT_SUCCESS;
-    fft_ret = cufftExecR2C((*this).plan, static_cast<cufftReal*>(in),
-                           reinterpret_cast<cufftComplex*>(out));
-    if (fft_ret != CUFFT_SUCCESS) [[unlikely]] {
-      throw std::runtime_error("[cufft_wrapper] cufftExecR2C returned " +
-                               std::to_string(fft_ret));
-    }
-    cudaError_t runtime_ret = cudaSuccess;
-    runtime_ret = cudaStreamSynchronize((*this).stream);
-    if (runtime_ret != cudaSuccess) [[unlikely]] {
-      throw std::runtime_error(
-          "[cufft_wrapper] cudaStreamSynchronize returned " +
-          std::to_string(runtime_ret));
-    }
+    SRTB_CHECK_CUFFT(cufftExecR2C((*this).plan, static_cast<cufftReal*>(in),
+                                  reinterpret_cast<cufftComplex*>(out)));
+    (*this).flush();
   }
 };
 
@@ -155,20 +130,10 @@ class cufft_1d_r2c_wrapper<double, Complex>
   void create_impl(size_t n) { (*this).create_abstract(n, CUFFT_D2Z); }
 
   void process_impl(double* in, Complex* out) {
-    cufftResult fft_ret = CUFFT_SUCCESS;
-    fft_ret = cufftExecD2Z((*this).plan, static_cast<cufftDoubleReal*>(in),
-                           reinterpret_cast<cufftDoubleComplex*>(out));
-    if (fft_ret != CUFFT_SUCCESS) [[unlikely]] {
-      throw std::runtime_error("[cufft_wrapper] cufftExecR2C returned " +
-                               std::to_string(fft_ret));
-    }
-    cudaError_t runtime_ret = cudaSuccess;
-    runtime_ret = cudaStreamSynchronize((*this).stream);
-    if (runtime_ret != cudaSuccess) [[unlikely]] {
-      throw std::runtime_error(
-          "[cufft_wrapper] cudaStreamSynchronize returned " +
-          std::to_string(runtime_ret));
-    }
+    SRTB_CHECK_CUFFT(cufftExecD2Z((*this).plan,
+                                  static_cast<cufftDoubleReal*>(in),
+                                  reinterpret_cast<cufftDoubleComplex*>(out)));
+    (*this).flush();
   }
 };
 
