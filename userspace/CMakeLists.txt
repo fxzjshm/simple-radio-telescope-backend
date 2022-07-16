@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.11)
+cmake_minimum_required(VERSION 3.12)
 project(simple-radio-telescope-backend_userspace)
 
 # select SYCL implemention
@@ -7,15 +7,71 @@ if(NOT DEFINED SYCL_IMPLEMENTION)
     set(SYCL_IMPLEMENTION "hipSYCL")
 endif()
 
+# detect backends
+## CUDA, SRTB_CUDA_ARCH required if with hipSYCL and optional with intal-llvm
+find_package(CUDAToolkit)
+option(SRTB_ENABLE_CUDA "option to enable CUDA backend" ${CUDAToolkit_FOUND})
+message("SRTB_ENABLE_CUDA=${SRTB_ENABLE_CUDA}")
+## ROCM/HIP, SRTB_ROCM_ARCH required
+list(APPEND CMAKE_PREFIX_PATH /opt/rocm/hip /opt/rocm)
+find_package(hip)
+find_package(rocfft)
+find_package(hipfft)
+if(hip_FOUND AND rocfft_FOUND AND hipfft_FOUND)
+    set(SRTB_ROCM_BACKEND_REQUIREMENT_MET TRUE)
+else()
+    set(SRTB_ROCM_BACKEND_REQUIREMENT_MET FALSE)
+endif()
+option(SRTB_ENABLE_ROCM "option to enable ROCM backend" ${SRTB_ROCM_BACKEND_REQUIREMENT_MET})
+message("SRTB_ENABLE_ROCM=${SRTB_ENABLE_ROCM}")
+if(SRTB_ENABLE_ROCM AND NOT DEFINED SRTB_ROCM_ARCH)
+    message(FATAL_ERROR "ROCm backend enabled, but compiling for ROCm/HIP backend requires SRTB_ROCM_ARCH, e.g. gfx906")
+endif()
+
+# export(?) backend selection to macros
+if(SRTB_ENABLE_CUDA)
+    add_compile_definitions(SRTB_ENABLE_CUDA=1)
+endif()
+if(SRTB_ENABLE_ROCM)
+    add_compile_definitions(SRTB_ENABLE_ROCM=1)
+endif()
+
 # setup SYCL compilers
 if(SYCL_IMPLEMENTION STREQUAL "hipSYCL")
-    if(NOT DEFINED HIPSYCL_TARGETS)
-        message(WARNING "HIPSYCL_TARGETS not defined, default to OpenMP only")
-        set(HIPSYCL_TARGETS "omp")
+    set(SRTB_HIPSYCL_TARGETS "")
+    if(SRTB_ENABLE_CUDA)
+        if(NOT DEFINED SRTB_CUDA_ARCH)
+            message(FATAL_ERROR "compiling for CUDA backend with hipSYCL requires SRTB_CUDA_ARCH, e.g. sm_86")
+        endif()
+        set(SRTB_HIPSYCL_TARGETS "${SRTB_HIPSYCL_TARGETS}cuda:${SRTB_CUDA_ARCH};")
     endif()
+    if(SRTB_ENABLE_ROCM)
+        set(SRTB_HIPSYCL_TARGETS "${SRTB_HIPSYCL_TARGETS}hip:${SRTB_ROCM_ARCH};")
+    endif()
+    set(SRTB_HIPSYCL_TARGETS "${SRTB_HIPSYCL_TARGETS}omp")
+    message("HIPSYCL_TARGETS set to ${SRTB_HIPSYCL_TARGETS}")  # e.g. HIPSYCL_TARGETS=cuda:sm_86;hip:gfx906;omp
+    set(HIPSYCL_TARGETS SRTB_HIPSYCL_TARGETS)
     find_package(hipSYCL CONFIG REQUIRED)
 elseif(SYCL_IMPLEMENTION STREQUAL "intel-llvm")
-    message("Make sure this compiler supports SYCL and set target by CMAKE_CXX_FLAGS")
+    # e.g. 
+    # CUDA: clang -fsycl -fsycl-targets=nvptx64-nvidia-cuda -Xsycl-target-backend -cuda-gpu-arch=sm_86
+    # ROCm: clang -fsycl -fsycl-targets=amdgcn-amd-amdhsa -Xsycl-target-backend --offload-arch=gfx906
+    message("Make sure this compiler supports SYCL")
+    if(SRTB_ENABLE_CUDA AND SRTB_ENABLE_ROCM)
+        message(FATAL_ERROR "don't know how to compile for both CUDA and ROCM on intel/llvm (TODO)")
+    endif()
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsycl ")
+    if(SRTB_ENABLE_CUDA)
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsycl-targets=nvptx64-nvidia-cuda ")
+        if(DEFINED SRTB_CUDA_ARCH)
+            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Xsycl-target-backend -cuda-gpu-arch=${SRTB_CUDA_ARCH}")
+        endif()
+    endif()
+    if(SRTB_ENABLE_ROCM)
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsycl -fsycl-targets=amdgcn-amd-amdhsa -Xsycl-target-backend --offload-arch=${SRTB_ROCM_ARCH} ")
+    endif()
+    # if sycl-targets not set, use default
+    message("CMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS}")
 else()
     message(FATAL_ERROR "Sorry, unknown/untested/un-adapted SYCL implementation " ${SYCL_IMPLEMENTION})
 endif()
@@ -27,20 +83,36 @@ set(CMAKE_CXX_STANDARD 20)
 find_package(Boost REQUIRED)
 include_directories(${Boost_INCLUDE_DIRS})
 
+function(srtb_add_dependency target_name)
+    # add SYCL to targets
+    if(SYCL_IMPLEMENTION STREQUAL "hipSYCL")
+        add_sycl_to_target(TARGET ${target_name})
+    elseif(SYCL_IMPLEMENTION STREQUAL "intel-llvm")
+        # maybe nothing to do
+    else()
+
+    endif()
+
+    # add dependency
+    target_link_libraries(${target_name} PUBLIC fftw3_threads fftw3) # TODO maybe findFFTW
+    if(SRTB_ENABLE_CUDA)
+        # https://cmake.org/cmake/help/latest/module/FindCUDAToolkit.html
+        target_link_libraries(${target_name} PUBLIC CUDA::cudart CUDA::cufft)
+    endif()
+    if(SRTB_ENABLE_ROCM)
+        # https://rocmdocs.amd.com/en/latest/Installation_Guide/Using-CMake-with-AMD-ROCm.html
+        target_link_libraries(${target_name} PUBLIC hip::hipfft roc::rocfft)
+        # TODO: hip::host gives CLANGRT_BUILTINS not found error,
+        #       possibly related to https://github.com/RadeonOpenCompute/ROCm/issues/1717
+        #                           https://github.com/ROCm-Developer-Tools/HIP-autopr/blob/develop/hip-lang-config.cmake.in#L98
+    endif()
+endfunction()
+
 include_directories("include")
 
 add_executable(simple-radio-telescope-backend src/main.cpp)
 
-# add SYCL to targets
-if(SYCL_IMPLEMENTION STREQUAL "hipSYCL")
-    add_sycl_to_target(TARGET simple-radio-telescope-backend)
-elseif(SYCL_IMPLEMENTION STREQUAL "intel-llvm")
 
-else()
-
-endif()
-
-# TODO: SRTB_CUDA, etc
-find_package(CUDAToolkit)
+srtb_add_dependency(simple-radio-telescope-backend)
 
 add_subdirectory("tests")
