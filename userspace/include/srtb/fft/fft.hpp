@@ -22,9 +22,9 @@
 #ifdef SRTB_ENABLE_CUDA_INTEROP
 #include "srtb/fft/cufft_wrapper.hpp"
 #endif  // SRTB_ENABLE_CUDA_INTEROP
-#ifdef SRTB_ENABLE_HIP_INTEROP
-//#include "srtb/fft/rocfft_wrapper.hpp"
-#endif  // SRTB_ENABLE_HIP_INTEROP
+#ifdef SRTB_ENABLE_ROCM_INTEROP
+#include "srtb/fft/hipfft_wrapper.hpp"
+#endif  // SRTB_ENABLE_ROCM_INTEROP
 
 namespace srtb {
 namespace fft {
@@ -52,6 +52,18 @@ inline cufft_1d_r2c_wrapper<T, C>& get_cufft_1d_r2c_wrapper() {
 }
 #endif  // SRTB_ENABLE_CUDA_INTEROP
 
+#ifdef SRTB_ENABLE_ROCM_INTEROP
+/**
+ * @brief Get the hipfft 1d r2c wrapper object. 
+ */
+template <typename T = srtb::real, typename C = srtb::complex<T> >
+inline hipfft_1d_r2c_wrapper<T, C>& get_hipfft_1d_r2c_wrapper() {
+  static hipfft_1d_r2c_wrapper<T, C> hipfft_1d_r2c_wrapper_instance;
+  return hipfft_1d_r2c_wrapper_instance;
+}
+#endif  // SRTB_ENABLE_ROCM_INTEROP
+
+// TODO: better way to dispatch
 #define SRTB_FFT_DISPATCH(queue, type, func, ...)                   \
   {                                                                 \
     do {                                                            \
@@ -60,6 +72,15 @@ inline cufft_1d_r2c_wrapper<T, C>& get_cufft_1d_r2c_wrapper() {
         try {                                                       \
           sycl::get_native<sycl::backend::ext_oneapi_cuda>(device); \
           get_cufft_##type##_wrapper().func(__VA_ARGS__);           \
+          break;                                                    \
+        } catch (const sycl::exception& ignored) {                  \
+        };                                                          \
+      });                                                           \
+                                                                    \
+      SRTB_IF_ENABLED_ROCM_INTEROP({                                \
+        try {                                                       \
+          sycl::get_native<sycl::backend::ext_oneapi_hip>(device);  \
+          get_hipfft_##type##_wrapper().func(__VA_ARGS__);          \
           break;                                                    \
         } catch (const sycl::exception& ignored) {                  \
         };                                                          \

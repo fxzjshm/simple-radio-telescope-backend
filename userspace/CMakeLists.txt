@@ -82,6 +82,9 @@ set(CMAKE_CXX_STANDARD 20)
 # dependency
 find_package(Boost REQUIRED)
 include_directories(${Boost_INCLUDE_DIRS})
+if(SRTB_ENABLE_ROCM)
+    link_directories("/opt/rocm/lib")
+endif()
 
 function(srtb_add_dependency target_name)
     # add SYCL to targets
@@ -102,6 +105,7 @@ function(srtb_add_dependency target_name)
     if(SRTB_ENABLE_ROCM)
         # https://rocmdocs.amd.com/en/latest/Installation_Guide/Using-CMake-with-AMD-ROCm.html
         target_link_libraries(${target_name} PUBLIC hip::hipfft roc::rocfft)
+        target_link_libraries(${target_name} PUBLIC amdhip64)
         # TODO: hip::host gives CLANGRT_BUILTINS not found error,
         #       possibly related to https://github.com/RadeonOpenCompute/ROCm/issues/1717
         #                           https://github.com/ROCm-Developer-Tools/HIP-autopr/blob/develop/hip-lang-config.cmake.in#L98
