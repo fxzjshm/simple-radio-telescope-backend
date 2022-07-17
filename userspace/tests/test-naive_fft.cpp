@@ -53,7 +53,7 @@ int main(int argc, char** argv) {
   if (argc > 1) {
     try {
       bit = std::stoi(argv[1]);
-    } catch (std::invalid_argument& ignored) {
+    } catch (const std::invalid_argument& ignored) {
       // bit should remain unchanged
     }
   }

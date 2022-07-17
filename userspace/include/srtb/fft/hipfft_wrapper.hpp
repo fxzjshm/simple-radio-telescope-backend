@@ -58,6 +58,7 @@ class hipfft_1d_r2c_wrapper_abstract
     SRTB_CHECK_HIPFFT(
         hipfftMakePlan1d(plan, static_cast<int>(n), hipfft_type, 1, &workSize));
 
+    // This returns HIPFFT_NOT_IMPLEMENTED.
     //SRTB_CHECK_HIPFFT(hipfftMakePlanMany64(/* plan = */ plan,
     //                                       /* rank = */ 1,
     //                                       /* n = */ &n_,
