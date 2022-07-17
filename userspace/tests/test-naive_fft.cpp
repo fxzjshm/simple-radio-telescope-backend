@@ -45,7 +45,7 @@ void fft(Complex* arr,
 }
 
 int main(int argc, char** argv) {
-  sycl::queue q{sycl::cpu_selector{}};
+  sycl::queue q;
 
   const int manual_thereshold = 10;
 
@@ -58,10 +58,10 @@ int main(int argc, char** argv) {
     }
   }
   siz = 1 << bit;
-  f.reserve(siz + 5);
-  g.reserve(siz + 5);
-  h.reserve(siz + 5);
-  rev.reserve(siz + 5);
+  f.resize(siz + 5);
+  g.resize(siz + 5);
+  h.resize(siz + 5);
+  rev.resize(siz + 5);
   rev[0] = 0;
 
   {
@@ -95,9 +95,23 @@ int main(int argc, char** argv) {
     }
   }
 
-  auto naive_fft_start = std::chrono::system_clock::now();
-  naive_fft::fft_1d_c2c<double>(bit, q, &f[0], &g[0], 1);
-  auto naive_fft_end = std::chrono::system_clock::now();
+  auto naive_fft_start = std::chrono::system_clock::now(),
+       naive_fft_end = std::chrono::system_clock::now();
+  {
+    auto h_f = &f[0], h_g = &g[0];
+    auto d_f_shared = srtb::device_allocator.allocate_smart<std::remove_const_t<
+             std::remove_reference_t<decltype(f.front())> > >(f.size()),
+         d_g_shared = srtb::device_allocator.allocate_smart<std::remove_const_t<
+             std::remove_reference_t<decltype(g.front())> > >(g.size());
+    auto d_f = d_f_shared.get(), d_g = d_g_shared.get();
+    q.copy(h_f, d_f, f.size()).wait();
+    q.copy(h_g, d_g, g.size()).wait();
+    naive_fft_start = std::chrono::system_clock::now();
+    naive_fft::fft_1d_c2c<double>(bit, q, d_f, d_g, 1);
+    naive_fft_end = std::chrono::system_clock::now();
+    q.copy(d_f, h_f, f.size()).wait();
+    q.copy(d_g, h_g, g.size()).wait();
+  }
 
   auto fftw_execute_start = std::chrono::system_clock::now();
   fftw_execute(p);
