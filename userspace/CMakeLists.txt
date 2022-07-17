@@ -9,14 +9,14 @@ endif()
 
 # detect backends
 ## CUDA, SRTB_CUDA_ARCH required if with hipSYCL and optional with intal-llvm
-find_package(CUDAToolkit)
+find_package(CUDAToolkit QUIET)
 option(SRTB_ENABLE_CUDA "option to enable CUDA backend" ${CUDAToolkit_FOUND})
 message("SRTB_ENABLE_CUDA=${SRTB_ENABLE_CUDA}")
 ## ROCM/HIP, SRTB_ROCM_ARCH required
 list(APPEND CMAKE_PREFIX_PATH /opt/rocm/hip /opt/rocm)
-find_package(hip)
-find_package(rocfft)
-find_package(hipfft)
+find_package(hip QUIET)
+find_package(rocfft QUIET)
+find_package(hipfft QUIET)
 if(hip_FOUND AND rocfft_FOUND AND hipfft_FOUND)
     set(SRTB_ROCM_BACKEND_REQUIREMENT_MET TRUE)
 else()
@@ -80,6 +80,8 @@ endif()
 set(CMAKE_CXX_STANDARD 20)
 
 # dependency
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
 find_package(Boost REQUIRED)
 include_directories(${Boost_INCLUDE_DIRS})
 if(SRTB_ENABLE_ROCM)
@@ -97,7 +99,7 @@ function(srtb_add_dependency target_name)
     endif()
 
     # add dependency
-    target_link_libraries(${target_name} PUBLIC fftw3_threads fftw3) # TODO maybe findFFTW
+    target_link_libraries(${target_name} PUBLIC fftw3_threads fftw3 Threads::Threads) # TODO maybe findFFTW
     if(SRTB_ENABLE_CUDA)
         # https://cmake.org/cmake/help/latest/module/FindCUDAToolkit.html
         target_link_libraries(${target_name} PUBLIC CUDA::cudart CUDA::cufft)
