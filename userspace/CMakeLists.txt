@@ -68,7 +68,7 @@ elseif(SYCL_IMPLEMENTION STREQUAL "intel-llvm")
         endif()
     endif()
     if(SRTB_ENABLE_ROCM)
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsycl -fsycl-targets=amdgcn-amd-amdhsa -Xsycl-target-backend --offload-arch=${SRTB_ROCM_ARCH} ")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsycl-targets=amdgcn-amd-amdhsa -Xsycl-target-backend --offload-arch=${SRTB_ROCM_ARCH} ")
     endif()
     # if sycl-targets not set, use default
     message("CMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS}")
