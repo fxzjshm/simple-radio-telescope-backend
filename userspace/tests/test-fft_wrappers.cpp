@@ -67,9 +67,9 @@ int main(int argc, char** argv) {
             srtb::queue});
     {
       srtb::fft::init_1d_r2c();
-      auto shared_in = srtb::device_allocator.allocate_smart<srtb::real>(n);
+      auto shared_in = srtb::device_allocator.allocate_shared<srtb::real>(n);
       auto shared_out =
-          srtb::device_allocator.allocate_smart<srtb::complex<srtb::real> >(
+          srtb::device_allocator.allocate_shared<srtb::complex<srtb::real> >(
               n / 2 + 1);
       auto in = shared_in.get();
       auto out = shared_out.get();

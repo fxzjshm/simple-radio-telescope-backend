@@ -66,7 +66,7 @@ inline void udp_receiver_worker(std::stop_token stop_token,
 
     // flush input of baseband_input_length
     std::shared_ptr<std::byte> ptr =
-        srtb::device_allocator.allocate_smart(baseband_input_length);
+        srtb::device_allocator.allocate_shared(baseband_input_length);
     q.memcpy(reinterpret_cast<void*>(ptr.get()), udp_streambuf.data().data(),
              baseband_input_length)
         .wait();

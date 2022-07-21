@@ -87,7 +87,7 @@ int main() {
   srtb::unpacker_work_type unpacker_work;
   size_t counter = 0, index = 0, length = srtb::config.baseband_input_length;
   std::shared_ptr<std::byte> host_mem =
-      srtb::host_allocator.allocate_smart(length);
+      srtb::host_allocator.allocate_shared(length);
   while (srtb::unpacker_queue.read_available()) {
     bool ret;
     do {

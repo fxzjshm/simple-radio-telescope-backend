@@ -38,9 +38,10 @@ inline std::chrono::nanoseconds unpack_host_ptr(std::byte* h_in,
                                                 size_t in_count,
                                                 sycl::queue& q) {
   const size_t out_count = srtb::BITS_PER_BYTE / IN_NBITS * in_count;
-  auto d_in_shared = srtb::device_allocator.allocate_smart<std::byte>(in_count);
+  auto d_in_shared =
+      srtb::device_allocator.allocate_shared<std::byte>(in_count);
   auto d_out_shared =
-      srtb::device_allocator.allocate_smart<srtb::real>(out_count);
+      srtb::device_allocator.allocate_shared<srtb::real>(out_count);
   auto d_in = d_in_shared.get();
   auto d_out = d_out_shared.get();
   q.copy(h_in, d_in, in_count).wait();
@@ -74,8 +75,10 @@ int main(int argc, char** argv) {
       std::array<srtb::real, srtb::BITS_PER_BYTE / bits> out1, out2;
       std::array expected = {0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 1.0};
       SRTB_CHECK_TEST_UNPACK(expected.size() == out1.size());
-      unpack_item<bits, /* handwritten = */ false>(&in, &out1[0], 0);
-      unpack_item<bits, /* handwritten = */ true>(&in, &out2[0], 0);
+      unpack_item<bits, /* handwritten = */ false>(&in, &out1[0], 0,
+                                                   srtb::unpack::identity());
+      unpack_item<bits, /* handwritten = */ true>(&in, &out2[0], 0,
+                                                  srtb::unpack::identity());
       for (auto i : out1) {
         std::cout << i << ' ';
       }
@@ -91,8 +94,11 @@ int main(int argc, char** argv) {
       std::array<srtb::real, srtb::BITS_PER_BYTE / bits> out1, out2;
       std::array expected = {2.0, 3.0, 1.0, 2.0};
       SRTB_CHECK_TEST_UNPACK(expected.size() == out1.size());
-      unpack_item<bits, /* handwritten = */ false>(&in, &out1[0], 0);
-      unpack_item<bits, /* handwritten = */ true>(&in, &out2[0], 0);
+      unpack_item<bits, /* handwritten = */ false>(&in, &out1[0], 0,
+                                                   srtb::unpack::identity());
+      unpack_item<bits, /* handwritten = */ true>(&in, &out2[0], 0,
+                                                  srtb::unpack::identity()),
+          srtb::unpack::identity();
       for (auto i : out1) {
         std::cout << i << ' ';
       }
@@ -108,8 +114,10 @@ int main(int argc, char** argv) {
       std::array<srtb::real, srtb::BITS_PER_BYTE / bits> out1, out2;
       std::array expected = {0.0, 8.0};
       SRTB_CHECK_TEST_UNPACK(expected.size() == out1.size());
-      unpack_item<bits, /* handwritten = */ false>(&in, &out1[0], 0);
-      unpack_item<bits, /* handwritten = */ true>(&in, &out2[0], 0);
+      unpack_item<bits, /* handwritten = */ false>(&in, &out1[0], 0,
+                                                   srtb::unpack::identity());
+      unpack_item<bits, /* handwritten = */ true>(&in, &out2[0], 0,
+                                                  srtb::unpack::identity());
       for (auto i : out1) {
         std::cout << i << ' ';
       }
@@ -125,8 +133,10 @@ int main(int argc, char** argv) {
       std::array<srtb::real, srtb::BITS_PER_BYTE / bits> out1, out2;
       std::array expected = {157.0};
       SRTB_CHECK_TEST_UNPACK(expected.size() == out1.size());
-      unpack_item<bits, /* handwritten = */ false>(&in, &out1[0], 0);
-      unpack_item<bits, /* handwritten = */ true>(&in, &out2[0], 0);
+      unpack_item<bits, /* handwritten = */ false>(&in, &out1[0], 0,
+                                                   srtb::unpack::identity());
+      unpack_item<bits, /* handwritten = */ true>(&in, &out2[0], 0,
+                                                  srtb::unpack::identity());
       for (auto i : out1) {
         std::cout << i << ' ';
       }

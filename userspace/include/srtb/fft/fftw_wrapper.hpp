@@ -75,8 +75,8 @@ class fftw_1d_r2c_wrapper<double, Complex>
   void create_impl(size_t n) {
     srtb::fft::init_fftw();
 
-    auto tmp_in = srtb::device_allocator.allocate_smart<double>(n);
-    auto tmp_out = srtb::device_allocator.allocate_smart<Complex>(n / 2 + 1);
+    auto tmp_in = srtb::device_allocator.allocate_shared<double>(n);
+    auto tmp_out = srtb::device_allocator.allocate_shared<Complex>(n / 2 + 1);
 
     // should be equivalent to this
     /*

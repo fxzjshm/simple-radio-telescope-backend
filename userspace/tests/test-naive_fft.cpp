@@ -99,10 +99,12 @@ int main(int argc, char** argv) {
        naive_fft_end = std::chrono::system_clock::now();
   {
     auto h_f = &f[0], h_g = &g[0];
-    auto d_f_shared = srtb::device_allocator.allocate_smart<std::remove_const_t<
-             std::remove_reference_t<decltype(f.front())> > >(f.size()),
-         d_g_shared = srtb::device_allocator.allocate_smart<std::remove_const_t<
-             std::remove_reference_t<decltype(g.front())> > >(g.size());
+    auto d_f_shared =
+             srtb::device_allocator.allocate_shared<std::remove_const_t<
+                 std::remove_reference_t<decltype(f.front())> > >(f.size()),
+         d_g_shared =
+             srtb::device_allocator.allocate_shared<std::remove_const_t<
+                 std::remove_reference_t<decltype(g.front())> > >(g.size());
     auto d_f = d_f_shared.get(), d_g = d_g_shared.get();
     q.copy(h_f, d_f, f.size()).wait();
     q.copy(h_g, d_g, g.size()).wait();
