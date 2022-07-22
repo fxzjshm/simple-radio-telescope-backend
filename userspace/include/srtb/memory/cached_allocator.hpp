@@ -47,7 +47,7 @@ class cached_allocator {
     p_mutex = std::make_shared<std::mutex>();
   };
 
-  pointer allocate(size_type n) {
+  [[nodiscard]] pointer allocate(size_type n) {
     std::lock_guard lock{*p_mutex};
 
     // find a memory region that is cached
@@ -98,7 +98,7 @@ class cached_allocator {
   template <typename U = value_type,
             typename = typename std::enable_if<std::is_convertible_v<
                 typename std::remove_cv<pointer>::type, value_type*> >::type>
-  std::shared_ptr<U> allocate_shared(size_type n_U) {
+  [[nodiscard]] U* allocate_raw(size_type n_U) {
     using T = value_type;
     size_type n_T =
         (std::max(n_U, size_type{1}) * sizeof(U) - 1) / sizeof(T) + 1;
