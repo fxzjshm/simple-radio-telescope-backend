@@ -77,7 +77,7 @@ class cached_allocator {
 
       SRTB_LOGI << " [cached allocator] "
                 << "allocated new memory of size "
-                << ptr_size * sizeof(value_type) << std::endl;
+                << ptr_size * sizeof(value_type) << " bytes" << std::endl;
     } else {
       // found. notice the real ptr size may be larger than requested n
       auto pair = *iter;
@@ -105,9 +105,16 @@ class cached_allocator {
     assert(n_T * sizeof(T) >= n_U * sizeof(U));
 
     pointer ptr = allocate(n_T);
-    return std::shared_ptr<U>{reinterpret_cast<U*>(ptr), [&](U* ptr) {
-                                deallocate(reinterpret_cast<pointer>(ptr));
-                              }};
+    return reinterpret_cast<U*>(ptr);
+  }
+
+  // TODO: check this
+  template <typename U = value_type,
+            typename = typename std::enable_if<std::is_convertible_v<
+                typename std::remove_cv<pointer>::type, value_type*> >::type>
+  [[nodiscard]] std::shared_ptr<U> allocate_shared(size_type n_U) {
+    U* ptr = allocate_raw<U>(n_U);
+    return std::shared_ptr<U>{ptr, [&](U* ptr) { deallocate_raw<U>(ptr); }};
   }
 
   void deallocate(pointer ptr) {
@@ -135,6 +142,13 @@ class cached_allocator {
     SRTB_LOGD << " [cached allocator] "
               << "take back memory of size " << ptr_size * sizeof(value_type)
               << " bytes" << std::endl;
+  }
+
+  template <typename U = value_type,
+            typename = typename std::enable_if<std::is_convertible_v<
+                typename std::remove_cv<pointer>::type, value_type*> >::type>
+  void deallocate_raw(U* ptr) {
+    return deallocate(reinterpret_cast<pointer>(ptr));
   }
 
   void deallocate_all_free_ptrs() {
