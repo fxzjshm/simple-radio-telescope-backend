@@ -31,9 +31,10 @@ namespace unpack {
  * TODO: does these the same after optimization?
  */
 template <int IN_NBITS, bool handwritten, typename InputIterator,
-          typename OutputIterator>
+          typename OutputIterator, typename TransformFunctor>
 inline typename std::enable_if<(handwritten == false), void>::type unpack_item(
-    InputIterator in, OutputIterator out, const size_t x) {
+    InputIterator in, OutputIterator out, const size_t x,
+    TransformFunctor transform) {
   static_assert(
       std::is_same_v<std::byte,
                      typename std::iterator_traits<InputIterator>::value_type>);
@@ -58,75 +59,88 @@ inline typename std::enable_if<(handwritten == false), void>::type unpack_item(
     const std::byte val_mask = mask >> (i * IN_NBITS);
     const std::byte out_val =
         ((in_val & val_mask) >> ((count - i - 1) * IN_NBITS));
-    out[out_offset + i] = static_cast<T>(out_val);
+    out[out_offset + i] = transform(out_offset + i, static_cast<T>(out_val));
   }
 }
 
 template <int IN_NBITS, bool handwritten, typename InputIterator,
-          typename OutputIterator>
+          typename OutputIterator, typename TransformFunctor>
 inline
     typename std::enable_if<(IN_NBITS == 1 && handwritten == true), void>::type
-    unpack_item(InputIterator in, OutputIterator out, const size_t x) {
+    unpack_item(InputIterator in, OutputIterator out, const size_t x,
+                TransformFunctor transform) {
   static_assert(
       std::is_same_v<std::byte,
                      typename std::iterator_traits<InputIterator>::value_type>);
   typedef typename std::iterator_traits<OutputIterator>::value_type T;
 
   const std::byte in_val = in[x];
-  out[8 * x + 0] = static_cast<T>((in_val & std::byte{0b10000000}) >> 7);
-  out[8 * x + 1] = static_cast<T>((in_val & std::byte{0b01000000}) >> 6);
-  out[8 * x + 2] = static_cast<T>((in_val & std::byte{0b00100000}) >> 5);
-  out[8 * x + 3] = static_cast<T>((in_val & std::byte{0b00010000}) >> 4);
-  out[8 * x + 4] = static_cast<T>((in_val & std::byte{0b00001000}) >> 3);
-  out[8 * x + 5] = static_cast<T>((in_val & std::byte{0b00000100}) >> 2);
-  out[8 * x + 6] = static_cast<T>((in_val & std::byte{0b00000010}) >> 1);
-  out[8 * x + 7] = static_cast<T>((in_val & std::byte{0b00000001}) >> 0);
+  const size_t offset = 8 * x;
+  // clang-format off
+  out[offset + 0] = transform(offset + 0, static_cast<T>((in_val & std::byte{0b10000000}) >> 7));
+  out[offset + 1] = transform(offset + 1, static_cast<T>((in_val & std::byte{0b01000000}) >> 6));
+  out[offset + 2] = transform(offset + 2, static_cast<T>((in_val & std::byte{0b00100000}) >> 5));
+  out[offset + 3] = transform(offset + 3, static_cast<T>((in_val & std::byte{0b00010000}) >> 4));
+  out[offset + 4] = transform(offset + 4, static_cast<T>((in_val & std::byte{0b00001000}) >> 3));
+  out[offset + 5] = transform(offset + 5, static_cast<T>((in_val & std::byte{0b00000100}) >> 2));
+  out[offset + 6] = transform(offset + 6, static_cast<T>((in_val & std::byte{0b00000010}) >> 1));
+  out[offset + 7] = transform(offset + 7, static_cast<T>((in_val & std::byte{0b00000001}) >> 0));
+  // clang-format on
 }
 
 template <int IN_NBITS, bool handwritten, typename InputIterator,
-          typename OutputIterator>
+          typename OutputIterator, typename TransformFunctor>
 inline
     typename std::enable_if<(IN_NBITS == 2 && handwritten == true), void>::type
-    unpack_item(InputIterator in, OutputIterator out, const size_t x) {
+    unpack_item(InputIterator in, OutputIterator out, const size_t x,
+                TransformFunctor transform) {
   static_assert(
       std::is_same_v<std::byte,
                      typename std::iterator_traits<InputIterator>::value_type>);
   typedef typename std::iterator_traits<OutputIterator>::value_type T;
 
   const std::byte in_val = in[x];
-  out[4 * x + 0] = static_cast<T>((in_val & std::byte{0b11000000}) >> 6);
-  out[4 * x + 1] = static_cast<T>((in_val & std::byte{0b00110000}) >> 4);
-  out[4 * x + 2] = static_cast<T>((in_val & std::byte{0b00001100}) >> 2);
-  out[4 * x + 3] = static_cast<T>((in_val & std::byte{0b00000011}) >> 0);
+  const size_t offset = 4 * x;
+  // clang-format off
+  out[offset + 0] = transform(offset + 0, static_cast<T>((in_val & std::byte{0b11000000}) >> 6));
+  out[offset + 1] = transform(offset + 1, static_cast<T>((in_val & std::byte{0b00110000}) >> 4));
+  out[offset + 2] = transform(offset + 2, static_cast<T>((in_val & std::byte{0b00001100}) >> 2));
+  out[offset + 3] = transform(offset + 3, static_cast<T>((in_val & std::byte{0b00000011}) >> 0));
+  // clang-format on
 }
 
 template <int IN_NBITS, bool handwritten, typename InputIterator,
-          typename OutputIterator>
+          typename OutputIterator, typename TransformFunctor>
 inline
     typename std::enable_if<(IN_NBITS == 4 && handwritten == true), void>::type
-    unpack_item(InputIterator in, OutputIterator out, const size_t x) {
+    unpack_item(InputIterator in, OutputIterator out, const size_t x,
+                TransformFunctor transform) {
   static_assert(
       std::is_same_v<std::byte,
                      typename std::iterator_traits<InputIterator>::value_type>);
   typedef typename std::iterator_traits<OutputIterator>::value_type T;
 
   const std::byte in_val = in[x];
-  out[2 * x + 0] = static_cast<T>((in_val & std::byte{0b11110000}) >> 4);
-  out[2 * x + 1] = static_cast<T>((in_val & std::byte{0b00001111}) >> 0);
+  const size_t offset = 2 * x;
+  // clang-format off
+  out[offset + 0] = transform(offset + 0, static_cast<T>((in_val & std::byte{0b11110000}) >> 4));
+  out[offset + 1] = transform(offset + 1, static_cast<T>((in_val & std::byte{0b00001111}) >> 0));
+  // clang-format on
 }
 
 template <int IN_NBITS, bool handwritten, typename InputIterator,
-          typename OutputIterator>
+          typename OutputIterator, typename TransformFunctor>
 inline
     typename std::enable_if<(IN_NBITS == 8 && handwritten == true), void>::type
-    unpack_item(InputIterator in, OutputIterator out, const size_t x) {
+    unpack_item(InputIterator in, OutputIterator out, const size_t x,
+                TransformFunctor transform) {
   static_assert(
       std::is_same_v<std::byte,
                      typename std::iterator_traits<InputIterator>::value_type>);
   typedef typename std::iterator_traits<OutputIterator>::value_type T;
 
   const std::byte in_val = in[x];
-  out[x] = static_cast<T>(in_val);
+  out[x] = transform(x, static_cast<T>(in_val));
 }
 
 /**
@@ -136,14 +150,32 @@ inline
  * @param d_in iterator of std::byte
  * @param d_out iterator of output
  * @param in_count std::bytes count of in. Make sure [0, BITS_PER_BYTE / IN_NBITS * input_count) of out is accessible.
+ * @param transform transform transformtor to be applied after unpacking, e.g. FFT window.
+ *             it's operator() has the signature (size_t n, T val) -> T
  */
+template <int IN_NBITS, bool handwritten = false, typename InputIterator,
+          typename OutputIterator, typename TransformFunctor>
+inline void unpack(InputIterator d_in, OutputIterator d_out, size_t in_count,
+                   TransformFunctor transform, sycl::queue& q) {
+  q.parallel_for(sycl::range<1>(in_count), [=](sycl::item<1> id) {
+     unpack_item<IN_NBITS, handwritten>(d_in, d_out, id.get_id(0), transform);
+   }).wait();
+}
+
+struct identity : std::identity {
+  template <typename T>
+  [[nodiscard]] constexpr T&& operator()(size_t n, T&& x) const noexcept {
+    (void)n;
+    return std::identity::operator()<T>(std::move(x));
+  }
+};
+
 template <int IN_NBITS, bool handwritten = false, typename InputIterator,
           typename OutputIterator>
 inline void unpack(InputIterator d_in, OutputIterator d_out, size_t in_count,
                    sycl::queue& q) {
-  q.parallel_for(sycl::range<1>(in_count), [=](sycl::item<1> id) {
-     unpack_item<IN_NBITS, handwritten>(d_in, d_out, id.get_id(0));
-   }).wait();
+  return unpack<IN_NBITS, handwritten>(d_in, d_out, in_count, q,
+                                       srtb::unpack::identity());
 }
 
 }  // namespace unpack
