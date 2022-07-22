@@ -57,9 +57,13 @@ inline std::chrono::nanoseconds unpack_host_ptr(std::byte* h_in,
 template <typename Iterator1, typename Iterator2, typename T>
 inline bool check_absolute_error(Iterator1 first1, Iterator1 last1,
                                  Iterator2 first2, T threshold) {
-  for (auto iter1 = first1, iter2 = first2; iter1 != last1; ++iter1, ++iter2) {
-    if (((*iter1) - (*iter2)) > threshold) {
-      return false;
+  {
+    auto iter1 = first1;
+    auto iter2 = first2;
+    for (; iter1 != last1; ++iter1, ++iter2) {
+      if (((*iter1) - (*iter2)) > threshold) {
+        return false;
+      }
     }
   }
   return true;
