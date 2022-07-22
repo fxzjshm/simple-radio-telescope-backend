@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "srtb/unpack.hpp"
+#include "test-common.hpp"
 
 // TODO: try `std::source_location::current();`
 #define SRTB_CHECK_TEST_UNPACK(expr)                                           \
@@ -52,21 +53,6 @@ inline std::chrono::nanoseconds unpack_host_ptr(std::byte* h_in,
   q.copy(d_in, h_in, in_count).wait();
   q.copy(d_out, h_out, out_count).wait();
   return (unpack_end - unpack_start);
-}
-
-template <typename Iterator1, typename Iterator2, typename T>
-inline bool check_absolute_error(Iterator1 first1, Iterator1 last1,
-                                 Iterator2 first2, T threshold) {
-  {
-    auto iter1 = first1;
-    auto iter2 = first2;
-    for (; iter1 != last1; ++iter1, ++iter2) {
-      if (((*iter1) - (*iter2)) > threshold) {
-        return false;
-      }
-    }
-  }
-  return true;
 }
 
 int main(int argc, char** argv) {
