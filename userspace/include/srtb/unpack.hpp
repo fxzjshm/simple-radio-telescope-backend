@@ -174,8 +174,8 @@ template <int IN_NBITS, bool handwritten = false, typename InputIterator,
           typename OutputIterator>
 inline void unpack(InputIterator d_in, OutputIterator d_out, size_t in_count,
                    sycl::queue& q) {
-  return unpack<IN_NBITS, handwritten>(d_in, d_out, in_count, q,
-                                       srtb::unpack::identity());
+  return unpack<IN_NBITS, handwritten>(d_in, d_out, in_count,
+                                       srtb::unpack::identity(), q);
 }
 
 }  // namespace unpack
