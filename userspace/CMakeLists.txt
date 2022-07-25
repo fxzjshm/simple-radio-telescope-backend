@@ -76,6 +76,12 @@ else()
     message(FATAL_ERROR "Sorry, unknown/untested/un-adapted SYCL implementation " ${SYCL_IMPLEMENTION})
 endif()
 
+# set cmake config for Qt
+set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTOUIC ON)
+set(CMAKE_AUTORCC ON)
+set(CMAKE_INCLUDE_CURRENT_DIR ON)
+
 # set C++ language version requirement
 set(CMAKE_CXX_STANDARD 20)
 
@@ -87,6 +93,7 @@ include_directories(${Boost_INCLUDE_DIRS})
 if(SRTB_ENABLE_ROCM)
     link_directories("/opt/rocm/lib")
 endif()
+find_package(Qt5 COMPONENTS Quick Gui REQUIRED)
 
 function(srtb_add_dependency target_name)
     # add SYCL to targets
@@ -116,9 +123,5 @@ endfunction()
 
 include_directories("include")
 
-add_executable(simple-radio-telescope-backend src/main.cpp)
-
-
-srtb_add_dependency(simple-radio-telescope-backend)
-
+add_subdirectory("src")
 add_subdirectory("tests")

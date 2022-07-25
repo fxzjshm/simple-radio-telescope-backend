@@ -18,7 +18,9 @@
 #include "srtb/commons.hpp"
 #include "srtb/frequency_domain_filterbank.hpp"
 #include "srtb/io/udp_receiver.hpp"
+#include "srtb/pipeline/ui.hpp"
 
-int main() {
-    return 0;
+int main(int argc, char **argv) {
+  // TODO std::thread for other pipelines
+  return srtb::pipeline::ui::show_ui(argc, argv);
 }
