@@ -53,8 +53,8 @@ class hipfft_1d_r2c_wrapper_abstract
     */
 
     SRTB_CHECK_HIPFFT(hipfftCreate(&plan));
-    long long int n_ = static_cast<long long int>(n);
-    long long int inembed[1] = {n_}, onembed[1] = {n_ / 2 + 1};
+    //long long int n_ = static_cast<long long int>(n);
+    //long long int inembed[1] = {n_}, onembed[1] = {n_ / 2 + 1};
     SRTB_CHECK_HIPFFT(
         hipfftMakePlan1d(plan, static_cast<int>(n), hipfft_type, 1, &workSize));
 

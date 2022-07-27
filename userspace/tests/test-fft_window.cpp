@@ -32,13 +32,14 @@ void tiny_test() {
       hamming_window, n, q};
   srtb::fft::fft_window_functor hamming_window_functor =
       hamming_window_functor_manager.functor;
+
   // generated from numpy.hamming(16)
   // with a[i] = a0 - a1 * cos(2 * PI * i / (n - 1)), a0 = 0.54, a1 = 0.46
   std::array<srtb::real, n> expected = {
       0.08,       0.11976909, 0.23219992, 0.39785218, 0.58808309, 0.77,
       0.91214782, 0.9899479,  0.9899479,  0.91214782, 0.77,       0.58808309,
       0.39785218, 0.23219992, 0.11976909, 0.08};
-  std::array<srtb::real, n> expected2;
+  std::array<srtb::real, n> expected2;  // a0 = 25/46, a1 = 21/46
   for (size_t i = 0; i < n; i++) {
     const auto cos_value =
         (0.54 - expected[i]) / 0.46;  // == cos(2 * PI * i / (n - 1))
@@ -61,7 +62,7 @@ void tiny_test() {
        d_out[i] = hamming_window_functor(i, d_in[i]);
      }).wait();
     q.copy(d_out, /* -> */ h_out, n).wait();
-    for (auto i = 0; i < n; i++) {
+    for (size_t i = 0; i < n; i++) {
       std::cout << h_out[i] << ' ';
     }
     std::cout << std::endl;
@@ -82,7 +83,7 @@ void tiny_test() {
          d_out[i] = hamming_window_functor(i, d_in[i]);
        }).wait();
       q.copy(d_out, /* -> */ h_out, n).wait();
-      for (auto i = 0; i < n; i++) {
+      for (size_t i = 0; i < n; i++) {
         std::cout << h_out[i] << ' ';
       }
       std::cout << std::endl;
@@ -109,7 +110,7 @@ void tiny_test() {
                                    hamming_window_functor, q);
     q.copy(d_out, &h_out[0], out_count);
     assert(out_count == n);
-    for (auto i = 0; i < n; i++) {
+    for (size_t i = 0; i < n; i++) {
       std::cout << h_out[i] << ' ';
     }
     std::cout << std::endl;
@@ -120,6 +121,8 @@ void tiny_test() {
 
 int main(int argc, char** argv) {
   // TODO Auto-generated method stub
+  (void)argc;
+  (void)argv;
   tiny_test();
   //large_test();
 

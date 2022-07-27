@@ -43,6 +43,7 @@ class device_allocator {
   }
 
   void deallocate(T *ptr, std::size_t size) {
+    (void)size;
     if (ptr) sycl::free(ptr, queue);
   }
 

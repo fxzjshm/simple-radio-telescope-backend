@@ -109,7 +109,10 @@ class fftw_1d_r2c_wrapper<double, Complex>
     fftw_execute_dft_r2c(plan, in, reinterpret_cast<fftw_complex*>(out));
   }
 
-  void set_queue_impl(sycl::queue& queue) {}
+  void set_queue_impl(sycl::queue& queue) {
+    // fftw runs on CPU, so no need to set a queue
+    (void)queue;
+  }
 
  private:
   fftw_plan plan;

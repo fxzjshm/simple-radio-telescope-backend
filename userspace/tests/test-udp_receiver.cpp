@@ -61,7 +61,6 @@ int main() {
   // https://stackoverflow.com/a/51850018/5269168
   int time_out = 10;
   auto status = std::async(std::launch::async, [&]() {
-                  auto start = std::chrono::system_clock::now();
                   while (srtb::unpacker_queue.read_available() < n_segments) {
                     std::this_thread::yield();
                   }

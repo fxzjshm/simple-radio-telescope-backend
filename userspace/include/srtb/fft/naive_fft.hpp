@@ -17,8 +17,8 @@
 #include <cmath>
 #include <concepts>
 
-#include "srtb/sycl.hpp"
 #include "srtb/config.hpp"
+#include "srtb/sycl.hpp"
 
 /** 
  * very naive SYCL FFT, currently Gauss-Cooley-Tukey algorithm
@@ -61,8 +61,8 @@ inline void bit_reverse_swap(const size_t k, const size_t i, Accessor input,
  * @param invert 1 -> forward, -1 -> backward
  */
 template <typename T, typename C = srtb::complex<T>, typename Accessor>
-inline void fft_1d_c2c_butterfly(const size_t n, const size_t k, const size_t m,
-                                 const size_t i, Accessor output,
+inline void fft_1d_c2c_butterfly(const size_t m, const size_t i,
+                                 Accessor output,
                                  const int direction) noexcept {
   /*
   using namespace std::complex_literals;
@@ -112,7 +112,7 @@ inline void fft_1d_c2c(const size_t k, sycl::queue& q, Accessor input,
     // NOTE: the size of range is n/2 as every thread do 2 points (output[x] and output[y])
     q.parallel_for(sycl::range{n / 2}, [=](sycl::item<1> id) {
        const size_t i = id.get_id(0);
-       fft_1d_c2c_butterfly<T, C, Accessor>(n, k, m, i, output, direction);
+       fft_1d_c2c_butterfly<T, C, Accessor>(m, i, output, direction);
      }).wait();
   }
 
