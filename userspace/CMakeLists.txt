@@ -87,7 +87,7 @@ set(CMAKE_CXX_STANDARD 20)
 
 # add extra warnings
 ## known SYCL implementations are gcc compatible
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-elide-constructors -pedantic-errors -ansi -Wextra -Wall -Winit-self -Wold-style-cast -Woverloaded-virtual -Wuninitialized -Wmissing-declarations -Winit-self")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pedantic-errors -ansi -Wextra -Wall -Winit-self -Wold-style-cast -Woverloaded-virtual -Wuninitialized -Wmissing-declarations -Winit-self")
 
 # dependency
 set(THREADS_PREFER_PTHREAD_FLAG ON)
