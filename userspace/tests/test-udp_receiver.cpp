@@ -14,8 +14,16 @@
 #include <chrono>
 #include <future>
 
-#include "srtb/global_variables.hpp"
+#include "srtb/commons.hpp"
 #include "srtb/io/udp_receiver.hpp"
+#include "srtb/pipeline/udp_receiver_pipe.hpp"
+
+#define SRTB_CHECK_TEST_UDP_RECEIVER(expr)                             \
+  SRTB_CHECK(expr, true, {                                             \
+    throw std::runtime_error{                                          \
+        "[test-udp_receiver] " #expr " at " __FILE__ ":" +             \
+        std::to_string(__LINE__) + " returns " + std::to_string(ret)}; \
+  })
 
 int main() {
   // init enivronment
@@ -27,7 +35,7 @@ int main() {
   srtb::config.log_level = static_cast<int>(srtb::log::levels::DEBUG);
   size_t nsamps_reserved = srtb::codd::nsamps_reserved();
   srtb::config.baseband_input_length = nsamps_reserved * 4;
-  size_t data_size = nsamps_reserved * 128;
+  size_t data_size = nsamps_reserved * 32;
   size_t n_segments = (data_size - nsamps_reserved) /
                       (srtb::config.baseband_input_length - nsamps_reserved);
 
@@ -37,8 +45,11 @@ int main() {
             << std::endl;
 
   // set up receiver
-  auto udp_receiver_thread = srtb::io::udp_receiver::run_udp_receiver_worker();
-  std::this_thread::sleep_for(std::chrono::seconds(1));
+  srtb::pipeline::udp_receiver_pipe udp_receiver_pipe;
+  auto udp_receiver_thread = udp_receiver_pipe.start();
+  auto wait_time_short = std::chrono::milliseconds(200);
+  auto wait_time_long = std::chrono::milliseconds(500);
+  std::this_thread::sleep_for(wait_time_long);
 
   // set up server
   // https://www.boost.org/doc/libs/1_79_0/doc/html/boost_asio/example/cpp11/multicast/sender.cpp
@@ -59,26 +70,28 @@ int main() {
 
   // wait to be processed
   // https://stackoverflow.com/a/51850018/5269168
-  int time_out = 10;
-  auto status = std::async(std::launch::async, [&]() {
-                  while (srtb::unpacker_queue.read_available() < n_segments) {
-                    std::this_thread::yield();
-                  }
-                  if (srtb::unpacker_queue.read_available() > n_segments) {
-                    throw std::runtime_error(
-                        "segment count in unpack queue isn't expected");
-                    std::exit(-1);
-                  }
-                }).wait_for(std::chrono::seconds{time_out});
+  auto status =
+      std::async(std::launch::async, [&]() {
+        while (srtb::unpacker_queue.read_available() < n_segments) {
+          std::this_thread::yield();
+        }
+        std::this_thread::sleep_for(wait_time_short);
+        if (srtb::unpacker_queue.read_available() > n_segments) {
+          SRTB_CHECK_TEST_UDP_RECEIVER(
+              false && "segment count in unpack queue isn't expected");
+        }
+      }).wait_for(wait_time_long);
   switch (status) {
     case std::future_status::deferred:
-      //... should never happen with std::launch::async
+      SRTB_CHECK_TEST_UDP_RECEIVER(
+          false && "... should never happen with std::launch::async");
       break;
     case std::future_status::ready:
       //...
       break;
     case std::future_status::timeout:
-      throw std::runtime_error("segment count in unpack queue isn't expected");
+      SRTB_CHECK_TEST_UDP_RECEIVER(
+          false && "segment count in unpack queue isn't expected");
       break;
   }
 
@@ -87,19 +100,33 @@ int main() {
   size_t counter = 0, index = 0, length = srtb::config.baseband_input_length;
   std::shared_ptr<std::byte> host_mem =
       srtb::host_allocator.allocate_shared(length);
-  while (srtb::unpacker_queue.read_available()) {
-    bool ret;
-    do {
-      ret = srtb::unpacker_queue.pop(unpacker_work);
-    } while (ret == false);
+  auto start_time = std::chrono::system_clock::now();
+  bool time_out = false;
+  while (true) {
+    // wait enough time, in case number of work in unpacker_queue isn't expected.
+    while (!srtb::unpacker_queue.read_available()) {
+      auto now = std::chrono::system_clock::now();
+      if (now - start_time > wait_time_long) {
+        time_out = true;
+        break;
+      }
+    }
+    if (time_out) {
+      break;
+    }
+    srtb::unpacker_queue.pop(unpacker_work);
+    SRTB_CHECK_TEST_UDP_RECEIVER(length == unpacker_work.size);
     srtb::queue.copy(unpacker_work.ptr.get(), host_mem.get(), length).wait();
+    counter++;
     for (size_t i = 0; i < length; ++i, ++index) {
-      assert(index < data.size());
-      assert(host_mem.get()[i] == data[index]);
+      SRTB_CHECK_TEST_UDP_RECEIVER(index < data.size());
+      SRTB_CHECK_TEST_UDP_RECEIVER(host_mem.get()[i] == data[index]);
     }
     index -= nsamps_reserved;
+    SRTB_LOGD << " [test-udp_receiver] "
+              << "one segment checked." << std::endl;
   }
+  SRTB_CHECK_TEST_UDP_RECEIVER(counter == n_segments);
 
-  std::exit(0);
   return 0;
 }
