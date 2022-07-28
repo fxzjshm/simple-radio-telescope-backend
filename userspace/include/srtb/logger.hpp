@@ -15,13 +15,14 @@
 #define __SRTB_LOGGER__
 
 #include <iostream>
+#include <syncstream>
 
 #include "srtb/global_variables.hpp"
 
 // reference: hipSYCL logger at hipSYCL/common/debug.hpp
-#define SRTB_LOG(level)                                        \
+#define SRTB_LOG(level)                                  \
   if (static_cast<int>(level) <= srtb::config.log_level) \
-  std::cout << srtb::log::get_log_prefix(level)
+  std::osyncstream{std::cout} << srtb::log::get_log_prefix(level)
 
 namespace srtb {
 namespace log {
