@@ -41,8 +41,10 @@ class udp_receiver_pipe : public pipe<udp_receiver_pipe> {
   udp_receiver_pipe(
       const std::string& sender_address =
           srtb::config.udp_receiver_sender_address,
-      const unsigned short sender_port = srtb::config.udp_receiver_sender_port)
-      : worker{sender_address, sender_port} {}
+      const unsigned short sender_port = srtb::config.udp_receiver_sender_port,
+      const int udp_receiver_buffer_size =
+          srtb::config.udp_receiver_buffer_size)
+      : worker{sender_address, sender_port, udp_receiver_buffer_size} {}
 
  protected:
   void run_once_impl() {

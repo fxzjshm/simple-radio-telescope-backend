@@ -29,13 +29,13 @@ int main() {
   // init enivronment
   std::string address = "127.0.0.1";
   unsigned short port = 23333;
-  srtb::config.baseband_sample_rate = 4;
+  srtb::config.baseband_sample_rate = 4;  // arbitrary
   srtb::config.udp_receiver_sender_address = address;
   srtb::config.udp_receiver_sender_port = port;
   srtb::config.log_level = static_cast<int>(srtb::log::levels::DEBUG);
   size_t nsamps_reserved = srtb::codd::nsamps_reserved();
-  srtb::config.baseband_input_length = nsamps_reserved * 4;
-  size_t data_size = nsamps_reserved * 32;
+  srtb::config.baseband_input_length = nsamps_reserved * 4;  // arbitrary
+  size_t data_size = nsamps_reserved * 128;                  // arbitrary
   size_t n_segments = (data_size - nsamps_reserved) /
                       (srtb::config.baseband_input_length - nsamps_reserved);
 
@@ -64,7 +64,35 @@ int main() {
                 []() { return static_cast<std::byte>(std::rand() & 0xFF); });
 
   // send data
-  server_socket.send_to(boost::asio::buffer(data), ep1);
+  {
+    size_t sent_data_size = 0;
+    srtb::udp_packet_counter_type counter = 0;
+    std::vector<std::byte> temp_buffer;
+    constexpr auto counter_bytes_count =
+        srtb::io::udp_receiver::counter_bytes_count;
+    while (sent_data_size < data_size) {
+      size_t send_data_size =
+          std::min(std::rand() % (nsamps_reserved * 7) /* arbitrary */,
+                   data_size - sent_data_size);
+      size_t len = send_data_size + counter_bytes_count;
+      temp_buffer.resize(len);
+      // construct a packet with a counter
+      for (size_t i = 0; i < counter_bytes_count; ++i) {
+        temp_buffer.at(i) =
+            std::byte((counter >> (srtb::BITS_PER_BYTE * i)) & 0xFF);
+      }
+      for (size_t j = 0; j < send_data_size; j++) {
+        temp_buffer.at(counter_bytes_count + j) = data.at(sent_data_size + j);
+      }
+      server_socket.send_to(boost::asio::buffer(temp_buffer), ep1);
+      SRTB_LOGD << " [test-udp_receiver] "
+                << "sent data length = " << send_data_size << ", "
+                << " counter = " << counter << std::endl;
+      counter++;
+      sent_data_size += send_data_size;
+    }
+    SRTB_CHECK_TEST_UDP_RECEIVER(sent_data_size == data_size);
+  }
   SRTB_LOGI << " [test-udp_receiver] "
             << "data sent" << std::endl;
 
@@ -120,7 +148,7 @@ int main() {
     counter++;
     for (size_t i = 0; i < length; ++i, ++index) {
       SRTB_CHECK_TEST_UDP_RECEIVER(index < data.size());
-      SRTB_CHECK_TEST_UDP_RECEIVER(host_mem.get()[i] == data[index]);
+      SRTB_CHECK_TEST_UDP_RECEIVER(host_mem.get()[i] == data.at(index));
     }
     index -= nsamps_reserved;
     SRTB_LOGD << " [test-udp_receiver] "

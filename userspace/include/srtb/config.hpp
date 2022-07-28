@@ -46,15 +46,19 @@ using complex = std::complex<T>;
 template <typename... Args>
 using work_queue = boost::lockfree::spsc_queue<Args...>;
 
-// TODO: is this necessary or too large?
-constexpr size_t MEMORY_ALIGNMENT = 64ul;
+typedef uint64_t udp_packet_counter_type;
 
-constexpr size_t BITS_PER_BYTE = 8ul;
+// TODO: is this necessary or too large?
+inline constexpr size_t MEMORY_ALIGNMENT = 64ul;
+
+inline constexpr size_t BITS_PER_BYTE = 8ul;
+
+inline constexpr size_t UDP_MAX_SIZE = 1 << 16;
 
 /**
  * @brief initial capacity of boost::lockfree::{queue, spsc_queue}
  */
-constexpr size_t work_queue_initial_capacity = 64;
+inline constexpr size_t work_queue_initial_capacity = 64;
 
 // ------ Runtime configuration ------
 
