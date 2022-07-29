@@ -60,17 +60,10 @@ class udp_receiver_pipe : public pipe<udp_receiver_pipe> {
     q.memcpy(reinterpret_cast<void*>(ptr.get()), buffer.data(),
              baseband_input_length * sizeof(std::byte))
         .wait();
-    bool ret =
-        srtb::unpacker_queue.push(srtb::work{ptr, baseband_input_length});
-    if (!ret) [[unlikely]] {
-      SRTB_LOGE << " [udp receiver pipe] "
-                << "Pushing work of size " << baseband_input_length
-                << " to unpacker_queue failed!" << std::endl;
-    } else {
-      SRTB_LOGD << " [udp receiver pipe] "
-                << "Pushed work of size " << baseband_input_length
-                << " to unpacker_queue." << std::endl;
-    }
+    srtb::work::unpack_work unpack_work{
+        {ptr, /* size = */ baseband_input_length},
+        srtb::config.baseband_input_bits};
+    SRTB_PUSH_WORK(" [udp receiver pipe] ", srtb::unpack_queue, unpack_work);
 
     // reserved some samples for next round
     size_t nsamps_reserved = srtb::codd::nsamps_reserved();
