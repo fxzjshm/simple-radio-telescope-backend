@@ -178,6 +178,34 @@ inline void unpack(InputIterator d_in, OutputIterator d_out, size_t in_count,
                                        srtb::unpack::identity(), q);
 }
 
+template <bool handwritten = false, typename InputIterator,
+          typename OutputIterator, typename TransformFunctor>
+inline void unpack(int in_nbits, InputIterator d_in, OutputIterator d_out,
+                   size_t in_count, TransformFunctor transform,
+                   sycl::queue& q) {
+  switch (in_nbits) {
+    case 1:
+      return unpack<1, handwritten>(d_in, d_out, in_count, transform, q);
+    case 2:
+      return unpack<2, handwritten>(d_in, d_out, in_count, transform, q);
+    case 4:
+      return unpack<4, handwritten>(d_in, d_out, in_count, transform, q);
+    case 8:
+      return unpack<8, handwritten>(d_in, d_out, in_count, transform, q);
+    default:
+      throw std::runtime_error("unpack: unsupported in_nbits " +
+                               std::to_string(in_nbits));
+  }
+}
+
+template <bool handwritten = false, typename InputIterator,
+          typename OutputIterator>
+inline void unpack(int in_nbits, InputIterator d_in, OutputIterator d_out,
+                   size_t in_count, sycl::queue& q) {
+  return unpack<handwritten>(in_nbits, d_in, d_out, in_count,
+                             srtb::unpack::identity(), q);
+}
+
 }  // namespace unpack
 }  // namespace srtb
 
