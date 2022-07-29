@@ -48,6 +48,8 @@ using work_queue = boost::lockfree::spsc_queue<Args...>;
 
 typedef uint64_t udp_packet_counter_type;
 
+// FFT default window in srtb/fft/fft_window.hpp
+
 // TODO: is this necessary or too large?
 inline constexpr size_t MEMORY_ALIGNMENT = 64ul;
 

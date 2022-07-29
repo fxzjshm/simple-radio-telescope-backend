@@ -63,6 +63,8 @@ struct hamming : cosine_sum_window<2, T> {
 
 }  // namespace window
 
+typedef srtb::fft::window::hamming<> default_window;
+
 /**
  * @brief Provide FFT window coefficients for size n, that is, [0, n-1]
  * 
