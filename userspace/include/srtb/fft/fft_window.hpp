@@ -92,7 +92,7 @@ struct fft_window_functor {
 
 /**
  * @brief This class manages memory used by @c fft_window_functor at host,
- *        avoiding `is_device_copyable` problems.
+ *        avoiding `sycl::is_device_copyable` problems.
  * @see srtb::fft::fft_window_functor
  */
 template <typename T = srtb::real>

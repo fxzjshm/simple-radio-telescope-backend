@@ -109,7 +109,7 @@ void tiny_test() {
     srtb::unpack::unpack<1, false>(d_in, d_out, in_count,
                                    hamming_window_functor, q);
     q.copy(d_out, &h_out[0], out_count);
-    assert(out_count == n);
+    SRTB_CHECK_TEST_FFT_WINDOW(out_count == n);
     for (size_t i = 0; i < n; i++) {
       std::cout << h_out[i] << ' ';
     }

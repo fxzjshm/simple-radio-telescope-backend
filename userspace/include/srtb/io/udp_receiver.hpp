@@ -44,6 +44,8 @@ inline constexpr size_t counter_bytes_count =
  * TODO: maybe use lock free ring buffer, see https://ferrous-systems.com/blog/lock-free-ring-buffer/
  *       or move ring buffer to GPU side, when RDMA method is considered.
  * 
+ * @see @c srtb::pipeline::udp_receiver_pipe
+ * 
  * ref: https://www.cnblogs.com/lidabo/p/8317296.html ,
  *      https://stackoverflow.com/questions/37372993/boostasiostreambuf-how-to-reuse-buffer
  */

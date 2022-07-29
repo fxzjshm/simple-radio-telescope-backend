@@ -58,7 +58,7 @@ elseif(SYCL_IMPLEMENTION STREQUAL "intel-llvm")
     # ROCm: clang -fsycl -fsycl-targets=amdgcn-amd-amdhsa -Xsycl-target-backend --offload-arch=gfx906
     message("Make sure this compiler supports SYCL")
     if(SRTB_ENABLE_CUDA AND SRTB_ENABLE_ROCM)
-        message(FATAL_ERROR "don't know how to compile for both CUDA and ROCM on intel/llvm (TODO)")
+        message(FATAL_ERROR "don't know how to compile for both CUDA and ROCm on intel/llvm (TODO)")
     endif()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsycl ")
     if(SRTB_ENABLE_CUDA)
