@@ -100,11 +100,11 @@ int main() {
   // https://stackoverflow.com/a/51850018/5269168
   auto status =
       std::async(std::launch::async, [&]() {
-        while (srtb::unpacker_queue.read_available() < n_segments) {
+        while (srtb::unpack_queue.read_available() < n_segments) {
           std::this_thread::yield();
         }
         std::this_thread::sleep_for(wait_time_short);
-        if (srtb::unpacker_queue.read_available() > n_segments) {
+        if (srtb::unpack_queue.read_available() > n_segments) {
           SRTB_CHECK_TEST_UDP_RECEIVER(
               false && "segment count in unpack queue isn't expected");
         }
@@ -124,7 +124,7 @@ int main() {
   }
 
   // per byte check of work
-  srtb::unpacker_work_type unpacker_work;
+  srtb::work::unpack_work unpack_work;
   size_t counter = 0, index = 0, length = srtb::config.baseband_input_length;
   std::shared_ptr<std::byte> host_mem =
       srtb::host_allocator.allocate_shared(length);
@@ -132,7 +132,7 @@ int main() {
   bool time_out = false;
   while (true) {
     // wait enough time, in case number of work in unpacker_queue isn't expected.
-    while (!srtb::unpacker_queue.read_available()) {
+    while (!srtb::unpack_queue.read_available()) {
       auto now = std::chrono::system_clock::now();
       if (now - start_time > wait_time_long) {
         time_out = true;
@@ -142,9 +142,9 @@ int main() {
     if (time_out) {
       break;
     }
-    srtb::unpacker_queue.pop(unpacker_work);
-    SRTB_CHECK_TEST_UDP_RECEIVER(length == unpacker_work.size);
-    srtb::queue.copy(unpacker_work.ptr.get(), host_mem.get(), length).wait();
+    srtb::unpack_queue.pop(unpack_work);
+    SRTB_CHECK_TEST_UDP_RECEIVER(length == unpack_work.count);
+    srtb::queue.copy(unpack_work.ptr.get(), host_mem.get(), length).wait();
     counter++;
     for (size_t i = 0; i < length; ++i, ++index) {
       SRTB_CHECK_TEST_UDP_RECEIVER(index < data.size());

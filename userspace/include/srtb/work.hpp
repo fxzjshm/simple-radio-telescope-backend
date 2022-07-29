@@ -51,21 +51,40 @@
 namespace srtb {
 
 /**
+ * @brief This namespace contains work types that defines the input of a pipe.
+ *        Ideally all info needed to execute the pipeline should be written in a POD work class.
+ */
+namespace work {
+
+/**
  * @brief This represents a work to be done and should be the same as `std::pair<T, size_t>`,
- *        created just because `std::pair` doesn't satisfy `boost::has_trivial_assign`.
- * 
- * @tparam T Type of the pointer of the work, e.g. void* for unpack and srtb::real* for FFT.
+ *        created just because `std::pair` doesn't satisfy `boost::has_trivial_assign`,
+ *        which is required for lockfree queue.
+ * @tparam T Type of the pointer of the work, e.g. std::shared_ptr<std::byte> for unpack and std::shared_ptr<srtb::real> for FFT.
+ *         TODO: Maybe T = sycl::buffer<std::byte> if pointer isn't suitable for some backend in the future.
  */
 template <typename T>
 struct work {
   T ptr;
-  size_t size;
-
-  work() : ptr{nullptr}, size{0} {}
-
-  work(T ptr_, size_t size_) : ptr{ptr_}, size{size_} {}
+  /**
+   * @brief count of data in @c ptr
+   */
+  size_t count;
 };
 
+struct unpack_work : public srtb::work::work<std::shared_ptr<std::byte> > {
+  // `count` should equal to `srtb::config.baseband_input_length`
+
+  /**
+   * @brief length of a single time sample in the input, come from srtb::config.baseband_input_bits
+   */
+  size_t baseband_input_bits;
+};
+
+struct fft_1d_r2c_work : public srtb::work::work<std::shared_ptr<srtb::real> > {
+};
+
+}  // namespace work
 }  // namespace srtb
 
 #endif  // __SRTB_WORK__
