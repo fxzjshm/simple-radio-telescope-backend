@@ -28,6 +28,7 @@ namespace pipeline {
  *        apply transform and then push the result to next one, on different threads.
  * @note functions required for derived classes to have:
  *           @c setup_impl, @c run_once_impl, @c teardown_impl
+ * @note TODO: decouple work queue push and pop from @c run_once_impl
  * @tparam Derived derived class. ref: curiously recurring template pattern (CRTP)
  */
 template <typename Derived>
