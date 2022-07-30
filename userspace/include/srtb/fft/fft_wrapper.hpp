@@ -22,6 +22,11 @@
 namespace srtb {
 namespace fft {
 
+inline size_t default_fft_1d_r2c_input_size() {
+  return srtb::config.baseband_input_length * srtb::BITS_PER_BYTE /
+         srtb::config.baseband_input_bits;
+}
+
 /**
  * @brief Abstract interface of backend-specific FFTs. Should be called within one thread.
  * 
@@ -36,7 +41,14 @@ class fft_wrapper {
   using sub_class = Derived<T, C>;
   static_assert(sizeof(T) * 2 == sizeof(C));
 
-  fft_wrapper() { create(); }
+ protected:
+  /**
+   * @brief corresponded FFT length
+   */
+  size_t n;
+
+ public:
+  fft_wrapper(size_t n_ = default_fft_1d_r2c_input_size()) { create(n_); }
 
   ~fft_wrapper() { destroy(); }
 
@@ -55,14 +67,25 @@ class fft_wrapper {
 
   void set_queue(sycl::queue& queue) { sub().set_queue_impl(queue); }
 
- private:
-  void create(size_t n = srtb::config.unpacked_input_count()) {
-    sub().create_impl(n);
+  void create(size_t n_) {
+    if (has_inited()) [[unlikely]] {
+      sub().destroy_impl();
+    }
+    sub().create_impl(n_);
+    n = n_;
   }
 
   void destroy() {
     if (has_inited()) [[likely]] {
       sub().destroy_impl();
+    }
+  }
+
+  size_t get_size() { return n; }
+
+  void set_size(size_t n_) {
+    if (n != n_) [[likely]] {
+      create(n_);
     }
   }
 };

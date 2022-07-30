@@ -123,6 +123,8 @@ inline void fft_1d_c2c(const size_t k, sycl::queue& q, Accessor input,
   }
 }
 
+// TODO: 1D R2C FFT
+
 }  // namespace naive_fft
 
 #endif  // __SRTB_NAIVE_FFT__

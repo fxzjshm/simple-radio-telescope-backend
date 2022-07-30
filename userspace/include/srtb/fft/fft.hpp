@@ -63,46 +63,50 @@ inline hipfft_1d_r2c_wrapper<T, C>& get_hipfft_1d_r2c_wrapper() {
 }
 #endif  // SRTB_ENABLE_ROCM_INTEROP
 
-// TODO: better way to dispatch
-#define SRTB_FFT_DISPATCH(queue, type, func, ...)                   \
-  {                                                                 \
-    do {                                                            \
-      auto device = queue.get_device();                             \
-      SRTB_IF_ENABLED_CUDA_INTEROP({                                \
-        try {                                                       \
-          sycl::get_native<sycl::backend::ext_oneapi_cuda>(device); \
-          get_cufft_##type##_wrapper().func(__VA_ARGS__);           \
-          break;                                                    \
-        } catch (const sycl::exception& ignored) {                  \
-        };                                                          \
-      });                                                           \
-                                                                    \
-      SRTB_IF_ENABLED_ROCM_INTEROP({                                \
-        try {                                                       \
-          sycl::get_native<sycl::backend::ext_oneapi_hip>(device);  \
-          get_hipfft_##type##_wrapper().func(__VA_ARGS__);          \
-          break;                                                    \
-        } catch (const sycl::exception& ignored) {                  \
-        };                                                          \
-      });                                                           \
-                                                                    \
-      if (device.is_cpu() || device.is_host()) {                    \
-        get_fftw_##type##_wrapper().func(__VA_ARGS__);              \
-        break;                                                      \
-      }                                                             \
-                                                                    \
-      throw std::runtime_error{"[fft] dispatch_" #type ": TODO"};   \
-    } while (0);                                                    \
+#define SRTB_FFT_DISPATCH(queue, type, func, ...)               \
+  {                                                             \
+    auto device = queue.get_device();                           \
+    SRTB_IF_ENABLED_CUDA_INTEROP({                              \
+      if (device.get_backend() == srtb::backend::cuda) {        \
+        return get_cufft_##type##_wrapper().func(__VA_ARGS__);  \
+      }                                                         \
+    });                                                         \
+                                                                \
+    SRTB_IF_ENABLED_ROCM_INTEROP({                              \
+      if (device.get_backend() == srtb::backend::rocm) {        \
+        return get_hipfft_##type##_wrapper().func(__VA_ARGS__); \
+      }                                                         \
+    });                                                         \
+                                                                \
+    if (device.is_cpu() || device.is_host()) {                  \
+      return get_fftw_##type##_wrapper().func(__VA_ARGS__);     \
+    }                                                           \
+                                                                \
+    throw std::runtime_error{"[fft] dispatch_" #type ": TODO"}; \
   }
-
-inline void init_1d_r2c(sycl::queue& queue = srtb::queue) {
-  // not only construct the object by accessing it, but also set queue to be used.
-  SRTB_FFT_DISPATCH(queue, 1d_r2c, set_queue, queue);
-}
 
 template <typename T = srtb::real, typename C = srtb::complex<T> >
 inline void dispatch_1d_r2c(T* in, C* out, sycl::queue& queue = srtb::queue) {
   SRTB_FFT_DISPATCH(queue, 1d_r2c, process, in, out);
+}
+
+inline size_t get_size_1d_r2c(sycl::queue& queue = srtb::queue) {
+  SRTB_FFT_DISPATCH(queue, 1d_r2c, get_size);
+}
+
+inline void set_size_1d_r2c(size_t n) {
+  SRTB_FFT_DISPATCH(queue, 1d_r2c, set_size, n);
+}
+
+inline void set_queue_1d_r2c(sycl::queue& queue) {
+  SRTB_FFT_DISPATCH(queue, 1d_r2c, set_queue, queue);
+}
+
+inline void init_1d_r2c(size_t n = default_fft_1d_r2c_input_size(),
+                        sycl::queue& queue = srtb::queue) {
+  set_size_1d_r2c(n);
+  // not only construct the object by accessing it, but also set queue to be used.
+  set_queue_1d_r2c(queue);
 }
 
 #undef SRTB_FFT_DISPATCH

@@ -127,10 +127,6 @@ struct configs {
     */
   /* srtb::log::levels */ int log_level = /* srtb::log::levels::DEBUG */ 4;
 
-  inline size_t unpacked_input_count() {
-    return baseband_input_length * BITS_PER_BYTE / baseband_input_bits;
-  }
-
   std::string fft_fftw_wisdom_path = "srtb_fftw_wisdom.txt";
 };
 
