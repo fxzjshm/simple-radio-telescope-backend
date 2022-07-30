@@ -76,7 +76,7 @@ class hipfft_1d_r2c_wrapper_abstract
   void destroy_impl() { SRTB_CHECK_HIPFFT(hipfftDestroy(plan)); }
 
   bool has_inited_impl() {
-    // TODO: check plan?
+    // invalid plan causes segmentation fault, so not using plan to check here.
     return true;
   }
 

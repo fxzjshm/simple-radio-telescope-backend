@@ -72,8 +72,17 @@ class cufft_1d_r2c_wrapper_abstract
   void destroy_impl() { SRTB_CHECK_CUFFT(cufftDestroy(plan)); }
 
   bool has_inited_impl() {
-    // TODO: check plan?
-    return true;
+    // ref: https://forums.developer.nvidia.com/t/check-for-a-valid-cufft-plan/34297/4
+    size_t work_size;
+    auto ret_val = cufftGetSize(plan, &work_size);
+    switch (ret_val) {
+      [[likely]] case CUFFT_SUCCESS : return true;
+      case CUFFT_INVALID_PLAN:
+        return false;
+      default:
+        SRTB_CHECK_CUFFT(ret);
+        return false;
+    }
   }
 
   void set_queue_impl(sycl::queue& queue) {
