@@ -33,8 +33,6 @@
         #define SRTB_ENABLE_CUDA_INTEROP 1
     #elif defined(SYCL_EXT_ONEAPI_BACKEND_HIP) && defined(SRTB_ENABLE_ROCM) && SRTB_ENABLE_ROCM
         #define SRTB_ENABLE_ROCM_INTEROP 1
-    #else
-        #warning "Detected OneAPI but no known backend. (TODO)"
     #endif  // defined(SYCL_EXT_ONEAPI_BACKEND_CUDA) or defined(SYCL_EXT_ONEAPI_BACKEND_HIP)
 #elif defined(__HIPSYCL__)
     #if defined(__HIPSYCL_ENABLE_CUDA_TARGET__)
@@ -47,7 +45,7 @@
         // no need to define introp macro
     #endif
 #else
-    #warning "Unknown SYCL backend"
+    #error "Unknown SYCL backend"
 #endif
 // clang-format on
 

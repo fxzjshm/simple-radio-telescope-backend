@@ -80,7 +80,7 @@ class cufft_1d_r2c_wrapper_abstract
       case CUFFT_INVALID_PLAN:
         return false;
       default:
-        SRTB_CHECK_CUFFT(ret);
+        SRTB_CHECK_CUFFT(ret_val);
         return false;
     }
   }

@@ -12,6 +12,13 @@
 
 #include "srtb/fft/fft.hpp"
 
+#define SRTB_CHECK_TEST_FFT_WRAPPERS(expr)                             \
+  SRTB_CHECK(expr, true, {                                             \
+    throw std::runtime_error{                                          \
+        "[test-fft_wrappers] " #expr " at " __FILE__ ":" +             \
+        std::to_string(__LINE__) + " returns " + std::to_string(ret)}; \
+  })
+
 /**
  * use as a benchmark:
  * ```bash
@@ -53,9 +60,9 @@ int main(int argc, char** argv) {
       n * srtb::config.baseband_input_bits / srtb::BITS_PER_BYTE;
   SRTB_LOGD << " [test fft wrappers] "
             << "n = " << n << ", "
-            << "unpacked_input_count = " << srtb::config.unpacked_input_count()
-            << std::endl;
-  assert(srtb::config.unpacked_input_count() == n);
+            << "fft_1d_r2c_input_size = "
+            << srtb::fft::default_fft_1d_r2c_input_size() << std::endl;
+  SRTB_CHECK_TEST_FFT_WRAPPERS(srtb::fft::default_fft_1d_r2c_input_size() == n);
 
   std::vector<sycl::device> devices = sycl::device::get_devices();
   for (auto device : devices) {
