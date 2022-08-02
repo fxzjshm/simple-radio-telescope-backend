@@ -164,6 +164,8 @@ class cached_allocator {
     free_ptrs.clear();
   }
 
+  const RealAllocator& real_allocator() { return allocator; }
+
   ~cached_allocator() {
     deallocate_all_free_ptrs();
 
