@@ -40,6 +40,20 @@
 #define SRTB_ASSERT_IN_KERNEL(expr)
 #endif
 
+namespace srtb {
+
+template <typename T = srtb::real, typename C = srtb::complex<T> >
+inline constexpr auto norm(const C& c) -> T {
+  return c.real() * c.real() + c.imag() * c.imag();
+}
+
+template <typename T = srtb::real, typename C = srtb::complex<T> >
+inline constexpr auto abs(const C& c) -> T {
+  return sycl::sqrt(srtb::len2(c));
+}
+
+}  // namespace srtb
+
 // ------ dividing line for clang-format ------
 
 #include "srtb/global_variables.hpp"

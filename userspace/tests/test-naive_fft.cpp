@@ -149,8 +149,7 @@ int main(int argc, char** argv) {
   }
   for (int i = 0; i < siz; i++) {
     auto df = (f[i] - g[i]) / f[i], dh = (h[i] - g[i]) / h[i];
-    if (std::sqrt(df.real() * df.real() + df.imag() * df.imag()) > 1e-5 ||
-        std::sqrt(dh.real() * dh.real() + dh.imag() * dh.imag()) > 1e-5) {
+    if (srtb::abs(df) > 1e-5 || srtb::abs(dh) > 1e-5) {
       std::cerr << "Difference at i = " << i << ", "
                 << "f[i] = " << f[i] << ", "
                 << "g[i] = " << g[i] << ", "
