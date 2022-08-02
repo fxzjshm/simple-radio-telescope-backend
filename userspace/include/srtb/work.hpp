@@ -72,17 +72,44 @@ struct work {
   size_t count;
 };
 
+/**
+ * @brief contains a chunk of @c std::byte of size @c count, which is 
+ *        baseband data and should be unpacked into @c srtb::real
+ */
 struct unpack_work : public srtb::work::work<std::shared_ptr<std::byte> > {
   // `count` should equal to `srtb::config.baseband_input_length`
 
   /**
-   * @brief length of a single time sample in the input, come from srtb::config.baseband_input_bits
+   * @brief length of a single time sample in the input, come from @c srtb::config.baseband_input_bits
+   *        currently 1, 2, 4 and 8 bit(s) baseband input is implemented,
+   *        others will result in ... undefined behaviour.
    */
   size_t baseband_input_bits;
 };
 
-struct fft_1d_r2c_work : public srtb::work::work<std::shared_ptr<srtb::real> > {
+/**
+ * @brief contains a chunk of @c srtb::real that is to be FFT-ed.
+ * @note real number of size @c n should be FFT-ed into @c n/2+1 @c srtb::complex<srtb::real> s,
+ *       take care of memory allocation.
+ */
+using fft_1d_r2c_work = srtb::work::work<std::shared_ptr<srtb::real> >;
+
+/**
+ * @brief contains @c srtb::complex<srtb::real> to be simplified into
+ *        ~10^3 @c srtb::real to be displayed on GUI.
+ * @note temporary work, just do a software-defined-radio receiver job.
+ */
+struct simplify_spectrum_work
+    : public srtb::work::work<std::shared_ptr<srtb::complex<srtb::real> > > {
+  // TODO: related info: sample rate, etc.
 };
+
+/**
+ * @brief contains ~10^3 @c srtb::real to be drawn to a line of a pixmap.
+ *        @c ptr should be host pointer
+ * @note temporary work, see above.
+ */
+using draw_spectrum_work = srtb::work::work<std::shared_ptr<srtb::real> >;
 
 }  // namespace work
 }  // namespace srtb

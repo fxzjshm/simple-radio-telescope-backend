@@ -43,6 +43,10 @@ inline srtb::work_queue<srtb::work::unpack_work> unpack_queue{
     srtb::work_queue_initial_capacity};
 inline srtb::work_queue<srtb::work::fft_1d_r2c_work> fft_1d_r2c_queue{
     srtb::work_queue_initial_capacity};
+inline srtb::work_queue<srtb::work::simplify_spectrum_work>
+    simplify_spectrum_queue{srtb::work_queue_initial_capacity};
+inline srtb::work_queue<srtb::work::draw_spectrum_work> draw_spectrum_queue{
+    srtb::work_queue_initial_capacity};
 
 }  // namespace srtb
 

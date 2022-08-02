@@ -11,26 +11,29 @@
  ******************************************************************************/
 
 #pragma once
-#ifndef __SRTB_PIPELINE_UI__
-#define __SRTB_PIPELINE_UI__
+#ifndef __SRTB_GUI__
+#define __SRTB_GUI__
 
 // Qt related
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 
+#include "srtb/gui/spectrum_image_provider.hpp"
+
 namespace srtb {
-namespace pipeline {
-namespace ui {
+namespace gui {
 
 // QML related things in src/main.qml, which is treated as a .cpp file.
 
-int show_ui(int argc, char** argv) {
+int show_gui(int argc, char **argv) {
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
   QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
 #endif
   QGuiApplication app(argc, argv);
 
   QQmlApplicationEngine engine;
+  engine.addImageProvider(QLatin1String("spectrum-image-provider"),
+                          new srtb::gui::spectrum::SpectrumImageProvider{});
   const QUrl url(QStringLiteral("qrc:/main.qml"));
   QObject::connect(
       &engine, &QQmlApplicationEngine::objectCreated, &app,
@@ -43,8 +46,7 @@ int show_ui(int argc, char** argv) {
   return app.exec();
 }
 
-}  // namespace ui
-}  // namespace pipeline
+}  // namespace gui
 }  // namespace srtb
 
-#endif
+#endif  // __SRTB_GUI__

@@ -17,10 +17,28 @@
 #include "srtb/coherent_dedispersion.hpp"
 #include "srtb/commons.hpp"
 #include "srtb/frequency_domain_filterbank.hpp"
+#include "srtb/gui/gui.hpp"
 #include "srtb/io/udp_receiver.hpp"
-#include "srtb/pipeline/ui.hpp"
+#include "srtb/pipeline/fft_pipe.hpp"
+#include "srtb/pipeline/spectrum_pipe.hpp"
+#include "srtb/pipeline/udp_receiver_pipe.hpp"
+#include "srtb/pipeline/unpack_pipe.hpp"
+#include "srtb/spectrum.hpp"
 
 int main(int argc, char **argv) {
   // TODO std::thread for other pipelines
-  return srtb::pipeline::ui::show_ui(argc, argv);
+
+  srtb::pipeline::udp_receiver_pipe udp_receiver_pipe;
+  udp_receiver_pipe.start();
+
+  srtb::pipeline::unpack_pipe unpack_pipe;
+  unpack_pipe.start();
+
+  srtb::pipeline::fft_1d_r2c_pipe fft_1d_r2c_pipe;
+  fft_1d_r2c_pipe.start();
+
+  srtb::pipeline::simplify_spectrum_pipe simplify_spectrum_pipe;
+  simplify_spectrum_pipe.start();
+
+  return srtb::gui::show_gui(argc, argv);
 }
