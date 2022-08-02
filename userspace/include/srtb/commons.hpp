@@ -49,7 +49,7 @@ inline constexpr auto norm(const C& c) -> T {
 
 template <typename T = srtb::real, typename C = srtb::complex<T> >
 inline constexpr auto abs(const C& c) -> T {
-  return sycl::sqrt(srtb::len2(c));
+  return sycl::sqrt(srtb::norm(c));
 }
 
 }  // namespace srtb
