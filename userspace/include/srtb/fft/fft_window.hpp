@@ -82,10 +82,7 @@ struct fft_window_functor {
   }
 
   T operator()(size_t pos, T val) const noexcept {
-// TODO: ref: https://github.com/intel/llvm/pull/6424
-#if !defined(SRTB_ENABLE_ROCM_INTEROP) && !defined(SRTB_ENABLE_CUDA_INTEROP)
-    assert(pos < n);
-#endif
+    SRTB_ASSERT_IN_KERNEL(pos < n);
     return val * coefficients[pos];
   }
 };

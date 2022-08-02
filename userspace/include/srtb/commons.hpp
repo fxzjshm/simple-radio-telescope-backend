@@ -33,6 +33,13 @@
     }                                      \
   }
 
+// TODO: ref: https://github.com/intel/llvm/pull/6424
+#if !defined(SRTB_ENABLE_ROCM_INTEROP) && !defined(SRTB_ENABLE_CUDA_INTEROP)
+#define SRTB_ASSERT_IN_KERNEL(expr) assert(expr)
+#else
+#define SRTB_ASSERT_IN_KERNEL(expr)
+#endif
+
 // ------ dividing line for clang-format ------
 
 #include "srtb/global_variables.hpp"
