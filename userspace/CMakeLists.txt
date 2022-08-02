@@ -12,7 +12,7 @@ endif()
 find_package(CUDAToolkit QUIET)
 option(SRTB_ENABLE_CUDA "option to enable CUDA backend" ${CUDAToolkit_FOUND})
 message("SRTB_ENABLE_CUDA=${SRTB_ENABLE_CUDA}")
-## ROCM/HIP, SRTB_ROCM_ARCH required
+## ROCm/HIP, SRTB_ROCM_ARCH required
 list(APPEND CMAKE_PREFIX_PATH /opt/rocm/hip /opt/rocm)
 find_package(hip QUIET)
 find_package(rocfft QUIET)
@@ -22,7 +22,7 @@ if(hip_FOUND AND rocfft_FOUND AND hipfft_FOUND)
 else()
     set(SRTB_ROCM_BACKEND_REQUIREMENT_MET FALSE)
 endif()
-option(SRTB_ENABLE_ROCM "option to enable ROCM backend" ${SRTB_ROCM_BACKEND_REQUIREMENT_MET})
+option(SRTB_ENABLE_ROCM "option to enable ROCm backend" ${SRTB_ROCM_BACKEND_REQUIREMENT_MET})
 message("SRTB_ENABLE_ROCM=${SRTB_ENABLE_ROCM}")
 if(SRTB_ENABLE_ROCM AND NOT DEFINED SRTB_ROCM_ARCH)
     message(FATAL_ERROR "ROCm backend enabled, but compiling for ROCm/HIP backend requires SRTB_ROCM_ARCH, e.g. gfx906")
@@ -87,7 +87,7 @@ set(CMAKE_CXX_STANDARD 20)
 
 # add extra warnings
 ## known SYCL implementations are gcc compatible
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pedantic-errors -ansi -Wextra -Wall -Winit-self -Wold-style-cast -Woverloaded-virtual -Wuninitialized -Wmissing-declarations -Winit-self")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pedantic -pedantic-errors -Wextra -Wall -Winit-self -Wold-style-cast -Woverloaded-virtual -Wuninitialized -Wmissing-declarations -Winit-self")
 
 # dependency
 set(THREADS_PREFER_PTHREAD_FLAG ON)
@@ -111,6 +111,7 @@ function(srtb_add_dependency target_name)
 
     # add dependency
     target_link_libraries(${target_name} PUBLIC fftw3_threads fftw3 Threads::Threads) # TODO maybe findFFTW
+    target_link_libraries(${target_name} PUBLIC stdc++ m)  # TODO: this shouldn't be needed
     if(SRTB_ENABLE_CUDA)
         # https://cmake.org/cmake/help/latest/module/FindCUDAToolkit.html
         target_link_libraries(${target_name} PUBLIC CUDA::cudart CUDA::cufft)
