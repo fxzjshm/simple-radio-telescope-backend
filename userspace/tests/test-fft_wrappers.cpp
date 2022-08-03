@@ -61,7 +61,7 @@ int main(int argc, char** argv) {
   SRTB_LOGD << " [test fft wrappers] "
             << "n = " << n << ", "
             << "fft_1d_r2c_input_size = "
-            << srtb::fft::default_fft_1d_r2c_input_size() << std::endl;
+            << srtb::fft::default_fft_1d_r2c_input_size() << srtb::endl;
   SRTB_CHECK_TEST_FFT_WRAPPERS(srtb::fft::default_fft_1d_r2c_input_size() == n);
 
   std::vector<sycl::device> devices = sycl::device::get_devices();
@@ -89,9 +89,9 @@ int main(int argc, char** argv) {
                   << "size = 2^" << bit << ", time = " << run_time.count()
                   << "ns, device name = " << '\"'
                   << device.get_info<sycl::info::device::name>() << '\"'
-                  << std::endl;
+                  << srtb::endl;
         if (i == test_count - 1) {
-          std::cerr << bit << " " << run_time.count() << std::endl;
+          std::cerr << bit << " " << run_time.count() << srtb::endl;
         }
       }
     }

@@ -20,7 +20,7 @@
 #include <type_traits>
 
 #include "srtb/config.hpp"
-#include "srtb/logger.hpp"
+#include "srtb/log/log.hpp"
 
 namespace srtb {
 namespace memory {
@@ -77,7 +77,7 @@ class cached_allocator {
 
       SRTB_LOGI << " [cached allocator] "
                 << "allocated new memory of size "
-                << ptr_size * sizeof(value_type) << " bytes" << std::endl;
+                << ptr_size * sizeof(value_type) << " bytes" << srtb::endl;
     } else {
       // found. notice the real ptr size may be larger than requested n
       auto pair = *iter;
@@ -87,7 +87,7 @@ class cached_allocator {
 
       SRTB_LOGD << " [cached allocator] "
                 << "cached allocation of memory of size "
-                << ptr_size * sizeof(value_type) << std::endl;
+                << ptr_size * sizeof(value_type) << srtb::endl;
     }
 
     used_ptrs.insert(std::make_pair(ptr, ptr_size));
@@ -128,7 +128,7 @@ class cached_allocator {
           SRTB_LOGE << " [cached_allocator] "
                     << "double free of ptr (size "
                     << ptr_size * sizeof(value_type) << ") detected!"
-                    << std::endl;
+                    << srtb::endl;
           return;
         }
       }
@@ -141,7 +141,7 @@ class cached_allocator {
     free_ptrs.insert(std::make_pair(ptr_size, ptr));
     SRTB_LOGD << " [cached allocator] "
               << "take back memory of size " << ptr_size * sizeof(value_type)
-              << " bytes" << std::endl;
+              << " bytes" << srtb::endl;
   }
 
   template <typename U = value_type,
@@ -159,7 +159,7 @@ class cached_allocator {
       allocator.deallocate(ptr, ptr_size);
       SRTB_LOGD << " [cached allocator] "
                 << "deallocate memory of size " << ptr_size * sizeof(value_type)
-                << " bytes" << std::endl;
+                << " bytes" << srtb::endl;
     }
     free_ptrs.clear();
   }
@@ -172,7 +172,7 @@ class cached_allocator {
     // TODO: should used_ptrs be cleared?
     if (used_ptrs.size() > 0) {
       SRTB_LOGW << " [cached allocator] " << used_ptrs.size()
-                << " pointer(s) still in use!" << std::endl;
+                << " pointer(s) still in use!" << srtb::endl;
     }
   }
 

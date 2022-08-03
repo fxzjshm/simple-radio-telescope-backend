@@ -42,7 +42,7 @@ int main() {
   SRTB_LOGI << " [test-udp_receiver] "
             << "nsamp_reserved = " << nsamps_reserved << ", "
             << "baseband_input_length = " << srtb::config.baseband_input_length
-            << std::endl;
+            << srtb::endl;
 
   // set up receiver
   srtb::pipeline::udp_receiver_pipe udp_receiver_pipe;
@@ -87,14 +87,14 @@ int main() {
       server_socket.send_to(boost::asio::buffer(temp_buffer), ep1);
       SRTB_LOGD << " [test-udp_receiver] "
                 << "sent data length = " << send_data_size << ", "
-                << " counter = " << counter << std::endl;
+                << " counter = " << counter << srtb::endl;
       counter++;
       sent_data_size += send_data_size;
     }
     SRTB_CHECK_TEST_UDP_RECEIVER(sent_data_size == data_size);
   }
   SRTB_LOGI << " [test-udp_receiver] "
-            << "data sent" << std::endl;
+            << "data sent" << srtb::endl;
 
   // wait to be processed
   // https://stackoverflow.com/a/51850018/5269168
@@ -152,7 +152,7 @@ int main() {
     }
     index -= nsamps_reserved;
     SRTB_LOGD << " [test-udp_receiver] "
-              << "one segment checked." << std::endl;
+              << "one segment checked." << srtb::endl;
   }
   SRTB_CHECK_TEST_UDP_RECEIVER(counter == n_segments);
 

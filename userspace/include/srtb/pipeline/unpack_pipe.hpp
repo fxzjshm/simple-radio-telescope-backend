@@ -51,7 +51,7 @@ class unpack_pipe : public pipe<unpack_pipe> {
     if (out_count != window_functor_manager.functor.n) [[unlikely]] {
       SRTB_LOGW << " [unpack pipe] "
                 << "re-construct fft_window_functor_manager of size "
-                << out_count << std::endl;
+                << out_count << srtb::endl;
       window_functor_manager = srtb::fft::fft_window_functor_manager{
           srtb::fft::default_window{}, out_count, q};
     }

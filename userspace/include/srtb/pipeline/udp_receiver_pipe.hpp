@@ -69,14 +69,14 @@ class udp_receiver_pipe : public pipe<udp_receiver_pipe> {
     size_t nsamps_reserved = srtb::codd::nsamps_reserved();
     worker.consume(baseband_input_length - nsamps_reserved);
     SRTB_LOGD << " [udp receiver pipe] "
-              << "reserved " << nsamps_reserved << " samples" << std::endl;
+              << "reserved " << nsamps_reserved << " samples" << srtb::endl;
 
     auto time_after_push = std::chrono::system_clock::now();
     auto push_work_time = std::chrono::duration_cast<std::chrono::microseconds>(
                               time_after_push - time_before_push)
                               .count();
     SRTB_LOGD << " [udp receiver pipe] "
-              << "push work time = " << push_work_time << " us" << std::endl;
+              << "push work time = " << push_work_time << " us" << srtb::endl;
   }
 };
 

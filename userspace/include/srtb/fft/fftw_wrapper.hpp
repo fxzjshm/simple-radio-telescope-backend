@@ -31,7 +31,7 @@ inline void load_fftw_wisdom() {
       srtb::config.fft_fftw_wisdom_path.c_str());
   if (ret == 0) [[unlikely]] {
     SRTB_LOGW << " [fftw_wrapper] "
-              << "load fftw wisdom failed!" << std::endl;
+              << "load fftw wisdom failed!" << srtb::endl;
   }
 }
 
@@ -40,7 +40,7 @@ inline void save_fftw_wisdom() {
       fftw_export_wisdom_to_filename(srtb::config.fft_fftw_wisdom_path.c_str());
   if (ret == 0) [[unlikely]] {
     SRTB_LOGW << " [fftw_wrapper] "
-              << "save fftw wisdom failed!" << std::endl;
+              << "save fftw wisdom failed!" << srtb::endl;
   }
 }
 
@@ -54,7 +54,7 @@ inline void init_fftw() {
     }
     int n_threads = std::max(std::thread::hardware_concurrency(), 1u);
     SRTB_LOGD << " [init_fftw] "
-              << "n_threads = " << n_threads << std::endl;
+              << "n_threads = " << n_threads << srtb::endl;
     fftw_plan_with_nthreads(n_threads);
     load_fftw_wisdom();
     inited_fftw = true;

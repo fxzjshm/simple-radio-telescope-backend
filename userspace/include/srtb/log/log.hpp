@@ -11,20 +11,24 @@
  ******************************************************************************/
 
 #pragma once
-#ifndef __SRTB_LOGGER__
-#define __SRTB_LOGGER__
+#ifndef __SRTB_LOG__
+#define __SRTB_LOG__
 
 #include <iostream>
 #include <syncstream>
 
 #include "srtb/global_variables.hpp"
+#include "srtb/log/sync_ostream_wrapper.hpp"
 
 // reference: hipSYCL logger at hipSYCL/common/debug.hpp
 #define SRTB_LOG(level)                                  \
   if (static_cast<int>(level) <= srtb::config.log_level) \
-  std::osyncstream{std::cout} << srtb::log::get_log_prefix(level)
+  srtb::log::sync_stream_wrapper{std::cout} << srtb::log::get_log_prefix(level)
 
 namespace srtb {
+
+inline constexpr auto endl = '\n';
+
 namespace log {
 
 enum class levels : int {
@@ -59,4 +63,4 @@ inline constexpr auto get_log_prefix(const log::levels level) {
 #define SRTB_LOGI SRTB_LOG(srtb::log::levels::INFO)
 #define SRTB_LOGD SRTB_LOG(srtb::log::levels::DEBUG)
 
-#endif  // __SRTB_LOGGER__
+#endif  // __SRTB_LOG__

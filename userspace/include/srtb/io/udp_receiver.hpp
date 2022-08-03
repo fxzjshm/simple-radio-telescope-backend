@@ -108,7 +108,7 @@ class udp_receiver_worker {
         SRTB_LOGW << " [udp receiver worker] "
                   << "data loss detected: skipping "
                   << (received_counter - last_counter - 1) << " packets."
-                  << std::endl;
+                  << srtb::endl;
       }
       last_counter = received_counter;
 
@@ -122,7 +122,7 @@ class udp_receiver_worker {
 
       SRTB_LOGD << " [udp receiver worker] "
                 << "received data length = " << data_len << ", "
-                << " counter = " << received_counter << std::endl;
+                << " counter = " << received_counter << srtb::endl;
     }
 
     auto time_after_receive = std::chrono::system_clock::now();
@@ -130,7 +130,7 @@ class udp_receiver_worker {
                             time_after_receive - time_before_receive)
                             .count();
     SRTB_LOGD << " [udp receiver worker] "
-              << "recevice time = " << receive_time << " us." << std::endl;
+              << "recevice time = " << receive_time << " us." << srtb::endl;
 
     return data_buffer.data();
   }

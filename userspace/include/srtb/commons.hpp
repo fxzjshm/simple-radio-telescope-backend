@@ -57,6 +57,6 @@ inline constexpr auto abs(const C& c) -> T {
 // ------ dividing line for clang-format ------
 
 #include "srtb/global_variables.hpp"
-#include "srtb/logger.hpp"
+#include "srtb/log/log.hpp"
 
 #endif  // __SRTB_COMMONS__

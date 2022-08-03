@@ -20,14 +20,14 @@
     if (!ret) [[unlikely]] {                                                 \
       SRTB_LOGE << tag                                                       \
                 << " Pushing " #work " to " #work_queue " failed! Retrying." \
-                << std::endl;                                                \
+                << srtb::endl;                                               \
       while (!ret) {                                                         \
         std::this_thread::yield(); /* TODO: spin lock here? */               \
         ret = work_queue.push(work);                                         \
       }                                                                      \
-      SRTB_LOGI << tag << " Pushed " #work " to " #work_queue << std::endl;  \
+      SRTB_LOGI << tag << " Pushed " #work " to " #work_queue << srtb::endl; \
     } else [[likely]] {                                                      \
-      SRTB_LOGD << tag << " Pushed " #work " to " #work_queue << std::endl;  \
+      SRTB_LOGD << tag << " Pushed " #work " to " #work_queue << srtb::endl; \
     }                                                                        \
   }
 
@@ -37,14 +37,14 @@
     if (!ret) [[unlikely]] {                                                   \
       SRTB_LOGE << tag                                                         \
                 << " Popping " #work " from " #work_queue " failed! Retrying." \
-                << std::endl;                                                  \
+                << srtb::endl;                                                 \
       while (!ret) {                                                           \
         std::this_thread::yield(); /* TODO: spin lock here? */                 \
         ret = work_queue.pop(work);                                            \
       }                                                                        \
-      SRTB_LOGI << tag << " Popped " #work " from " #work_queue << std::endl;  \
+      SRTB_LOGI << tag << " Popped " #work " from " #work_queue << srtb::endl; \
     } else [[likely]] {                                                        \
-      SRTB_LOGD << tag << " Popped " #work " from " #work_queue << std::endl;  \
+      SRTB_LOGD << tag << " Popped " #work " from " #work_queue << srtb::endl; \
     }                                                                          \
   }
 
