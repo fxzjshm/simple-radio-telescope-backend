@@ -50,7 +50,11 @@ class udp_receiver_pipe : public pipe<udp_receiver_pipe> {
   void run_once_impl() {
     // this config should persist during one work push
     size_t baseband_input_length = srtb::config.baseband_input_length;
+    SRTB_LOGD << " [udp receiver pipe] "
+              << "start receiving" << srtb::endl;
     auto buffer = worker.receive(/* required_length = */ baseband_input_length);
+    SRTB_LOGD << " [udp receiver pipe] "
+              << "receive finished" << srtb::endl;
 
     auto time_before_push = std::chrono::system_clock::now();
 

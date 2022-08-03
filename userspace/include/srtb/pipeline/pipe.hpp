@@ -52,7 +52,8 @@ class pipe {
    * @return std::jthread the thread running on.
    */
   std::jthread start() {
-    std::jthread jthread{&pipe<Derived>::run, this};
+    std::jthread jthread{
+        [this](std::stop_token stop_token) { run(stop_token); }};
     jthread.detach();
     return jthread;
   }
@@ -60,7 +61,7 @@ class pipe {
   /**
    * @brief Run on this thread. May block this thread.
    */
-  void run(std::stop_token stop_token = std::stop_token{}) {
+  void run(std::stop_token stop_token) {
     // enable this code if some info isn't ready on construction but when start()/run() is called.
     //sub().setup_impl();
     while ((!stop_token.stop_possible()) ||
@@ -77,6 +78,7 @@ class pipe {
   pipe() {
     q = sycl::queue{srtb::queue.get_context(), srtb::queue.get_device()};
   }
+
   /**
    * @brief Shortcut for CRTP.
    */
