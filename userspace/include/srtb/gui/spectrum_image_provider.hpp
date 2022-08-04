@@ -52,7 +52,9 @@ class SpectrumImageProvider : public QObject, public QQuickImageProvider {
 
   void update_pixmap() {
     srtb::work::draw_spectrum_work draw_spectrum_work;
+    SRTB_LOGD << " [SpectrumImageProvider] " << " updating pixmap" << srtb::endl;
     while (srtb::draw_spectrum_queue.pop(draw_spectrum_work) != false) {
+      SRTB_LOGD << " [SpectrumImageProvider] " << " drawing pixmap" << srtb::endl;
       // draw
       _pixmap.scroll(/* dx = */ 0, /* dy = */ 1, /* x = */ 0, /* y = */ 0,
                      width, height);
@@ -74,7 +76,7 @@ class SpectrumImageProvider : public QObject, public QQuickImageProvider {
                         const QSize& requestedSize) override {
     update_pixmap();
 
-    (void)id;
+    SRTB_LOGD << " [SpectrumImageProvider] " << " requestPixmap called with id " << id.toStdString() << srtb::endl;
     if (size) {
       *size = QSize(width, height);
     }

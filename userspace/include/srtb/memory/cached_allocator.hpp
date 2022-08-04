@@ -45,7 +45,7 @@ class cached_allocator {
   template <typename... Args>
   explicit cached_allocator(Args... args) : allocator(args...) {
     p_mutex = std::make_shared<std::mutex>();
-  };
+  }
 
   [[nodiscard]] pointer allocate(size_type n) {
     std::lock_guard lock{*p_mutex};

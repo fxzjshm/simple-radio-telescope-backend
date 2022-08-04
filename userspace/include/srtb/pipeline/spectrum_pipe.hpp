@@ -44,7 +44,9 @@ class simplify_spectrum_pipe : public pipe<simplify_spectrum_pipe> {
         srtb::host_allocator.allocate_shared<srtb::real>(out_count);
     auto h_out = h_out_shared.get();
 
+    SRTB_LOGD << " [simplify spectrum pipe] " << " start simplifying" << srtb::endl;
     srtb::spectrum::simplify_spectrum(d_in, in_count, h_out, out_count, q);
+    SRTB_LOGD << " [simplify spectrum pipe] " << " finished simplifying" << srtb::endl;
 
     srtb::work::draw_spectrum_work draw_spectrum_work{h_out_shared, out_count};
     SRTB_PUSH_WORK(" [simplify spectrum pipe] ", srtb::draw_spectrum_queue,

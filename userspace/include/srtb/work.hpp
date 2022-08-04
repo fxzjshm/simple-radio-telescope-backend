@@ -18,7 +18,7 @@
   {                                                                          \
     bool ret = work_queue.push(work);                                        \
     if (!ret) [[unlikely]] {                                                 \
-      SRTB_LOGE << tag                                                       \
+      SRTB_LOGW << tag                                                       \
                 << " Pushing " #work " to " #work_queue " failed! Retrying." \
                 << srtb::endl;                                               \
       while (!ret) {                                                         \
@@ -35,7 +35,7 @@
   {                                                                            \
     bool ret = work_queue.pop(work);                                           \
     if (!ret) [[unlikely]] {                                                   \
-      SRTB_LOGE << tag                                                         \
+      SRTB_LOGW << tag                                                         \
                 << " Popping " #work " from " #work_queue " failed! Retrying." \
                 << srtb::endl;                                                 \
       while (!ret) {                                                           \
