@@ -43,12 +43,12 @@
 namespace srtb {
 
 template <typename T = srtb::real, typename C = srtb::complex<T> >
-inline constexpr auto norm(const C& c) -> T {
+inline constexpr auto norm(const C& c) noexcept -> T {
   return c.real() * c.real() + c.imag() * c.imag();
 }
 
 template <typename T = srtb::real, typename C = srtb::complex<T> >
-inline constexpr auto abs(const C& c) -> T {
+inline constexpr auto abs(const C& c) noexcept -> T {
   return sycl::sqrt(srtb::norm(c));
 }
 
