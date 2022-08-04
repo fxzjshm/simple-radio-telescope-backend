@@ -71,7 +71,12 @@ class udp_receiver_pipe : public pipe<udp_receiver_pipe> {
 
     // reserved some samples for next round
     size_t nsamps_reserved = srtb::codd::nsamps_reserved();
-    worker.consume(baseband_input_length - nsamps_reserved);
+    
+    if (nsamps_reserved < baseband_input_length) {
+      worker.consume(baseband_input_length - nsamps_reserved);
+    } else {
+      SRTB_LOGW << " [udp receiver pipe] " << "baseband_input_length = " << baseband_input_length << " >= nsamps_reserved = " << nsamps_reserved << srtb::endl; 
+    }
     SRTB_LOGD << " [udp receiver pipe] "
               << "reserved " << nsamps_reserved << " samples" << srtb::endl;
 
