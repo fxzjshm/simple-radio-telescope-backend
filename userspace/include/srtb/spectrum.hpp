@@ -24,19 +24,17 @@ inline constexpr srtb::real eps = 1e-5;
 /**
  * @brief average the norm of input complex numbers
  */
-template <typename T = srtb::real, typename DeviceMemoryAccessor = T*,
-          typename HostMemoryAccessor = T*>
-void simplify_spectrum(DeviceMemoryAccessor d_in, size_t in_count,
-                       HostMemoryAccessor h_out, size_t out_count,
-                       sycl::queue& q = srtb::queue) {
+template <typename T = srtb::real, typename C = srtb::complex<srtb::real>,
+          typename DeviceInputAccessor = C*, typename DeviceOutputAccessor = T*>
+void simplify_spectrum_norm_and_sum(DeviceInputAccessor d_in, size_t in_count,
+                                    DeviceOutputAccessor d_sum,
+                                    size_t out_count,
+                                    sycl::queue& q = srtb::queue) {
   const srtb::real in_count_real = static_cast<srtb::real>(in_count);
   const srtb::real out_count_real = static_cast<srtb::real>(out_count);
   // count of in data point that average into one out data point
   const srtb::real coverage = in_count_real / out_count_real;
 
-  auto d_out_shared =
-      srtb::device_allocator.allocate_shared<srtb::real>(out_count);
-  auto d_out = d_out_shared.get();
   q.parallel_for(sycl::range<1>{out_count}, [=](sycl::item<1> id) {
      const size_t i = id.get_id(0);
      srtb::real sum = 0;
@@ -66,24 +64,27 @@ void simplify_spectrum(DeviceMemoryAccessor d_in, size_t in_count,
        SRTB_ASSERT_IN_KERNEL(right_left < in_count);
        sum += (right_accurate - right_left) * srtb::norm(d_in[right_left]);
      }
-     d_out[i] = sum;
+     d_sum[i] += sum;
    }).wait();
+}
 
+template <typename T = srtb::real, typename C = srtb::complex<srtb::real>,
+          typename DeviceInputAccessor = T*, typename HostOutputAccessor = T*>
+void simplify_spectrum_normalize(DeviceInputAccessor d_in, size_t in_count,
+                                 sycl::queue& q = srtb::queue) {
   auto d_max_val_shared = srtb::device_allocator.allocate_shared<srtb::real>(1);
   auto d_max_val = d_max_val_shared.get();
   q.submit([&](sycl::handler& cgh) {
      auto max_reduction =
          sycl::reduction(d_max_val, sycl::maximum<srtb::real>{});
      cgh.parallel_for(
-         sycl::range<1>{out_count}, max_reduction,
-         [=](sycl::id<1> id, auto& max) { max.combine(d_out[id]); });
+         sycl::range<1>{in_count}, max_reduction,
+         [=](sycl::id<1> id, auto& max) { max.combine(d_in[id]); });
    }).wait();
-  q.parallel_for(sycl::range<1>{out_count}, [=](sycl::item<1> id) {
+  q.parallel_for(sycl::range<1>{in_count}, [=](sycl::item<1> id) {
      const size_t i = id.get_id(0);
-     d_out[i] /= (*d_max_val);
+     d_in[i] /= (*d_max_val);
    }).wait();
-
-  q.copy(d_out, /* -> */ h_out, out_count).wait();
 }
 }  // namespace spectrum
 }  // namespace srtb

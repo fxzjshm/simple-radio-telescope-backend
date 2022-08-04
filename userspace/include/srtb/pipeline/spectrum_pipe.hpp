@@ -32,22 +32,33 @@ class simplify_spectrum_pipe : public pipe<simplify_spectrum_pipe> {
 
  protected:
   void run_once_impl() {
-    srtb::work::simplify_spectrum_work simplify_spectrum_work;
-    SRTB_POP_WORK(" [simplify spectrum pipe] ", srtb::simplify_spectrum_queue,
-                  simplify_spectrum_work);
-    const size_t in_count = simplify_spectrum_work.count;
+    const auto sum_count = srtb::config.simplify_spectrum_sum_count;
     const size_t out_count = srtb::gui::spectrum::width;
-
-    auto d_in_shared = simplify_spectrum_work.ptr;
-    auto d_in = d_in_shared.get();
+    auto d_sum_shared =
+        srtb::device_allocator.allocate_shared<srtb::real>(out_count);
+    auto d_sum = d_sum_shared.get();
+    q.fill<srtb::real>(d_sum, srtb::real{0}, out_count).wait();
     auto h_out_shared =
         srtb::host_allocator.allocate_shared<srtb::real>(out_count);
     auto h_out = h_out_shared.get();
 
-    SRTB_LOGD << " [simplify spectrum pipe] " << " start simplifying" << srtb::endl;
-    srtb::spectrum::simplify_spectrum(d_in, in_count, h_out, out_count, q);
-    SRTB_LOGD << " [simplify spectrum pipe] " << " finished simplifying" << srtb::endl;
+    SRTB_LOGD << " [simplify spectrum pipe] "
+              << " start simplifying" << srtb::endl;
+    srtb::work::simplify_spectrum_work simplify_spectrum_work;
+    for (size_t i = 0; i < sum_count; i++) {
+      SRTB_POP_WORK(" [simplify spectrum pipe] ", srtb::simplify_spectrum_queue,
+                    simplify_spectrum_work);
+      const size_t in_count = simplify_spectrum_work.count;
+      auto d_in_shared = simplify_spectrum_work.ptr;
+      auto d_in = d_in_shared.get();
+      srtb::spectrum::simplify_spectrum_norm_and_sum(d_in, in_count, d_sum,
+                                                     out_count, q);
+    }
+    srtb::spectrum::simplify_spectrum_normalize(d_sum, out_count, q);
+    SRTB_LOGD << " [simplify spectrum pipe] "
+              << " finished simplifying" << srtb::endl;
 
+    q.copy(d_sum, /* -> */ h_out, out_count).wait();
     srtb::work::draw_spectrum_work draw_spectrum_work{h_out_shared, out_count};
     SRTB_PUSH_WORK(" [simplify spectrum pipe] ", srtb::draw_spectrum_queue,
                    draw_spectrum_work);

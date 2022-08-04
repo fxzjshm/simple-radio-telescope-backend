@@ -128,6 +128,8 @@ struct configs {
   /* srtb::log::levels */ int log_level = /* srtb::log::levels::DEBUG */ 4;
 
   std::string fft_fftw_wisdom_path = "srtb_fftw_wisdom.txt";
+
+  size_t simplify_spectrum_sum_count = 1000;
 };
 
 }  // namespace srtb
