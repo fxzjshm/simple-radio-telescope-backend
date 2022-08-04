@@ -17,6 +17,8 @@
 // Qt related
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
+#include <QQmlComponent>
+#include <QQuickWindow>
 
 #include "srtb/gui/spectrum_image_provider.hpp"
 
@@ -32,16 +34,46 @@ int show_gui(int argc, char **argv) {
   QGuiApplication app(argc, argv);
 
   QQmlApplicationEngine engine;
+  QPointer spectrum_image_provider_ptr =
+      new srtb::gui::spectrum::SpectrumImageProvider{};
   engine.addImageProvider(QLatin1String("spectrum-image-provider"),
-                          new srtb::gui::spectrum::SpectrumImageProvider{});
+                          spectrum_image_provider_ptr);
   const QUrl url(QStringLiteral("qrc:/main.qml"));
   QObject::connect(
       &engine, &QQmlApplicationEngine::objectCreated, &app,
-      [url](QObject *obj, const QUrl &objUrl) {
-        if (!obj && url == objUrl) QCoreApplication::exit(-1);
+      [url, spectrum_image_provider_ptr](QObject *obj, const QUrl &objUrl) {
+        SRTB_LOGD << " [gui] " << objUrl.toString().toStdString() << srtb::endl;
+        if (url == objUrl) {
+          if (!obj) [[unlikely]] {
+            SRTB_LOGE << " [gui] "
+                      << "load main window failed!" << srtb::endl;
+            QCoreApplication::exit(-1);
+          } else {
+            // connect signal to slot
+            // TODO: is this a proper way in Qt?
+            QObject::connect(
+                reinterpret_cast<QQuickWindow *>(obj),
+                &QQuickWindow::beforeRendering, spectrum_image_provider_ptr,
+                &srtb::gui::spectrum::SpectrumImageProvider::update_pixmap);
+
+            QObject::connect(
+                reinterpret_cast<QQuickWindow *>(obj),
+                &QQuickWindow::beforeRendering, spectrum_image_provider_ptr,
+                [=]() {
+                  if (spectrum_image_provider_ptr) [[likely]] {
+                    spectrum_image_provider_ptr->trigger_update(obj);
+                  }
+                });
+          }
+        }
       },
       Qt::QueuedConnection);
   engine.load(url);
+
+  //  QQmlComponent component{&engine, "qrc:/main.qml"};
+  //  QObject* object = component.create();
+  //  TriggerUpdateThread trigger_update_thread{object};
+  //  trigger_update_thread.start();
 
   return app.exec();
 }

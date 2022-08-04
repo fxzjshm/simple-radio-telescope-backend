@@ -21,6 +21,7 @@
 #include <QObject>
 #include <QPainter>
 #include <QQuickImageProvider>
+#include <QThread>
 
 namespace srtb {
 namespace gui {
@@ -42,6 +43,10 @@ inline QColor color = Qt::cyan;
 class SpectrumImageProvider : public QObject, public QQuickImageProvider {
   Q_OBJECT
 
+ private:
+  QPixmap _pixmap;
+  int spectrum_update_counter = 0;
+
  public:
   explicit SpectrumImageProvider(QObject* parent = nullptr)
       : QObject{parent},
@@ -50,11 +55,14 @@ class SpectrumImageProvider : public QObject, public QQuickImageProvider {
     _pixmap.fill(color);
   }
 
+ public slots:
   void update_pixmap() {
     srtb::work::draw_spectrum_work draw_spectrum_work;
-    SRTB_LOGD << " [SpectrumImageProvider] " << " updating pixmap" << srtb::endl;
+    SRTB_LOGD << " [SpectrumImageProvider] "
+              << "updating pixmap" << srtb::endl;
     while (srtb::draw_spectrum_queue.pop(draw_spectrum_work) != false) {
-      SRTB_LOGD << " [SpectrumImageProvider] " << " drawing pixmap" << srtb::endl;
+      SRTB_LOGD << " [SpectrumImageProvider] "
+                << "drawing pixmap" << srtb::endl;
       // draw
       _pixmap.scroll(/* dx = */ 0, /* dy = */ 1, /* x = */ 0, /* y = */ 0,
                      width, height);
@@ -72,11 +80,24 @@ class SpectrumImageProvider : public QObject, public QQuickImageProvider {
     }
   }
 
+ public:
+  // ref: https://stackoverflow.com/questions/45755655/how-to-correctly-use-qt-qml-image-provider
+  void trigger_update(QObject* object) {
+    // object should be main window
+    QMetaObject::invokeMethod(object, "update_spectrum",
+                              Q_ARG(QVariant, spectrum_update_counter));
+    spectrum_update_counter++;
+    SRTB_LOGD << " [SpectrumImageProvider] "
+              << "trigger update, spectrum_update_counter = "
+              << spectrum_update_counter << srtb::endl;
+    //QThread::sleep(1.0/srtb::config.gui_fps);
+  }
+
   QPixmap requestPixmap(const QString& id, QSize* size,
                         const QSize& requestedSize) override {
-    update_pixmap();
-
-    SRTB_LOGD << " [SpectrumImageProvider] " << " requestPixmap called with id " << id.toStdString() << srtb::endl;
+    SRTB_LOGD << " [SpectrumImageProvider] "
+              << "requestPixmap called with id " << id.toStdString()
+              << srtb::endl;
     if (size) {
       *size = QSize(width, height);
     }
@@ -85,12 +106,32 @@ class SpectrumImageProvider : public QObject, public QQuickImageProvider {
         requestedSize.height() > 0 ? requestedSize.height() : height);
     return pixmap_scaled;
   }
-
- private:
-  QPixmap _pixmap;
 };
 
 }  // namespace spectrum
+
+class TriggerUpdateThread : public QThread {
+  Q_OBJECT
+
+ private:
+  QObject* _object;
+  int spectrum_update_counter = 0;
+
+ public:
+  TriggerUpdateThread(QObject* object)
+      : _object{object}, spectrum_update_counter{0} {}
+
+  virtual void run() {
+    QMetaObject::invokeMethod(_object, "update_spectrum",
+                              Q_ARG(QVariant, spectrum_update_counter));
+    spectrum_update_counter++;
+    SRTB_LOGD << " [TriggerUpdateThread] "
+              << "spectrum_update_counter = " << spectrum_update_counter
+              << srtb::endl;
+    //QThread::sleep(1.0/srtb::config.gui_fps);
+  }
+};
+
 }  // namespace gui
 }  // namespace srtb
 
