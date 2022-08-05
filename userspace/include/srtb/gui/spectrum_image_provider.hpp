@@ -52,7 +52,7 @@ class SpectrumImageProvider : public QObject, public QQuickImageProvider {
       : QObject{parent},
         QQuickImageProvider{QQuickImageProvider::Pixmap},
         _pixmap{width, height} {
-    _pixmap.fill(color);
+    //_pixmap.fill(color);
   }
 
  public slots:
@@ -60,24 +60,30 @@ class SpectrumImageProvider : public QObject, public QQuickImageProvider {
     srtb::work::draw_spectrum_work draw_spectrum_work;
     SRTB_LOGD << " [SpectrumImageProvider] "
               << "updating pixmap" << srtb::endl;
+    size_t update_count = 0;
     while (srtb::draw_spectrum_queue.pop(draw_spectrum_work) != false) {
-      SRTB_LOGD << " [SpectrumImageProvider] "
-                << "drawing pixmap" << srtb::endl;
-      // draw
+      // draw new line of fft data at top of waterfall bitmap  -- from Gqrx
       _pixmap.scroll(/* dx = */ 0, /* dy = */ 1, /* x = */ 0, /* y = */ 0,
                      width, height);
       auto ptr = draw_spectrum_work.ptr;
       size_t len =
           sycl::min(draw_spectrum_work.count, static_cast<size_t>(width));
+      SRTB_LOGD << " [SpectrumImageProvider] "
+                << "drawing pixmap, len = " << len << srtb::endl;
       QPainter painter{&_pixmap};
-      // draw new line of fft data at top of waterfall bitmap  -- from Gqrx
       for (size_t i = 0; i < len; i++) {
-        QColor local_color = color;
-        local_color.setAlphaF(static_cast<qreal>(ptr.get()[i]));
-        painter.setPen(color);
+        qreal h, s, v, a;
+        color.getHsvF(&h, &s, &v, &a);
+        //SRTB_LOGD << " [SpectrumImageProvider] " << "ptr[" << i << "] = " << ptr.get()[i] << srtb::endl;
+        v *= static_cast<qreal>(ptr.get()[i]);
+        QColor local_color = QColor::fromHsvF(h, s, v, a);
+        painter.setPen(local_color);
         painter.drawPoint(i, 0);
       }
+      update_count++;
     }
+    SRTB_LOGD << " [SpectrumImageProvider] "
+              << "updated pixmap, count = " << update_count << srtb::endl;
   }
 
  public:

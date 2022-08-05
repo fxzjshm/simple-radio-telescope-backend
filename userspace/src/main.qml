@@ -3,14 +3,16 @@ import QtQuick.Window 2.2
 
 Window {
     id: main_window
-    width: 640
-    height: 480
+    width: Screen.width * 0.8
+    height: Screen.height * 0.8
     visible: true
     title: qsTr("Hello World")
 
     Image {
         id: spectrum_image
         cache: false
+        width: parent.width
+        height: parent.height
         source: "image://spectrum-image-provider/spectrum"
     }
 

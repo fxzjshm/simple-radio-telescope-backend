@@ -19,6 +19,7 @@
 #include <QQmlApplicationEngine>
 #include <QQmlComponent>
 #include <QQuickWindow>
+#include <QPointer>
 
 #include "srtb/gui/spectrum_image_provider.hpp"
 
@@ -27,7 +28,7 @@ namespace gui {
 
 // QML related things in src/main.qml, which is treated as a .cpp file.
 
-int show_gui(int argc, char **argv) {
+inline int show_gui(int argc, char **argv) {
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
   QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
 #endif

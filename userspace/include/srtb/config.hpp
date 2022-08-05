@@ -103,7 +103,7 @@ struct configs {
    * @brief Target dispersion measurement for coherent dedispersion
    * TODO: DM search list for unknown source
    */
-  srtb::real dm = 375;
+  srtb::real dm = 0;
 
   /**
     * @brief Buffer size of socket for receving udp packet.
@@ -129,7 +129,16 @@ struct configs {
 
   std::string fft_fftw_wisdom_path = "srtb_fftw_wisdom.txt";
 
-  size_t simplify_spectrum_sum_count = 1000;
+  /**
+   * @brief sum some spectrum before drawing, to reduce CPU side pressure
+   */
+  size_t simplify_spectrum_sum_count = 1;
+
+  /**
+   * @brief cut some RFI-like signal on the lowerest and higherest side of spectrum
+   * TODO: replace by RFI cut out pipe
+   */
+  srtb::real spectrum_mask_ratio = 0.01;
 };
 
 }  // namespace srtb

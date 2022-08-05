@@ -51,6 +51,13 @@ class simplify_spectrum_pipe : public pipe<simplify_spectrum_pipe> {
       const size_t in_count = simplify_spectrum_work.count;
       auto d_in_shared = simplify_spectrum_work.ptr;
       auto d_in = d_in_shared.get();
+      size_t mask_count = in_count * srtb::config.spectrum_mask_ratio;
+      q.parallel_for(sycl::range<1>{mask_count}, [=](sycl::item<1> id){
+        const auto i = id.get_id(0);
+        const auto zero = srtb::complex<srtb::real>{srtb::real{0}, srtb::real{0}};
+        d_in[i] = zero;
+        d_in[in_count - i] = zero;
+      }).wait();
       srtb::spectrum::simplify_spectrum_norm_and_sum(d_in, in_count, d_sum,
                                                      out_count, q);
     }
