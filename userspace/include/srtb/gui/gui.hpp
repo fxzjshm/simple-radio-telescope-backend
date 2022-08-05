@@ -16,10 +16,10 @@
 
 // Qt related
 #include <QGuiApplication>
+#include <QPointer>
 #include <QQmlApplicationEngine>
 #include <QQmlComponent>
 #include <QQuickWindow>
-#include <QPointer>
 
 #include "srtb/gui/spectrum_image_provider.hpp"
 
