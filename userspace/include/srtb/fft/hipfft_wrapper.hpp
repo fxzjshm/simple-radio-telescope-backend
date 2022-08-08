@@ -87,7 +87,7 @@ class hipfft_1d_r2c_wrapper_abstract
 #elif defined(__HIPSYCL__)
     // ref: https://github.com/illuhad/hipSYCL/issues/722
     hipfftResult ret = HIPFFT_SUCCESS;
-    q.submit([&](sycl::handler& cgh) {
+    queue.submit([&](sycl::handler& cgh) {
        cgh.hipSYCL_enqueue_custom_operation([&](sycl::interop_handle& h) {
          stream = h.get_native_queue<sycl::backend::hip>();
          ret = hipfftSetStream(plan, stream);
