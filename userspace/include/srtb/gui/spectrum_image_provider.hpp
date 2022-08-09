@@ -58,8 +58,6 @@ class SpectrumImageProvider : public QObject, public QQuickImageProvider {
  public slots:
   void update_pixmap() {
     srtb::work::draw_spectrum_work draw_spectrum_work;
-    SRTB_LOGD << " [SpectrumImageProvider] "
-              << "updating pixmap" << srtb::endl;
     size_t update_count = 0;
     while (srtb::draw_spectrum_queue.pop(draw_spectrum_work) != false) {
       // draw new line of fft data at top of waterfall bitmap  -- from Gqrx
@@ -96,7 +94,6 @@ class SpectrumImageProvider : public QObject, public QQuickImageProvider {
     SRTB_LOGD << " [SpectrumImageProvider] "
               << "trigger update, spectrum_update_counter = "
               << spectrum_update_counter << srtb::endl;
-    //QThread::sleep(1.0/srtb::config.gui_fps);
   }
 
   QPixmap requestPixmap(const QString& id, QSize* size,
@@ -115,29 +112,6 @@ class SpectrumImageProvider : public QObject, public QQuickImageProvider {
 };
 
 }  // namespace spectrum
-
-class TriggerUpdateThread : public QThread {
-  Q_OBJECT
-
- private:
-  QObject* _object;
-  int spectrum_update_counter = 0;
-
- public:
-  TriggerUpdateThread(QObject* object)
-      : _object{object}, spectrum_update_counter{0} {}
-
-  virtual void run() {
-    QMetaObject::invokeMethod(_object, "update_spectrum",
-                              Q_ARG(QVariant, spectrum_update_counter));
-    spectrum_update_counter++;
-    SRTB_LOGD << " [TriggerUpdateThread] "
-              << "spectrum_update_counter = " << spectrum_update_counter
-              << srtb::endl;
-    //QThread::sleep(1.0/srtb::config.gui_fps);
-  }
-};
-
 }  // namespace gui
 }  // namespace srtb
 
