@@ -134,6 +134,12 @@ struct configs {
   std::string fft_fftw_wisdom_path = "srtb_fftw_wisdom.txt";
 
   /**
+   * @brief location to save fftwf (float32) wisdom
+   * @note TODO: change to char* if pure C ABI is needed.
+   */
+  std::string fft_fftwf_wisdom_path = "srtb_fftwf_wisdom.txt";
+
+  /**
    * @brief sum some spectrum before drawing, to reduce CPU side pressure
    */
   size_t simplify_spectrum_sum_count = 1;

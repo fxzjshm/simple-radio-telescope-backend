@@ -25,6 +25,9 @@
 namespace srtb {
 namespace fft {
 
+template <std::floating_point T, typename Complex = srtb::complex<T> >
+class fftw_1d_r2c_wrapper;
+
 /**
  * @brief This class inits fftw using RAII.
  * @c srtb::fft::global_fftw_initializer
@@ -72,13 +75,11 @@ class fftw_initializer {
 
 inline fftw_initializer global_fftw_initializer;
 
-template <std::floating_point T, typename Complex = srtb::complex<T> >
-class fftw_1d_r2c_wrapper;
-
 template <typename Complex>
 class fftw_1d_r2c_wrapper<double, Complex>
     : public fft_wrapper<fftw_1d_r2c_wrapper, double, Complex> {
   friend fft_wrapper<fftw_1d_r2c_wrapper, double, Complex>;
+  static_assert(sizeof(Complex) == sizeof(fftw_complex));
 
  protected:
   void create_impl(size_t n) {
@@ -105,9 +106,7 @@ class fftw_1d_r2c_wrapper<double, Complex>
     }
   }
 
-  void destroy_impl() {
-    fftw_destroy_plan(plan);
-  }
+  void destroy_impl() { fftw_destroy_plan(plan); }
 
   bool has_inited_impl() { return (plan != nullptr); }
 
@@ -122,6 +121,109 @@ class fftw_1d_r2c_wrapper<double, Complex>
 
  private:
   fftw_plan plan;
+};
+
+}  // namespace fft
+}  // namespace srtb
+
+// ------------------------------------------------
+
+namespace srtb {
+namespace fft {
+
+/**
+ * @brief This class inits fftwf using RAII.
+ * @c srtb::fft::global_fftwf_initializer
+ */
+class fftwf_initializer {
+ public:
+  fftwf_initializer() { init_fftwf(); }
+
+  ~fftwf_initializer() { deinit_fftwf(); }
+
+ protected:
+  inline void load_fftwf_wisdom() {
+    fftwf_import_system_wisdom();
+    int ret = fftwf_import_wisdom_from_filename(
+        srtb::config.fft_fftwf_wisdom_path.c_str());
+    if (ret == 0) [[unlikely]] {
+      SRTB_LOGW << " [fftwf_wrapper] "
+                << "load fftwf wisdom failed!" << srtb::endl;
+    }
+  }
+
+  inline void save_fftwf_wisdom() {
+    int ret = fftwf_export_wisdom_to_filename(
+        srtb::config.fft_fftwf_wisdom_path.c_str());
+    if (ret == 0) [[unlikely]] {
+      SRTB_LOGW << " [fftwf_wrapper] "
+                << "save fftwf wisdom failed!" << srtb::endl;
+    }
+  }
+
+  inline void init_fftwf() {
+    int ret = fftwf_init_threads();
+    if (ret == 0) [[unlikely]] {
+      throw std::runtime_error("[fft] init fftwf failed!");
+    }
+    int n_threads = std::max(std::thread::hardware_concurrency(), 1u);
+    SRTB_LOGD << " [init_fftwf] "
+              << "n_threads = " << n_threads << srtb::endl;
+    fftwf_plan_with_nthreads(n_threads);
+    load_fftwf_wisdom();
+  }
+
+  inline void deinit_fftwf() { save_fftwf_wisdom(); }
+};
+
+inline fftwf_initializer global_fftwf_initializer;
+
+template <typename Complex>
+class fftw_1d_r2c_wrapper<float, Complex>
+    : public fft_wrapper<fftw_1d_r2c_wrapper, float, Complex> {
+  friend fft_wrapper<fftw_1d_r2c_wrapper, float, Complex>;
+  static_assert(sizeof(Complex) == sizeof(fftwf_complex));
+
+ protected:
+  void create_impl(size_t n) {
+    auto tmp_in = srtb::device_allocator.allocate_shared<float>(n);
+    auto tmp_out = srtb::device_allocator.allocate_shared<Complex>(n / 2 + 1);
+
+    // should be equivalent to this
+    /*
+    plan = fftwf_plan_dft_r2c_1d(static_cast<int>(n), tmp_in.get(),
+                               reinterpret_cast<fftwf_complex*>(tmp_out.get()),
+                               FFTW_PATIENT |  FFTW_DESTROY_INPUT);
+    */
+
+    fftwf_iodim64 dims{.n = static_cast<ptrdiff_t>(n), .is = 1, .os = 1};
+    fftwf_iodim64 howmany_dims{.n = 1, .is = 1, .os = 1};
+    plan = fftwf_plan_guru64_dft_r2c(
+        /* rank = */ 1, &dims,
+        /* howmany_rank = */ 1, &howmany_dims,
+        /* in = */ tmp_in.get(),
+        /* out = */ reinterpret_cast<fftwf_complex*>(tmp_out.get()),
+        /* flags = */ FFTW_ESTIMATE | FFTW_DESTROY_INPUT);
+    if (plan == nullptr) [[unlikely]] {
+      throw std::runtime_error("[fftwf_wrapper] fftwf_plan create failed!");
+    }
+  }
+
+  void destroy_impl() { fftwf_destroy_plan(plan); }
+
+  bool has_inited_impl() { return (plan != nullptr); }
+
+  void process_impl(float* in, Complex* out) {
+    fftwf_execute_dft_r2c(plan, in, reinterpret_cast<fftwf_complex*>(out));
+  }
+
+  void set_queue_impl(sycl::queue& queue) {
+    // fftwf runs on CPU, so no need to set a queue
+    (void)queue;
+  }
+
+ private:
+  fftwf_plan plan;
 };
 
 }  // namespace fft

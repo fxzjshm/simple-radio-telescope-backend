@@ -110,7 +110,7 @@ function(srtb_add_dependency target_name)
     endif()
 
     # add dependency
-    target_link_libraries(${target_name} PUBLIC fftw3_threads fftw3 Threads::Threads) # TODO maybe findFFTW
+    target_link_libraries(${target_name} PUBLIC fftw3_threads fftw3 fftw3f_threads fftw3f Threads::Threads) # TODO maybe findFFTW
     target_link_libraries(${target_name} PUBLIC stdc++ m)  # TODO: this shouldn't be needed
     if(SRTB_ENABLE_CUDA)
         # https://cmake.org/cmake/help/latest/module/FindCUDAToolkit.html
