@@ -33,6 +33,7 @@ int main() {
   srtb::config.udp_receiver_sender_address = address;
   srtb::config.udp_receiver_sender_port = port;
   srtb::config.log_level = static_cast<int>(srtb::log::levels::DEBUG);
+  srtb::config.dm = 375;
   size_t nsamps_reserved = srtb::codd::nsamps_reserved();
   srtb::config.baseband_input_length = nsamps_reserved * 4;  // arbitrary
   size_t data_size = nsamps_reserved * 128;                  // arbitrary
