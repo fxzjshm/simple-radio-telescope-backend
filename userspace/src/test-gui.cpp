@@ -27,7 +27,9 @@ void start_gui_test() {
           srtb::host_allocator.allocate_shared<srtb::real>(in_size);
       auto h_in = h_in_shared.get();
       std::generate(h_in, h_in + in_size, []() {
-        return static_cast<srtb::real>(std::rand()) / INT_MAX;
+        // cannot be narrowed using initializion list
+        return static_cast<srtb::real>(std::rand()) /
+               static_cast<srtb::real>(INT_MAX);
       });
       srtb::work::draw_spectrum_work draw_spectrum_work{h_in_shared, in_size};
       SRTB_PUSH_WORK(" [gui_test] ", srtb::draw_spectrum_queue,

@@ -72,8 +72,8 @@ void tiny_test() {
 
     // test using another definition
     {
-      srtb::fft::window::cosine_sum_window<2> another_hamming_window{0.54,
-                                                                     0.46};
+      srtb::fft::window::cosine_sum_window<2> another_hamming_window{
+          srtb::real{0.54}, srtb::real{0.46}};
       srtb::fft::fft_window_functor_manager<srtb::real>
           another_hamming_window_functor_manager{another_hamming_window, n, q};
       srtb::fft::fft_window_functor hamming_window_functor =

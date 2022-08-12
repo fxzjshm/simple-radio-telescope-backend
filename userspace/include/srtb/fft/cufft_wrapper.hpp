@@ -92,12 +92,14 @@ class cufft_1d_r2c_wrapper_abstract
 #elif defined(__HIPSYCL__)
     // ref: https://github.com/illuhad/hipSYCL/issues/722
     cufftResult ret = CUFFT_SUCCESS;
-    queue.submit([&](sycl::handler& cgh) {
-       cgh.hipSYCL_enqueue_custom_operation([&](sycl::interop_handle& h) {
-         stream = h.get_native_queue<sycl::backend::cuda>();
-         ret = cufftSetStream(plan, stream);
-       });
-     }).wait();
+    queue
+        .submit([&](sycl::handler& cgh) {
+          cgh.hipSYCL_enqueue_custom_operation([&](sycl::interop_handle& h) {
+            stream = h.get_native_queue<sycl::backend::cuda>();
+            ret = cufftSetStream(plan, stream);
+          });
+        })
+        .wait();
     if (ret != CUFFT_SUCCESS) [[unlikely]] {
       throw std::runtime_error("[cufft_wrapper] cufftSetStream returned " +
                                std::to_string(ret));
@@ -119,6 +121,8 @@ template <typename Complex>
 class cufft_1d_r2c_wrapper<float, Complex>
     : public cufft_1d_r2c_wrapper_abstract<float, Complex> {
   friend fft_wrapper<cufft_1d_r2c_wrapper, float, Complex>;
+  static_assert(std::is_same_v<float, cufftReal>);
+  static_assert(sizeof(Complex) == sizeof(cufftComplex));
 
  protected:
   void create_impl(size_t n) { (*this).create_abstract(n, CUFFT_R2C); }
@@ -134,6 +138,8 @@ template <typename Complex>
 class cufft_1d_r2c_wrapper<double, Complex>
     : public cufft_1d_r2c_wrapper_abstract<double, Complex> {
   friend fft_wrapper<cufft_1d_r2c_wrapper, double, Complex>;
+  static_assert(std::is_same_v<double, cufftDoubleReal>);
+  static_assert(sizeof(Complex) == sizeof(cufftDoubleComplex));
 
  protected:
   void create_impl(size_t n) { (*this).create_abstract(n, CUFFT_D2Z); }

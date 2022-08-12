@@ -33,7 +33,8 @@ namespace srtb {
 // ------ Compile time configuration ------
 
 // TODO: maybe float on GPU?
-typedef double real;
+using real = double;
+
 #ifdef SYCL_IMPLEMENTATION_ONEAPI
 template <typename T>
 using complex = sycl::ext::oneapi::experimental::complex<T>;
