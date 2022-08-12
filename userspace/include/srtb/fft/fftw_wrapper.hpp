@@ -25,29 +25,37 @@
 namespace srtb {
 namespace fft {
 
-inline void load_fftw_wisdom() {
-  fftw_import_system_wisdom();
-  int ret = fftw_import_wisdom_from_filename(
-      srtb::config.fft_fftw_wisdom_path.c_str());
-  if (ret == 0) [[unlikely]] {
-    SRTB_LOGW << " [fftw_wrapper] "
-              << "load fftw wisdom failed!" << srtb::endl;
+/**
+ * @brief This class inits fftw using RAII.
+ * @c srtb::fft::global_fftw_initializer
+ */
+class fftw_initializer {
+ public:
+  fftw_initializer() { init_fftw(); }
+
+  ~fftw_initializer() { deinit_fftw(); }
+
+ protected:
+  inline void load_fftw_wisdom() {
+    fftw_import_system_wisdom();
+    int ret = fftw_import_wisdom_from_filename(
+        srtb::config.fft_fftw_wisdom_path.c_str());
+    if (ret == 0) [[unlikely]] {
+      SRTB_LOGW << " [fftw_wrapper] "
+                << "load fftw wisdom failed!" << srtb::endl;
+    }
   }
-}
 
-inline void save_fftw_wisdom() {
-  int ret =
-      fftw_export_wisdom_to_filename(srtb::config.fft_fftw_wisdom_path.c_str());
-  if (ret == 0) [[unlikely]] {
-    SRTB_LOGW << " [fftw_wrapper] "
-              << "save fftw wisdom failed!" << srtb::endl;
+  inline void save_fftw_wisdom() {
+    int ret = fftw_export_wisdom_to_filename(
+        srtb::config.fft_fftw_wisdom_path.c_str());
+    if (ret == 0) [[unlikely]] {
+      SRTB_LOGW << " [fftw_wrapper] "
+                << "save fftw wisdom failed!" << srtb::endl;
+    }
   }
-}
 
-inline bool inited_fftw = false;
-
-inline void init_fftw() {
-  if (!inited_fftw) {
+  inline void init_fftw() {
     int ret = fftw_init_threads();
     if (ret == 0) [[unlikely]] {
       throw std::runtime_error("[fft] init fftw failed!");
@@ -57,11 +65,12 @@ inline void init_fftw() {
               << "n_threads = " << n_threads << srtb::endl;
     fftw_plan_with_nthreads(n_threads);
     load_fftw_wisdom();
-    inited_fftw = true;
   }
-}
 
-// TODO: enable multi thread
+  inline void deinit_fftw() { save_fftw_wisdom(); }
+};
+
+inline fftw_initializer global_fftw_initializer;
 
 template <std::floating_point T, typename Complex = srtb::complex<T> >
 class fftw_1d_r2c_wrapper;
@@ -73,8 +82,6 @@ class fftw_1d_r2c_wrapper<double, Complex>
 
  protected:
   void create_impl(size_t n) {
-    srtb::fft::init_fftw();
-
     auto tmp_in = srtb::device_allocator.allocate_shared<double>(n);
     auto tmp_out = srtb::device_allocator.allocate_shared<Complex>(n / 2 + 1);
 
@@ -99,7 +106,6 @@ class fftw_1d_r2c_wrapper<double, Complex>
   }
 
   void destroy_impl() {
-    save_fftw_wisdom();
     fftw_destroy_plan(plan);
   }
 

@@ -127,6 +127,10 @@ struct configs {
     */
   /* srtb::log::levels */ int log_level = /* srtb::log::levels::DEBUG */ 4;
 
+  /**
+   * @brief location to save fftw wisdom
+   * @note TODO: change to char* if pure C ABI is needed.
+   */
   std::string fft_fftw_wisdom_path = "srtb_fftw_wisdom.txt";
 
   /**
