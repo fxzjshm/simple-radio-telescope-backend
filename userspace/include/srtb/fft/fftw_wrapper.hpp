@@ -25,8 +25,9 @@
 namespace srtb {
 namespace fft {
 
-template <std::floating_point T, typename Complex = srtb::complex<T> >
-class fftw_1d_r2c_wrapper;
+template <srtb::fft::type fft_type, std::floating_point T,
+          typename Complex = srtb::complex<T> >
+class fftw_1d_wrapper;
 
 /**
  * @brief This class inits fftw using RAII.
@@ -75,43 +76,64 @@ class fftw_initializer {
 
 inline fftw_initializer global_fftw_initializer;
 
-template <typename Complex>
-class fftw_1d_r2c_wrapper<double, Complex>
-    : public fft_wrapper<fftw_1d_r2c_wrapper, double, Complex> {
-  friend fft_wrapper<fftw_1d_r2c_wrapper, double, Complex>;
+template <srtb::fft::type fft_type, typename Complex>
+class fftw_1d_wrapper<fft_type, double, Complex>
+    : public fft_wrapper<fftw_1d_wrapper, fft_type, double, Complex> {
+ public:
+  using super_class = fft_wrapper<fftw_1d_wrapper, fft_type, double, Complex>;
+  friend super_class;
   static_assert(sizeof(Complex) == sizeof(fftw_complex));
 
+  fftw_1d_wrapper(size_t n, size_t batch_size) : super_class{n, batch_size} {}
+
  protected:
-  void create_impl(size_t n) {
-    auto tmp_in = srtb::device_allocator.allocate_shared<double>(n);
-    auto tmp_out = srtb::device_allocator.allocate_shared<Complex>(n / 2 + 1);
+  void create_impl(size_t n, size_t batch_size) {
+    const size_t n_real = n, n_complex = n / 2 + 1;
+    // 2 * (n / 2 + 1) >= n
+    auto tmp_in = srtb::device_allocator.allocate_shared<Complex>(n_complex);
+    auto tmp_out = srtb::device_allocator.allocate_shared<Complex>(n_complex);
+    plan = nullptr;
 
-    // should be equivalent to this
-    /*
-    plan = fftw_plan_dft_r2c_1d(static_cast<int>(n), tmp_in.get(),
-                               reinterpret_cast<fftw_complex*>(tmp_out.get()),
-                               FFTW_PATIENT |  FFTW_DESTROY_INPUT);
-    */
-
-    fftw_iodim64 dims{.n = static_cast<ptrdiff_t>(n), .is = 1, .os = 1};
-    fftw_iodim64 howmany_dims{.n = 1, .is = 1, .os = 1};
-    plan = fftw_plan_guru64_dft_r2c(
-        /* rank = */ 1, &dims,
-        /* howmany_rank = */ 1, &howmany_dims,
-        /* in = */ tmp_in.get(),
-        /* out = */ reinterpret_cast<fftw_complex*>(tmp_out.get()),
-        /* flags = */ FFTW_ESTIMATE | FFTW_DESTROY_INPUT);
+    if constexpr (fft_type == srtb::fft::type::R2C_1D) {
+      // should be equivalent to this
+      /*
+      plan = fftw_plan_dft_r2c_1d(static_cast<int>(n), tmp_in.get(),
+                                 reinterpret_cast<fftw_complex*>(tmp_out.get()),
+                                 FFTW_PATIENT |  FFTW_DESTROY_INPUT);
+      */
+      double* in = reinterpret_cast<double*>(tmp_in.get());
+      fftw_complex* out = reinterpret_cast<fftw_complex*>(tmp_out.get());
+      fftw_iodim64 dims{.n = static_cast<ptrdiff_t>(n_real), .is = 1, .os = 1};
+      fftw_iodim64 howmany_dims{.n = static_cast<ptrdiff_t>(batch_size),
+                                .is = static_cast<ptrdiff_t>(n_real),
+                                .os = static_cast<ptrdiff_t>(n_complex)};
+      plan = fftw_plan_guru64_dft_r2c(
+          /* rank = */ 1, &dims,
+          /* howmany_rank = */ 1, &howmany_dims,
+          /* in = */ in,
+          /* out = */ out,
+          /* flags = */ FFTW_ESTIMATE | FFTW_DESTROY_INPUT);
+    } else {
+      throw std::runtime_error("[fftw_wrapper] TODO");
+    }
     if (plan == nullptr) [[unlikely]] {
       throw std::runtime_error("[fftw_wrapper] fftw_plan create failed!");
     }
   }
 
-  void destroy_impl() { fftw_destroy_plan(plan); }
+  void destroy_impl() {
+    fftw_destroy_plan(plan);
+    plan = nullptr;
+  }
 
   bool has_inited_impl() { return (plan != nullptr); }
 
   void process_impl(double* in, Complex* out) {
-    fftw_execute_dft_r2c(plan, in, reinterpret_cast<fftw_complex*>(out));
+    if constexpr (fft_type == srtb::fft::type::R2C_1D) {
+      fftw_execute_dft_r2c(plan, in, reinterpret_cast<fftw_complex*>(out));
+    } else {
+      throw std::runtime_error("[fftw_wrapper] TODO");
+    }
   }
 
   void set_queue_impl(sycl::queue& queue) {
@@ -178,43 +200,64 @@ class fftwf_initializer {
 
 inline fftwf_initializer global_fftwf_initializer;
 
-template <typename Complex>
-class fftw_1d_r2c_wrapper<float, Complex>
-    : public fft_wrapper<fftw_1d_r2c_wrapper, float, Complex> {
-  friend fft_wrapper<fftw_1d_r2c_wrapper, float, Complex>;
+template <srtb::fft::type fft_type, typename Complex>
+class fftw_1d_wrapper<fft_type, float, Complex>
+    : public fft_wrapper<fftw_1d_wrapper, fft_type, float, Complex> {
+ public:
+  using super_class = fft_wrapper<fftw_1d_wrapper, fft_type, float, Complex>;
+  friend super_class;
   static_assert(sizeof(Complex) == sizeof(fftwf_complex));
 
+  fftw_1d_wrapper(size_t n, size_t batch_size) : super_class{n, batch_size} {}
+
  protected:
-  void create_impl(size_t n) {
-    auto tmp_in = srtb::device_allocator.allocate_shared<float>(n);
-    auto tmp_out = srtb::device_allocator.allocate_shared<Complex>(n / 2 + 1);
+  void create_impl(size_t n, size_t batch_size) {
+    const size_t n_real = n, n_complex = n / 2 + 1;
+    // 2 * (n / 2 + 1) >= n
+    auto tmp_in = srtb::device_allocator.allocate_shared<Complex>(n_complex);
+    auto tmp_out = srtb::device_allocator.allocate_shared<Complex>(n_complex);
+    plan = nullptr;
 
-    // should be equivalent to this
-    /*
-    plan = fftwf_plan_dft_r2c_1d(static_cast<int>(n), tmp_in.get(),
-                               reinterpret_cast<fftwf_complex*>(tmp_out.get()),
-                               FFTW_PATIENT |  FFTW_DESTROY_INPUT);
-    */
-
-    fftwf_iodim64 dims{.n = static_cast<ptrdiff_t>(n), .is = 1, .os = 1};
-    fftwf_iodim64 howmany_dims{.n = 1, .is = 1, .os = 1};
-    plan = fftwf_plan_guru64_dft_r2c(
-        /* rank = */ 1, &dims,
-        /* howmany_rank = */ 1, &howmany_dims,
-        /* in = */ tmp_in.get(),
-        /* out = */ reinterpret_cast<fftwf_complex*>(tmp_out.get()),
-        /* flags = */ FFTW_ESTIMATE | FFTW_DESTROY_INPUT);
+    if constexpr (fft_type == srtb::fft::type::R2C_1D) {
+      // should be equivalent to this
+      /*
+      plan = fftwf_plan_dft_r2c_1d(static_cast<int>(n), tmp_in.get(),
+                                 reinterpret_cast<fftwf_complex*>(tmp_out.get()),
+                                 FFTW_PATIENT |  FFTW_DESTROY_INPUT);
+      */
+      float* in = reinterpret_cast<float*>(tmp_in.get());
+      fftwf_complex* out = reinterpret_cast<fftwf_complex*>(tmp_out.get());
+      fftwf_iodim64 dims{.n = static_cast<ptrdiff_t>(n_real), .is = 1, .os = 1};
+      fftwf_iodim64 howmany_dims{.n = static_cast<ptrdiff_t>(batch_size),
+                                 .is = static_cast<ptrdiff_t>(n_real),
+                                 .os = static_cast<ptrdiff_t>(n_complex)};
+      plan = fftwf_plan_guru64_dft_r2c(
+          /* rank = */ 1, &dims,
+          /* howmany_rank = */ 1, &howmany_dims,
+          /* in = */ in,
+          /* out = */ out,
+          /* flags = */ FFTW_ESTIMATE | FFTW_DESTROY_INPUT);
+    } else {
+      throw std::runtime_error("[fftwf_wrapper] TODO");
+    }
     if (plan == nullptr) [[unlikely]] {
       throw std::runtime_error("[fftwf_wrapper] fftwf_plan create failed!");
     }
   }
 
-  void destroy_impl() { fftwf_destroy_plan(plan); }
+  void destroy_impl() {
+    fftwf_destroy_plan(plan);
+    plan = nullptr;
+  }
 
   bool has_inited_impl() { return (plan != nullptr); }
 
   void process_impl(float* in, Complex* out) {
-    fftwf_execute_dft_r2c(plan, in, reinterpret_cast<fftwf_complex*>(out));
+    if constexpr (fft_type == srtb::fft::type::R2C_1D) {
+      fftwf_execute_dft_r2c(plan, in, reinterpret_cast<fftwf_complex*>(out));
+    } else {
+      throw std::runtime_error("[fftwf_wrapper] TODO");
+    }
   }
 
   void set_queue_impl(sycl::queue& queue) {

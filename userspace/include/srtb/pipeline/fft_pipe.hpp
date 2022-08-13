@@ -27,10 +27,15 @@ namespace pipeline {
 class fft_1d_r2c_pipe : public pipe<fft_1d_r2c_pipe> {
   friend pipe<fft_1d_r2c_pipe>;
 
+ protected:
+  srtb::fft::fft_1d_dispatcher<srtb::fft::type::R2C_1D> dispatcher;
+
  public:
-  fft_1d_r2c_pipe() {
-    srtb::fft::init_1d_r2c(srtb::fft::default_fft_1d_r2c_input_size(), q);
-  }
+  fft_1d_r2c_pipe()
+      : dispatcher{/* n = */
+                   srtb::config.baseband_input_length * srtb::BITS_PER_BYTE /
+                       srtb::config.baseband_input_bits,
+                   /* batch_size = */ 1, q} {}
 
  protected:
   void run_once_impl() {
@@ -40,14 +45,15 @@ class fft_1d_r2c_pipe : public pipe<fft_1d_r2c_pipe> {
     const size_t in_count = fft_1d_r2c_work.count;
     const size_t out_count = in_count / 2 + 1;
     // reset FFT plan if mismatch
-    if (srtb::fft::get_size_1d_r2c() != in_count) [[unlikely]] {
-      srtb::fft::init_1d_r2c(in_count, q);
+    if (dispatcher.get_n() != in_count || dispatcher.get_batch_size() != 1)
+        [[unlikely]] {
+      dispatcher.set_size(in_count, 1);
     }
     auto d_in_shared = fft_1d_r2c_work.ptr;
     auto d_out_shared =
         srtb::device_allocator.allocate_shared<srtb::complex<srtb::real> >(
             out_count);
-    srtb::fft::dispatch_1d_r2c(d_in_shared.get(), d_out_shared.get());
+    dispatcher.process(d_in_shared.get(), d_out_shared.get());
     // TODO: next pipe
     // temporary work: spectrum analyzer
     srtb::work::simplify_spectrum_work simplify_spectrum_work{d_out_shared,

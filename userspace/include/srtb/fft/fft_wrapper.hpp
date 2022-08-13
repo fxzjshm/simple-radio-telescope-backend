@@ -22,57 +22,48 @@
 namespace srtb {
 namespace fft {
 
-inline size_t default_fft_1d_r2c_input_size() {
-  return srtb::config.baseband_input_length * srtb::BITS_PER_BYTE /
-         srtb::config.baseband_input_bits;
-}
+enum class type {
+  C2C_1D_FORWARD,
+  C2C_1D_BACKWARD,
+  R2C_1D,
+  R2C_1D_FORWARD = R2C_1D,
+  C2R_1D,
+  C2R_1D_BACKWARD = C2R_1D
+};
 
 /**
  * @brief Abstract interface of backend-specific FFTs. Should be called within one thread.
  * 
- * @tparam T Data type
  * @tparam Derived CRTP requirement.
+ * @tparam fft_type type of FFT, see @c srtb::fft::type
+ * @tparam T Data type
  * @tparam C Complex type of T, default to srtb::complex<T>
  */
-template <template <typename, typename> class Derived, std::floating_point T,
+template <template <srtb::fft::type, typename, typename> class Derived,
+          srtb::fft::type fft_type, std::floating_point T,
           typename C = srtb::complex<T> >
 class fft_wrapper {
  public:
-  using sub_class = Derived<T, C>;
   static_assert(sizeof(T) * 2 == sizeof(C));
+  using sub_class = Derived<fft_type, T, C>;
+  friend sub_class;
 
  protected:
   /**
-   * @brief corresponded FFT length
+   * @brief corresponded length of one FFT operation
    */
   size_t n;
-
- public:
-  fft_wrapper(size_t n_ = default_fft_1d_r2c_input_size()) { create(n_); }
-
-  ~fft_wrapper() { destroy(); }
+  /**
+   * @brief total data count = n * batch_size
+   */
+  size_t batch_size;
 
   sub_class& sub() { return static_cast<sub_class&>(*this); }
 
-  friend sub_class;
-
-  bool has_inited() { return sub().has_inited_impl(); }
-
-  void process(T* in, C* out) { sub().process_impl(in, out); }
-
-  void update_config() {
-    sub().destroy_impl();
-    sub().create_impl();
-  }
-
-  void set_queue(sycl::queue& queue) { sub().set_queue_impl(queue); }
-
-  void create(size_t n_) {
-    if (has_inited()) [[unlikely]] {
-      sub().destroy_impl();
-    }
-    sub().create_impl(n_);
+  void create(size_t n_, size_t batch_size_) {
+    sub().create_impl(n_, batch_size_);
     n = n_;
+    batch_size = batch_size_;
   }
 
   void destroy() {
@@ -81,11 +72,37 @@ class fft_wrapper {
     }
   }
 
-  size_t get_size() { return n; }
+ public:
+  fft_wrapper(size_t n_, size_t batch_size_ = 1) { create(n_, batch_size_); }
 
-  void set_size(size_t n_) {
-    if (n != n_) [[likely]] {
-      create(n_);
+  ~fft_wrapper() { destroy(); }
+
+  bool has_inited() { return sub().has_inited_impl(); }
+
+  void process(T* in, C* out) { sub().process_impl(in, out); }
+
+  void reset() {
+    sub().destroy_impl();
+    sub().create_impl();
+  }
+
+  void set_queue(sycl::queue& queue) { sub().set_queue_impl(queue); }
+
+  size_t get_n() const { return n; }
+
+  size_t get_batch_size() const { return batch_size; }
+
+  size_t get_total_size() const { return n * batch_size; }
+
+  /**
+   * @brief Re-construct the plan for FFT-operation of another size and batch_size
+   */
+  void set_size(size_t n_, size_t batch_size_ = 1) {
+    if (n != n_ || batch_size != batch_size_) [[likely]] {
+      if (has_inited()) [[likely]] {
+        destroy();
+      }
+      create(n_, batch_size_);
     }
   }
 };

@@ -15,6 +15,7 @@
 #define __SRTB_FFT__
 
 #include <exception>
+#include <optional>
 
 #include "srtb/config.hpp"
 #include "srtb/fft/fft_wrapper.hpp"
@@ -26,90 +27,105 @@
 #include "srtb/fft/hipfft_wrapper.hpp"
 #endif  // SRTB_ENABLE_ROCM_INTEROP
 
+#define SRTB_CHECK_FFT(expr)                                          \
+  SRTB_CHECK(expr, true, {                                            \
+    throw std::runtime_error{"[fft] " #expr " at " __FILE__ ":" +     \
+                             std::to_string(__LINE__) + " returns " + \
+                             std::to_string(ret)};                    \
+  })
+
 namespace srtb {
 namespace fft {
 
-/**
- * @brief Get the fftw 1d r2c wrapper object. 
- *        Static local variable is used so that it won't be initialized 
- *        if not used, thus incorrect device_allocator won't cause 
- *        segmentation fault, maybe...
- */
-template <typename T = srtb::real, typename C = srtb::complex<T> >
-inline fftw_1d_r2c_wrapper<T, C>& get_fftw_1d_r2c_wrapper() {
-  static fftw_1d_r2c_wrapper<T, C> fftw_1d_r2c_wrapper_instance;
-  return fftw_1d_r2c_wrapper_instance;
-}
-
+template <srtb::fft::type fft_type, typename T = srtb::real,
+          typename C = srtb::complex<T> >
+class fft_1d_dispatcher {
+ protected:
+  sycl::queue q;
 #ifdef SRTB_ENABLE_CUDA_INTEROP
-/**
- * @brief Get the cufft 1d r2c wrapper object. 
- */
-template <typename T = srtb::real, typename C = srtb::complex<T> >
-inline cufft_1d_r2c_wrapper<T, C>& get_cufft_1d_r2c_wrapper() {
-  static cufft_1d_r2c_wrapper<T, C> cufft_1d_r2c_wrapper_instance;
-  return cufft_1d_r2c_wrapper_instance;
-}
+  std::optional<cufft_1d_wrapper<fft_type, T, C> > cufft_1d_wrapper_instance;
 #endif  // SRTB_ENABLE_CUDA_INTEROP
-
 #ifdef SRTB_ENABLE_ROCM_INTEROP
-/**
- * @brief Get the hipfft 1d r2c wrapper object. 
- */
-template <typename T = srtb::real, typename C = srtb::complex<T> >
-inline hipfft_1d_r2c_wrapper<T, C>& get_hipfft_1d_r2c_wrapper() {
-  static hipfft_1d_r2c_wrapper<T, C> hipfft_1d_r2c_wrapper_instance;
-  return hipfft_1d_r2c_wrapper_instance;
-}
+  std::optional<hipfft_1d_wrapper<fft_type, T, C> > hipfft_1d_wrapper_instance;
 #endif  // SRTB_ENABLE_ROCM_INTEROP
+  std::optional<fftw_1d_wrapper<fft_type, T, C> > fftw_1d_wrapper_instance;
 
-#define SRTB_FFT_DISPATCH(queue, type, func, ...)               \
-  {                                                             \
-    auto device = queue.get_device();                           \
-    SRTB_IF_ENABLED_CUDA_INTEROP({                              \
-      if (device.get_backend() == srtb::backend::cuda) {        \
-        return get_cufft_##type##_wrapper().func(__VA_ARGS__);  \
-      }                                                         \
-    });                                                         \
-                                                                \
-    SRTB_IF_ENABLED_ROCM_INTEROP({                              \
-      if (device.get_backend() == srtb::backend::rocm) {        \
-        return get_hipfft_##type##_wrapper().func(__VA_ARGS__); \
-      }                                                         \
-    });                                                         \
-                                                                \
-    if (device.is_cpu() || device.is_host()) {                  \
-      return get_fftw_##type##_wrapper().func(__VA_ARGS__);     \
-    }                                                           \
-                                                                \
-    throw std::runtime_error{"[fft] dispatch_" #type ": TODO"}; \
+ public:
+  /**
+  * @brief Construct a new fft 1d dispatcher object
+  * @param n length of one FFT operation
+  * @param batch_size = howmany
+  * @param q_ the sycl queue that operaions will run on
+  * @note total_size := n * batch_size
+  */
+  fft_1d_dispatcher(size_t n, size_t batch_size = 1,
+                    const sycl::queue& q_ = srtb::queue)
+      : q{q_} {
+    auto device = queue.get_device();
+    SRTB_IF_ENABLED_CUDA_INTEROP({
+      if (device.get_backend() == srtb::backend::cuda) [[likely]] {
+        cufft_1d_wrapper_instance.emplace(n, batch_size);
+        SRTB_CHECK_FFT(cufft_1d_wrapper_instance.has_value());
+        cufft_1d_wrapper_instance.value().set_queue(q);
+        return;
+      }
+    });
+
+    SRTB_IF_ENABLED_ROCM_INTEROP({
+      if (device.get_backend() == srtb::backend::rocm) [[likely]] {
+        hipfft_1d_wrapper_instance.emplace(n, batch_size);
+        SRTB_CHECK_FFT(hipfft_1d_wrapper_instance.has_value());
+        hipfft_1d_wrapper_instance.value().set_queue(q);
+        return;
+      }
+    });
+
+    if (device.is_cpu() || device.is_host()) {
+      fftw_1d_wrapper_instance.emplace(n, batch_size);
+      SRTB_CHECK_FFT(fftw_1d_wrapper_instance.has_value());
+      fftw_1d_wrapper_instance.value().set_queue(q);
+      return;
+    }
+
+    throw std::runtime_error{"[fft_1d_dispatcher] constructor: TODO"};
   }
 
-template <typename T = srtb::real, typename C = srtb::complex<T> >
-inline void dispatch_1d_r2c(T* in, C* out, sycl::queue& queue = srtb::queue) {
-  SRTB_FFT_DISPATCH(queue, 1d_r2c, process, in, out);
-}
+#define SRTB_FFT_DISPATCH(func, ...)                                 \
+  {                                                                  \
+    SRTB_IF_ENABLED_CUDA_INTEROP({                                   \
+      if (cufft_1d_wrapper_instance.has_value()) [[likely]] {        \
+        return cufft_1d_wrapper_instance.value().func(__VA_ARGS__);  \
+      }                                                              \
+    });                                                              \
+                                                                     \
+    SRTB_IF_ENABLED_ROCM_INTEROP({                                   \
+      if (hipfft_1d_wrapper_instance.has_value()) [[likely]] {       \
+        return hipfft_1d_wrapper_instance.value().func(__VA_ARGS__); \
+      }                                                              \
+    });                                                              \
+                                                                     \
+    if (fftw_1d_wrapper_instance.has_value()) {                      \
+      return fftw_1d_wrapper_instance.value().func(__VA_ARGS__);     \
+    }                                                                \
+                                                                     \
+    throw std::runtime_error{"[fft_1d_dispatcher] " #func ": TODO"}; \
+  }
 
-inline size_t get_size_1d_r2c(sycl::queue& queue = srtb::queue) {
-  SRTB_FFT_DISPATCH(queue, 1d_r2c, get_size);
-}
+  template <typename InputIterator, typename OutputIterator>
+  void process(InputIterator in, OutputIterator out) {
+    SRTB_FFT_DISPATCH(process, in, out);
+  }
 
-inline void set_size_1d_r2c(size_t n) {
-  SRTB_FFT_DISPATCH(queue, 1d_r2c, set_size, n);
-}
+  void set_size(size_t n, size_t batch_size) {
+    SRTB_FFT_DISPATCH(set_size, n, batch_size);
+  }
 
-inline void set_queue_1d_r2c(sycl::queue& queue) {
-  SRTB_FFT_DISPATCH(queue, 1d_r2c, set_queue, queue);
-}
+  size_t get_n() const { SRTB_FFT_DISPATCH(get_n); }
 
-inline void init_1d_r2c(size_t n = default_fft_1d_r2c_input_size(),
-                        sycl::queue& queue = srtb::queue) {
-  set_size_1d_r2c(n);
-  // not only construct the object by accessing it, but also set queue to be used.
-  set_queue_1d_r2c(queue);
-}
+  size_t get_batch_size() const { SRTB_FFT_DISPATCH(get_batch_size); }
 
 #undef SRTB_FFT_DISPATCH
+};
 
 }  // namespace fft
 }  // namespace srtb

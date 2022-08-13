@@ -58,11 +58,14 @@ int main(int argc, char** argv) {
   size_t n = static_cast<size_t>(1) << bit;
   srtb::config.baseband_input_length =
       n * srtb::config.baseband_input_bits / srtb::BITS_PER_BYTE;
+  size_t fft_1d_r2c_input_size = srtb::config.baseband_input_length *
+                                 srtb::BITS_PER_BYTE /
+                                 srtb::config.baseband_input_bits;
   SRTB_LOGD << " [test fft wrappers] "
             << "n = " << n << ", "
-            << "fft_1d_r2c_input_size = "
-            << srtb::fft::default_fft_1d_r2c_input_size() << srtb::endl;
-  SRTB_CHECK_TEST_FFT_WRAPPERS(srtb::fft::default_fft_1d_r2c_input_size() == n);
+            << "fft_1d_r2c_input_size = " << fft_1d_r2c_input_size
+            << srtb::endl;
+  SRTB_CHECK_TEST_FFT_WRAPPERS(fft_1d_r2c_input_size == n);
 
   std::vector<sycl::device> devices = sycl::device::get_devices();
   for (auto device : devices) {
@@ -73,7 +76,8 @@ int main(int argc, char** argv) {
             srtb::memory::device_allocator<std::byte, srtb::MEMORY_ALIGNMENT> >{
             srtb::queue});
     {
-      srtb::fft::init_1d_r2c();
+      srtb::fft::fft_1d_dispatcher<srtb::fft::type::R2C_1D> dispatcher{
+          n, 1, srtb::queue};
       auto shared_in = srtb::device_allocator.allocate_shared<srtb::real>(n);
       auto shared_out =
           srtb::device_allocator.allocate_shared<srtb::complex<srtb::real> >(
@@ -82,7 +86,7 @@ int main(int argc, char** argv) {
       auto out = shared_out.get();
       for (int i = 0; i < test_count; i++) {
         auto start_time = std::chrono::system_clock::now();
-        srtb::fft::dispatch_1d_r2c(in, out);
+        dispatcher.process(in, out);
         auto end_time = std::chrono::system_clock::now();
         auto run_time = end_time - start_time;
         SRTB_LOGI << " [test fft wrappers] "
