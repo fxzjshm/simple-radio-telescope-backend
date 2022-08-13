@@ -88,6 +88,9 @@ set(CMAKE_CXX_STANDARD 20)
 # add extra warnings
 ## known SYCL implementations are gcc compatible
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pedantic -pedantic-errors -Wextra -Wall -Winit-self -Wold-style-cast -Woverloaded-virtual -Wuninitialized -Wmissing-declarations -Winit-self")
+## why CMAKE_BUILD_TYPE=Debug produces binary without debug info?
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g ")
+
 
 # dependency
 set(THREADS_PREFER_PTHREAD_FLAG ON)
