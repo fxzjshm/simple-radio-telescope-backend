@@ -35,16 +35,47 @@
 namespace srtb {
 namespace fft {
 
-template <std::floating_point T, typename Complex = srtb::complex<T> >
-class hipfft_1d_r2c_wrapper;
+template <std::floating_point T>
+constexpr inline hipfftType get_hipfft_type(srtb::fft::type fft_type) {
+  if constexpr (std::is_same_v<T, hipfftReal>) {
+    switch (fft_type) {
+      case srtb::fft::type::C2C_1D_FORWARD:
+      case srtb::fft::type::C2C_1D_BACKWARD:
+        return HIPFFT_C2C;
+      case srtb::fft::type::R2C_1D:
+        return HIPFFT_R2C;
+      case srtb::fft::type::C2R_1D:
+        return HIPFFT_C2R;
+    }
+  } else if constexpr (std::is_same_v<T, hipfftDoubleReal>) {
+    switch (fft_type) {
+      case srtb::fft::type::C2C_1D_FORWARD:
+      case srtb::fft::type::C2C_1D_BACKWARD:
+        return HIPFFT_Z2Z;
+      case srtb::fft::type::R2C_1D:
+        return HIPFFT_D2Z;
+      case srtb::fft::type::C2R_1D:
+        return HIPFFT_Z2D;
+    }
+  }
+}
 
-template <std::floating_point T, typename Complex = srtb::complex<T> >
-class hipfft_1d_r2c_wrapper_abstract
-    : public fft_wrapper<hipfft_1d_r2c_wrapper, T, Complex> {
-  friend fft_wrapper<hipfft_1d_r2c_wrapper, T, Complex>;
+template <srtb::fft::type fft_type, std::floating_point T,
+          typename Complex = srtb::complex<T> >
+class hipfft_1d_wrapper
+    : public fft_wrapper<hipfft_1d_wrapper, fft_type, T, Complex> {
+ public:
+  using super_class = fft_wrapper<hipfft_1d_wrapper, fft_type, T, Complex>;
+  friend super_class;
+  static_assert((std::is_same_v<T, hipfftReal> &&
+                 sizeof(Complex) == sizeof(hipfftComplex)) ||
+                (std::is_same_v<T, hipfftDoubleReal> &&
+                 sizeof(Complex) == sizeof(hipfftDoubleComplex)));
+
+  hipfft_1d_wrapper(size_t n, size_t batch_size) : super_class{n, batch_size} {}
 
  protected:
-  void create_abstract(size_t n, hipfftType hipfft_type) {
+  void create_impl(size_t n, size_t batch_size) {
     // should be equivalent to this
     /*
     plan = fftw_plan_dft_r2c_1d(static_cast<int>(n), tmp_in.get(),
@@ -55,25 +86,48 @@ class hipfft_1d_r2c_wrapper_abstract
     SRTB_CHECK_HIPFFT(hipfftCreate(&plan));
     //long long int n_ = static_cast<long long int>(n);
     //long long int inembed[1] = {n_}, onembed[1] = {n_ / 2 + 1};
-    SRTB_CHECK_HIPFFT(
-        hipfftMakePlan1d(plan, static_cast<int>(n), hipfft_type, 1, &workSize));
+    hipfftType hipfft_type = get_hipfft_type<T>(fft_type);
+    if constexpr (fft_type == srtb::fft::type::C2C_1D_FORWARD ||
+                  fft_type == srtb::fft::type::C2C_1D_BACKWARD ||
+                  fft_type == srtb::fft::type::R2C_1D) {
+      SRTB_CHECK_HIPFFT(hipfftMakePlan1d(plan, static_cast<int>(n), hipfft_type,
+                                         batch_size, &workSize));
 
-    // This returns HIPFFT_NOT_IMPLEMENTED.
-    //SRTB_CHECK_HIPFFT(hipfftMakePlanMany64(/* plan = */ plan,
-    //                                       /* rank = */ 1,
-    //                                       /* n = */ &n_,
-    //                                       /* inembed = */ inembed,
-    //                                       /* istride = */ 1,
-    //                                       /* idist = */ n_,
-    //                                       /* onembed = */ onembed,
-    //                                       /* ostride = */ 1,
-    //                                       /* odist = */ n_,
-    //                                       /* type = */ hipfft_type,
-    //                                       /* batch = */ 1,
-    //                                       /* worksize = */ &workSize));
+      // This returns HIPFFT_NOT_IMPLEMENTED.
+      //SRTB_CHECK_HIPFFT(hipfftMakePlanMany64(/* plan = */ plan,
+      //                                       /* rank = */ 1,
+      //                                       /* n = */ &n_,
+      //                                       /* inembed = */ inembed,
+      //                                       /* istride = */ 1,
+      //                                       /* idist = */ n_,
+      //                                       /* onembed = */ onembed,
+      //                                       /* ostride = */ 1,
+      //                                       /* odist = */ n_,
+      //                                       /* type = */ hipfft_type,
+      //                                       /* batch = */ 1,
+      //                                       /* worksize = */ &workSize));
+    } else {
+      throw std::runtime_error("[hipfft_wrapper] create_impl: TODO");
+    }
   }
 
   void destroy_impl() { SRTB_CHECK_HIPFFT(hipfftDestroy(plan)); }
+
+  typename std::enable_if<(fft_type == srtb::fft::type::R2C_1D), void>::type
+  process_impl(T* in, Complex* out) {
+    if constexpr (std::is_same_v<T, hipfftReal>) {
+      SRTB_CHECK_HIPFFT(hipfftExecR2C((*this).plan,
+                                      static_cast<hipfftReal*>(in),
+                                      reinterpret_cast<hipfftComplex*>(out)));
+    } else if constexpr (std::is_same_v<T, hipfftDoubleReal>) {
+      SRTB_CHECK_HIPFFT(
+          hipfftExecD2Z((*this).plan, static_cast<hipfftDoubleReal*>(in),
+                        reinterpret_cast<hipfftDoubleComplex*>(out)));
+    } else {
+      throw std::runtime_error("[hipfft_wrapper] process_impl: TODO");
+    }
+    (*this).flush();
+  }
 
   bool has_inited_impl() {
     // invalid plan causes segmentation fault, so not using plan to check here.
@@ -110,41 +164,6 @@ class hipfft_1d_r2c_wrapper_abstract
   hipfftHandle plan;
   size_t workSize;
   hipStream_t stream = nullptr;
-};
-
-template <typename Complex>
-class hipfft_1d_r2c_wrapper<float, Complex>
-    : public hipfft_1d_r2c_wrapper_abstract<float, Complex> {
-  friend fft_wrapper<hipfft_1d_r2c_wrapper, float, Complex>;
-  static_assert(std::is_same_v<float, hipfftReal>);
-  static_assert(sizeof(Complex) == sizeof(hipfftComplex));
-
- protected:
-  void create_impl(size_t n) { (*this).create_abstract(n, HIPFFT_R2C); }
-
-  void process_impl(float* in, Complex* out) {
-    SRTB_CHECK_HIPFFT(hipfftExecR2C((*this).plan, static_cast<hipfftReal*>(in),
-                                    reinterpret_cast<hipfftComplex*>(out)));
-    (*this).flush();
-  }
-};
-
-template <typename Complex>
-class hipfft_1d_r2c_wrapper<double, Complex>
-    : public hipfft_1d_r2c_wrapper_abstract<double, Complex> {
-  friend fft_wrapper<hipfft_1d_r2c_wrapper, double, Complex>;
-  static_assert(std::is_same_v<double, hipfftDoubleReal>);
-  static_assert(sizeof(Complex) == sizeof(hipfftDoubleComplex));
-
- protected:
-  void create_impl(size_t n) { (*this).create_abstract(n, HIPFFT_D2Z); }
-
-  void process_impl(double* in, Complex* out) {
-    SRTB_CHECK_HIPFFT(
-        hipfftExecD2Z((*this).plan, static_cast<hipfftDoubleReal*>(in),
-                      reinterpret_cast<hipfftDoubleComplex*>(out)));
-    (*this).flush();
-  }
 };
 
 }  // namespace fft

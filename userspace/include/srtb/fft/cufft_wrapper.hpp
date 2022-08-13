@@ -35,16 +35,47 @@
 namespace srtb {
 namespace fft {
 
-template <std::floating_point T, typename Complex = srtb::complex<T> >
-class cufft_1d_r2c_wrapper;
+template <std::floating_point T>
+constexpr inline cufftType get_cufft_type(srtb::fft::type fft_type) {
+  if constexpr (std::is_same_v<T, cufftReal>) {
+    switch (fft_type) {
+      case srtb::fft::type::C2C_1D_FORWARD:
+      case srtb::fft::type::C2C_1D_BACKWARD:
+        return CUFFT_C2C;
+      case srtb::fft::type::R2C_1D:
+        return CUFFT_R2C;
+      case srtb::fft::type::C2R_1D:
+        return CUFFT_C2R;
+    }
+  } else if constexpr (std::is_same_v<T, cufftDoubleReal>) {
+    switch (fft_type) {
+      case srtb::fft::type::C2C_1D_FORWARD:
+      case srtb::fft::type::C2C_1D_BACKWARD:
+        return CUFFT_Z2Z;
+      case srtb::fft::type::R2C_1D:
+        return CUFFT_D2Z;
+      case srtb::fft::type::C2R_1D:
+        return CUFFT_Z2D;
+    }
+  }
+}
 
-template <std::floating_point T, typename Complex = srtb::complex<T> >
-class cufft_1d_r2c_wrapper_abstract
-    : public fft_wrapper<cufft_1d_r2c_wrapper, T, Complex> {
-  friend fft_wrapper<cufft_1d_r2c_wrapper, T, Complex>;
+template <srtb::fft::type fft_type, std::floating_point T,
+          typename Complex = srtb::complex<T> >
+class cufft_1d_wrapper
+    : public fft_wrapper<cufft_1d_wrapper, fft_type, T, Complex> {
+ public:
+  using super_class = fft_wrapper<cufft_1d_wrapper, fft_type, T, Complex>;
+  friend super_class;
+  static_assert((std::is_same_v<T, cufftReal> &&
+                 sizeof(Complex) == sizeof(cufftComplex)) ||
+                (std::is_same_v<T, cufftDoubleReal> &&
+                 sizeof(Complex) == sizeof(cufftDoubleComplex)));
+
+  cufft_1d_wrapper(size_t n, size_t batch_size) : super_class{n, batch_size} {}
 
  protected:
-  void create_abstract(size_t n, cufftType cufft_type) {
+  void create_impl(size_t n, size_t batch_size) {
     // should be equivalent to this
     /*
     plan = fftw_plan_dft_r2c_1d(static_cast<int>(n), tmp_in.get(),
@@ -55,21 +86,43 @@ class cufft_1d_r2c_wrapper_abstract
     SRTB_CHECK_CUFFT(cufftCreate(&plan));
     long long int n_ = static_cast<long long int>(n);
     long long int inembed[1] = {n_}, onembed[1] = {n_ / 2 + 1};
-    SRTB_CHECK_CUFFT(cufftMakePlanMany64(/* plan = */ plan,
-                                         /* rank = */ 1,
-                                         /* n = */ &n_,
-                                         /* inembed = */ inembed,
-                                         /* istride = */ 1,
-                                         /* idist = */ n_,
-                                         /* onembed = */ onembed,
-                                         /* ostride = */ 1,
-                                         /* odist = */ n_,
-                                         /* type = */ cufft_type,
-                                         /* batch = */ 1,
-                                         /* worksize = */ &workSize));
+    cufftType cufft_type = get_cufft_type<T>(fft_type);
+    if constexpr (fft_type == srtb::fft::type::C2C_1D_FORWARD ||
+                  fft_type == srtb::fft::type::C2C_1D_BACKWARD ||
+                  fft_type == srtb::fft::type::R2C_1D) {
+      SRTB_CHECK_CUFFT(cufftMakePlanMany64(/* plan = */ plan,
+                                           /* rank = */ 1,
+                                           /* n = */ &n_,
+                                           /* inembed = */ inembed,
+                                           /* istride = */ 1,
+                                           /* idist = */ n_,
+                                           /* onembed = */ onembed,
+                                           /* ostride = */ 1,
+                                           /* odist = */ n_,
+                                           /* type = */ cufft_type,
+                                           /* batch = */ batch_size,
+                                           /* worksize = */ &workSize));
+    } else {
+      throw std::runtime_error("[cufft_wrapper] create_impl: TODO");
+    }
   }
 
   void destroy_impl() { SRTB_CHECK_CUFFT(cufftDestroy(plan)); }
+
+  typename std::enable_if<(fft_type == srtb::fft::type::R2C_1D), void>::type
+  process_impl(T* in, Complex* out) {
+    if constexpr (std::is_same_v<T, cufftReal>) {
+      SRTB_CHECK_CUFFT(cufftExecR2C((*this).plan, static_cast<cufftReal*>(in),
+                                    reinterpret_cast<cufftComplex*>(out)));
+    } else if constexpr (std::is_same_v<T, cufftDoubleReal>) {
+      SRTB_CHECK_CUFFT(
+          cufftExecD2Z((*this).plan, static_cast<cufftDoubleReal*>(in),
+                       reinterpret_cast<cufftDoubleComplex*>(out)));
+    } else {
+      throw std::runtime_error("[cufft_wrapper] process_impl: TODO");
+    }
+    (*this).flush();
+  }
 
   bool has_inited_impl() {
     // ref: https://forums.developer.nvidia.com/t/check-for-a-valid-cufft-plan/34297/4
@@ -115,41 +168,6 @@ class cufft_1d_r2c_wrapper_abstract
   cufftHandle plan;
   size_t workSize;
   cudaStream_t stream = nullptr;
-};
-
-template <typename Complex>
-class cufft_1d_r2c_wrapper<float, Complex>
-    : public cufft_1d_r2c_wrapper_abstract<float, Complex> {
-  friend fft_wrapper<cufft_1d_r2c_wrapper, float, Complex>;
-  static_assert(std::is_same_v<float, cufftReal>);
-  static_assert(sizeof(Complex) == sizeof(cufftComplex));
-
- protected:
-  void create_impl(size_t n) { (*this).create_abstract(n, CUFFT_R2C); }
-
-  void process_impl(float* in, Complex* out) {
-    SRTB_CHECK_CUFFT(cufftExecR2C((*this).plan, static_cast<cufftReal*>(in),
-                                  reinterpret_cast<cufftComplex*>(out)));
-    (*this).flush();
-  }
-};
-
-template <typename Complex>
-class cufft_1d_r2c_wrapper<double, Complex>
-    : public cufft_1d_r2c_wrapper_abstract<double, Complex> {
-  friend fft_wrapper<cufft_1d_r2c_wrapper, double, Complex>;
-  static_assert(std::is_same_v<double, cufftDoubleReal>);
-  static_assert(sizeof(Complex) == sizeof(cufftDoubleComplex));
-
- protected:
-  void create_impl(size_t n) { (*this).create_abstract(n, CUFFT_D2Z); }
-
-  void process_impl(double* in, Complex* out) {
-    SRTB_CHECK_CUFFT(cufftExecD2Z((*this).plan,
-                                  static_cast<cufftDoubleReal*>(in),
-                                  reinterpret_cast<cufftDoubleComplex*>(out)));
-    (*this).flush();
-  }
 };
 
 }  // namespace fft
