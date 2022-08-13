@@ -12,11 +12,13 @@
 // Adapted from https://www.cnblogs.com/CaCO3/p/15996732.html by CaO
 // original post is licensed under CC BY-NC-SA
 #define reg
-typedef srtb::complex<double> Complex;
+using Complex = srtb::complex<double>;
+// naive_fft: f -> g, fftw: f -> h, sequence fft: f -> f
 std::vector<Complex> f, g, h;
 const auto PI = M_PI;
 int siz = 1;
 int bit;
+
 std::vector<int> rev;
 void fft(Complex* arr,
          int tp) {  //tp 代表变换的类型，如果 tp = 1 代表 FFT，tp = -1 代表 IFFT
@@ -107,11 +109,9 @@ int main(int argc, char** argv) {
                  std::remove_reference_t<decltype(g.front())> > >(g.size());
     auto d_f = d_f_shared.get(), d_g = d_g_shared.get();
     q.copy(h_f, d_f, f.size()).wait();
-    q.copy(h_g, d_g, g.size()).wait();
     naive_fft_start = std::chrono::system_clock::now();
     naive_fft::fft_1d_c2c<double>(bit, q, d_f, d_g, 1);
     naive_fft_end = std::chrono::system_clock::now();
-    q.copy(d_f, h_f, f.size()).wait();
     q.copy(d_g, h_g, g.size()).wait();
   }
 
