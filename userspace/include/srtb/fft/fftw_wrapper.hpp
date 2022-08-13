@@ -128,7 +128,8 @@ class fftw_1d_wrapper<fft_type, double, Complex>
 
   bool has_inited_impl() { return (plan != nullptr); }
 
-  void process_impl(double* in, Complex* out) {
+  typename std::enable_if<(fft_type == srtb::fft::type::R2C_1D), void>::type
+  process_impl(double* in, Complex* out) {
     if constexpr (fft_type == srtb::fft::type::R2C_1D) {
       fftw_execute_dft_r2c(plan, in, reinterpret_cast<fftw_complex*>(out));
     } else {
