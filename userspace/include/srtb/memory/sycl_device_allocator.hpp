@@ -38,7 +38,9 @@ class device_allocator {
 
   T *allocate(std::size_t num_elements) {
     T *ptr = sycl::aligned_alloc_device<T>(align, num_elements, queue);
-    if (!ptr) throw std::runtime_error("device_allocator: Allocation failed");
+    if (!ptr) [[unlikely]] {
+      throw std::runtime_error("device_allocator: Allocation failed");
+    }
     return ptr;
   }
 
