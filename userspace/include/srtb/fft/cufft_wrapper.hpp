@@ -60,6 +60,7 @@ constexpr inline cufftType get_cufft_type(srtb::fft::type fft_type) {
   }
 }
 
+// ref: https://docs.nvidia.com/cuda/cufft/index.html
 template <srtb::fft::type fft_type, std::floating_point T,
           typename Complex = srtb::complex<T> >
 class cufft_1d_wrapper
@@ -84,27 +85,41 @@ class cufft_1d_wrapper
     */
 
     SRTB_CHECK_CUFFT(cufftCreate(&plan));
+    constexpr cufftType cufft_type = get_cufft_type<T>(fft_type);
+
     long long int n_ = static_cast<long long int>(n);
-    long long int inembed[1] = {n_}, onembed[1] = {n_ / 2 + 1};
-    cufftType cufft_type = get_cufft_type<T>(fft_type);
+    long long int idist, odist;
+    long long int inembed[1] = {1}, onembed[1] = {1};  // should have no effect
     if constexpr (fft_type == srtb::fft::type::C2C_1D_FORWARD ||
-                  fft_type == srtb::fft::type::C2C_1D_BACKWARD ||
-                  fft_type == srtb::fft::type::R2C_1D) {
-      SRTB_CHECK_CUFFT(cufftMakePlanMany64(/* plan = */ plan,
-                                           /* rank = */ 1,
-                                           /* n = */ &n_,
-                                           /* inembed = */ inembed,
-                                           /* istride = */ 1,
-                                           /* idist = */ n_,
-                                           /* onembed = */ onembed,
-                                           /* ostride = */ 1,
-                                           /* odist = */ n_,
-                                           /* type = */ cufft_type,
-                                           /* batch = */ batch_size,
-                                           /* worksize = */ &workSize));
+                  fft_type == srtb::fft::type::C2C_1D_BACKWARD) {
+      const long long int n_complex = n_;
+      idist = odist = n_complex;
+    } else if constexpr (fft_type == srtb::fft::type::R2C_1D) {
+      const long long int n_real = n_;
+      const long long int n_complex = n_real / 2 + 1;
+      idist = n_real;
+      odist = n_complex;
+    } else if constexpr (fft_type == srtb::fft::type::C2R_1D) {
+      const long long int n_real = n_;
+      const long long int n_complex = n_real / 2 + 1;
+      idist = n_complex;
+      odist = n_real;
     } else {
       throw std::runtime_error("[cufft_wrapper] create_impl: TODO");
     }
+
+    SRTB_CHECK_CUFFT(cufftMakePlanMany64(/* plan = */ plan,
+                                         /* rank = */ 1,
+                                         /* n = */ &n_,
+                                         /* inembed = */ inembed,
+                                         /* istride = */ 1,
+                                         /* idist = */ idist,
+                                         /* onembed = */ onembed,
+                                         /* ostride = */ 1,
+                                         /* odist = */ odist,
+                                         /* type = */ cufft_type,
+                                         /* batch = */ batch_size,
+                                         /* worksize = */ &workSize));
   }
 
   void destroy_impl() { SRTB_CHECK_CUFFT(cufftDestroy(plan)); }

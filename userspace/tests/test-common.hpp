@@ -14,6 +14,8 @@
 #ifndef __SRTB_TEST_COMMONS__
 #define __SRTB_TEST_COMMONS__
 
+#include "srtb/commons.hpp"
+
 template <typename Iterator1, typename Iterator2, typename T>
 inline bool check_absolute_error(Iterator1 first1, Iterator1 last1,
                                  Iterator2 first2, T threshold) {
@@ -21,7 +23,32 @@ inline bool check_absolute_error(Iterator1 first1, Iterator1 last1,
     auto iter1 = first1;
     auto iter2 = first2;
     for (; iter1 != last1; ++iter1, ++iter2) {
-      if (std::abs((*iter1) - (*iter2)) > threshold) {
+      if (srtb::abs((*iter1) - (*iter2)) > threshold) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+template <typename Iterator1, typename Iterator2, typename T>
+inline bool check_relative_error(Iterator1 first1, Iterator1 last1,
+                                 Iterator2 first2, T threshold) {
+  {
+    auto iter1 = first1;
+    auto iter2 = first2;
+    for (; iter1 != last1; ++iter1, ++iter2) {
+      const auto val1 = *iter1, val2 = *iter2;
+      const auto diff = srtb::abs(val1 - val2), avg = srtb::abs(val1 + val2);
+      if (!(std::isfinite(diff) && std::isfinite(avg))) [[unlikely]] {
+        return false;
+      }
+      if (std::fpclassify(avg) == FP_ZERO) [[unlikely]] {
+        if (std::fpclassify(diff) != FP_ZERO) {
+          return false;
+        }
+      }
+      if (diff / avg > threshold) {
         return false;
       }
     }

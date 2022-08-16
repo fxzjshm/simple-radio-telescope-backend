@@ -19,6 +19,8 @@
  * declaration if needed.
  */
 
+#include <concepts>
+
 #include "srtb/sycl.hpp"
 
 // ------ dividing line for clang-format ------
@@ -50,6 +52,11 @@ inline constexpr auto norm(const C& c) noexcept -> T {
 template <typename T = srtb::real, typename C = srtb::complex<T> >
 inline constexpr auto abs(const C& c) noexcept -> T {
   return sycl::sqrt(srtb::norm(c));
+}
+
+template <std::floating_point T = srtb::real>
+inline constexpr auto abs(const T& x) noexcept -> T {
+  return sycl::abs(x);
 }
 
 }  // namespace srtb
