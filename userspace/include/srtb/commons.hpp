@@ -19,8 +19,6 @@
  * declaration if needed.
  */
 
-#include <concepts>
-
 #include "srtb/sycl.hpp"
 
 // ------ dividing line for clang-format ------
@@ -44,19 +42,23 @@
 
 namespace srtb {
 
-template <typename T = srtb::real, typename C = srtb::complex<T> >
-inline constexpr auto norm(const C& c) noexcept -> T {
+template <typename T = srtb::real>
+inline constexpr auto norm(const srtb::complex<T> c) noexcept -> T {
   return c.real() * c.real() + c.imag() * c.imag();
 }
 
-template <typename T = srtb::real, typename C = srtb::complex<T> >
-inline constexpr auto abs(const C& c) noexcept -> T {
+template <typename T = srtb::real>
+inline constexpr auto abs(const srtb::complex<T> c) noexcept -> T {
   return sycl::sqrt(srtb::norm(c));
 }
 
-template <std::floating_point T = srtb::real>
-inline constexpr auto abs(const T& x) noexcept -> T {
-  return sycl::abs(x);
+template <typename T>
+inline constexpr auto abs(const T x) noexcept {
+  if constexpr (std::is_integral_v<T>) {
+    return sycl::abs(x);
+  } else if constexpr (std::is_floating_point_v<T>) {
+    return sycl::fabs(x);
+  }
 }
 
 }  // namespace srtb

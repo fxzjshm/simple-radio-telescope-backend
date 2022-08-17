@@ -13,3 +13,17 @@ endforeach()
 foreach(bit RANGE 5 25 7)
 add_test(NAME test-naive_fft-${bit} COMMAND test-naive_fft ${bit})
 endforeach()
+
+# test fft wrappers
+## batch_size must be power of 2?
+foreach(batch_size RANGE 8 16 8)
+foreach(bit RANGE 2 4 3)
+add_test(NAME test-fft_wrappers-${bit}-${batch_size} COMMAND test-fft_wrappers ${bit} ${batch_size})
+endforeach()
+endforeach()
+
+foreach(batch_size RANGE 2 6 7)
+foreach(bit RANGE 21 22 3)
+add_test(NAME test-fft_wrappers-${bit}-${batch_size} COMMAND test-fft_wrappers ${bit} ${batch_size})
+endforeach()
+endforeach()

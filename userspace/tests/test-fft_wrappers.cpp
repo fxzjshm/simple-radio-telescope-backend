@@ -24,8 +24,9 @@
         std::to_string(__LINE__) + " returns " + std::to_string(ret)}; \
   })
 
-template <typename C = srtb::complex<double> >
-inline void call_fftw_1d_r2c(size_t n, size_t batch_size, double* in, C* out) {
+template <srtb::fft::type fft_type, typename C = srtb::complex<double> >
+inline std::enable_if_t<(fft_type == srtb::fft::type::R2C_1D), void>
+call_fftw_1d(size_t n, size_t batch_size, double* in, C* out) {
   static_assert(sizeof(C) == sizeof(fftw_complex));
   using T = double;
   const size_t n_real = n, n_complex = n / 2 + 1;
@@ -43,8 +44,9 @@ inline void call_fftw_1d_r2c(size_t n, size_t batch_size, double* in, C* out) {
   }
 }
 
-template <typename C = srtb::complex<float> >
-inline void call_fftw_1d_r2c(size_t n, size_t batch_size, float* in, C* out) {
+template <srtb::fft::type fft_type, typename C = srtb::complex<float> >
+inline std::enable_if_t<(fft_type == srtb::fft::type::R2C_1D), void>
+call_fftw_1d_r2c(size_t n, size_t batch_size, float* in, C* out) {
   static_assert(sizeof(C) == sizeof(fftwf_complex));
   using T = float;
   const size_t n_real = n, n_complex = n / 2 + 1;
@@ -136,7 +138,8 @@ int main(int argc, char** argv) {
   SRTB_LOGD << " [test fft wrappers] "
             << "host data inited." << srtb::endl;
 
-  call_fftw_1d_r2c(n, batch_size, &h_in[0], &h_out_fftw[0]);
+  call_fftw_1d<srtb::fft::type::R2C_1D>(n, batch_size, &h_in[0],
+                                        &h_out_fftw[0]);
   SRTB_LOGD << " [test fft wrappers] "
             << "reference output computed." << srtb::endl;
 
