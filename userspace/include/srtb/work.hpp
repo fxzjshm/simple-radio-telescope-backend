@@ -95,6 +95,27 @@ struct unpack_work : public srtb::work::work<std::shared_ptr<std::byte> > {
 using fft_1d_r2c_work = srtb::work::work<std::shared_ptr<srtb::real> >;
 
 /**
+ * @brief contains a piece of @c srtb::complex<srtb::real> to be coherently dedispersed
+ *        (and channelized if kernel fused)
+ */
+struct dedisperse_and_channelize_work
+    : public srtb::work::work<std::shared_ptr<srtb::complex<srtb::real> > > {
+  srtb::real dm;
+  size_t channel_count;
+  srtb::real baseband_freq_low;
+  srtb::real baseband_sample_rate;
+};
+
+/**
+ * @brief contains @c batch_size * @c count of @c srtb::complex<srtb::real>
+ *        to be inversed FFT-ed
+ */
+struct ifft_1d_c2c_work
+    : public srtb::work::work<std::shared_ptr<srtb::complex<srtb::real> > > {
+  size_t batch_size;
+};
+
+/**
  * @brief contains @c srtb::complex<srtb::real> to be simplified into
  *        ~10^3 @c srtb::real to be displayed on GUI.
  * @note temporary work, just do a software-defined-radio receiver job.
@@ -110,6 +131,8 @@ struct simplify_spectrum_work
  * @note temporary work, see above.
  */
 using draw_spectrum_work = srtb::work::work<std::shared_ptr<srtb::real> >;
+
+// work queues are in global_variables.hpp
 
 }  // namespace work
 }  // namespace srtb

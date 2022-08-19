@@ -43,6 +43,10 @@ inline srtb::work_queue<srtb::work::unpack_work> unpack_queue{
     srtb::work_queue_initial_capacity};
 inline srtb::work_queue<srtb::work::fft_1d_r2c_work> fft_1d_r2c_queue{
     srtb::work_queue_initial_capacity};
+inline srtb::work_queue<srtb::work::dedisperse_and_channelize_work>
+    dedisperse_and_channelize_queue{srtb::work_queue_initial_capacity};
+inline srtb::work_queue<srtb::work::ifft_1d_c2c_work> ifft_1d_c2c_queue{
+    srtb::work_queue_initial_capacity};
 inline srtb::work_queue<srtb::work::simplify_spectrum_work>
     simplify_spectrum_queue{srtb::work_queue_initial_capacity};
 inline srtb::work_queue<srtb::work::draw_spectrum_work> draw_spectrum_queue{
@@ -50,6 +54,6 @@ inline srtb::work_queue<srtb::work::draw_spectrum_work> draw_spectrum_queue{
 
 }  // namespace srtb
 
-// FFT dispatch in srtb/fft/fft.hpp due to forward declaration
+// fftw initializer in srtb/fft/fftw_wrapper.hpp due to forward declearation
 
 #endif  // __SRTB_GLOBAL_VARIABLES__

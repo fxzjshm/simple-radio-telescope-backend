@@ -91,14 +91,14 @@ struct configs {
 
   /**
    * @brief Band width of received baseband signal, in MHz.
-   * 
+   * TODO: baseband_bandwidth and baseband_sample_rate which to use?
    */
   srtb::real baseband_bandwidth = 500.0;
 
   /**
    * @brief Baseband sample rate, in samples / second
    */
-  srtb::real baseband_sample_rate = 400 * 1e6;
+  srtb::real baseband_sample_rate = 1000 * 1e6;
 
   /**
    * @brief Target dispersion measurement for coherent dedispersion
@@ -150,6 +150,11 @@ struct configs {
    * TODO: replace by RFI cut out pipe
    */
   srtb::real spectrum_mask_ratio = 0.01;
+
+  /**
+   * @brief channel count / batch size when performing inverse FFT, also M in frequency domain filterbank
+   */
+  size_t ifft_channel_count = 4096;
 };
 
 }  // namespace srtb

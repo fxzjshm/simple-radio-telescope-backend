@@ -16,6 +16,9 @@
 
 #include "srtb/coherent_dedispersion.hpp"
 
+namespace srtb {
+namespace frequency_domain_filterbank {
+
 /**
  * A frequency domain filterbank.
  * 
@@ -50,11 +53,13 @@ inline void frequency_domain_filterbank(T* input, T* output, size_t N, size_t M,
   }
 }
 
+}  // namespace frequency_domain_filterbank
+
 // TODO: kernel fusion
 //       does this really runs faster? can index computations be reduced?
 // TODO: RFI
-template <typename T, typename C = srtb::complex<T>, typename Iterator = T*>
-inline void coherent_dedispersion_and_frequency_domain_filterbank(
+template <typename T, typename C, typename Iterator>
+inline void coherent_dedispersion_and_frequency_domain_filterbank_item(
     Iterator input, Iterator output, const T f_min, const T delta_f, const T dm,
     const size_t M, const sycl::item<1>& id) {
   // frequency domain filterbank
@@ -63,7 +68,7 @@ inline void coherent_dedispersion_and_frequency_domain_filterbank(
   // data flow: input[i] ----(coherent dedispersion)----> output[j]
   const size_t j = id.get_id(0), N = id.get_range(0), L = N / M,
                L_2 = L / 2 /* == N / 2M */, m = j / L + 1, k = j - (m - 1) * L;
-  assert(0 <= k && k < L && k == j % L);
+  SRTB_ASSERT_IN_KERNEL(0 <= k && k < L && k == j % L);
   size_t i;
   if (0 <= k && k <= L_2 - 1) {
     i = k + L_2 * (m - 1);
@@ -74,9 +79,38 @@ inline void coherent_dedispersion_and_frequency_domain_filterbank(
   // coherent dedispersion
   // TODO: does pre-computing delta_phi saves time?
   const T f = f_min + delta_f * i;
-  output[j] = input[i] * coherent_dedispersion_factor(f, f_min, dm);
+  output[j] = input[i] * srtb::codd::coherent_dedispersion_factor(f, f_min, dm);
+}
+
+/**
+ * @brief fusion of coherent dedispersion and frequency domain filterbank
+ * 
+ * @tparam T real data type
+ * @tparam C complex data type
+ * @tparam Iterator type of the accessor to data, default to 
+ * @param input input FFT data
+ * @param output output dedispersed and channelized FFT data
+ * @param f_min the frequency of the first channel of input data
+ * @param delta_f delta frequency between nearest two channels (input[i] and input[i-1])
+ * @param dm disperse measurement
+ * @param M segment count of output data, also the batch size of inverse FFT
+ * @param N size of input, should be a power of 2
+ * @param q the @c sycl::queue to be run on
+ */
+template <typename T, typename C = srtb::complex<T>, typename Iterator = C*>
+inline void coherent_dedispersion_and_frequency_domain_filterbank(
+    Iterator input, Iterator output, const T f_min, const T delta_f, const T dm,
+    const size_t M, const size_t N, sycl::queue& q) {
+  q.parallel_for(sycl::range<1>{N}, [=](sycl::item<1> id) {
+     coherent_dedispersion_and_frequency_domain_filterbank_item<T, C, Iterator>(
+         input, output, f_min, delta_f, dm, M, id);
+   }).wait();
 }
 
 // TODO: fft windowing + ring buffer
+
+namespace fdfb = frequency_domain_filterbank;
+
+}  // namespace srtb
 
 #endif  //  __SRTB_FREQUENCY_DOMAIN_FILTERBANK__

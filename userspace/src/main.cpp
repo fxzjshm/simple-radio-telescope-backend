@@ -19,6 +19,7 @@
 #include "srtb/frequency_domain_filterbank.hpp"
 #include "srtb/gui/gui.hpp"
 #include "srtb/io/udp_receiver.hpp"
+#include "srtb/pipeline/dedisperse_and_channelize_pipe.hpp"
 #include "srtb/pipeline/fft_pipe.hpp"
 #include "srtb/pipeline/spectrum_pipe.hpp"
 #include "srtb/pipeline/udp_receiver_pipe.hpp"
