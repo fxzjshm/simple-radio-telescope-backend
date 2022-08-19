@@ -21,7 +21,7 @@ namespace srtb {
 /**
  * main reference: Jiang, 2022
  */
-namespace codd {
+namespace coherent_dedispersion {
 
 /**
  * @brief dispersion constant in "accurate" value
@@ -35,7 +35,7 @@ namespace codd {
  *          = 4.149378 \times 10^3 \mathrm{MHz^2 pc^{-1} cm^3 s}$
  *       (Jiang, 2022)
  */
-constexpr srtb::real D = 4.148808e3;
+inline constexpr srtb::real D = 4.148808e3;
 
 /**
  * @brief delay time caused by dispersion relative to f_c, assuming f > f_c (for positive result).
@@ -68,7 +68,7 @@ inline srtb::real max_delay_time() {
   * TODO: check this
   */
 inline size_t nsamps_reserved() {
-  return 2 * std::round(srtb::codd::max_delay_time() *
+  return 2 * std::round(srtb::coherent_dedispersion::max_delay_time() *
                         srtb::config.baseband_sample_rate);
 }
 
@@ -84,7 +84,8 @@ inline size_t nsamps_reserved() {
  * @param dm dispersion measurement
  */
 template <typename T, typename C = srtb::complex<T> >
-inline C coherent_dedispersion_factor(const T f, const T f_c, const T dm) {
+inline C coherent_dedispersion_factor(const T f, const T f_c,
+                                      const T dm) noexcept {
   // TODO: does pre-computing delta_phi saves time?
   const T delta_phi =
       2 * M_PI * D * dm * (T(1.0) / f - T(1.0) / f_c);  // TODO: check the sign!
@@ -116,15 +117,17 @@ inline void coherent_dedispertion_item(Accessor input, const T f_min,
  */
 template <typename T, typename C = srtb::complex<T>, typename Accessor>
 inline void coherent_dedispertion(Accessor input, const size_t length,
-                                  const T f_min, const T f_max, const T dm,
+                                  const T f_min, const T delta_f, const T dm,
                                   sycl::queue& q) {
-  const T delta_f = (f_max - f_min) / (length - 1);
   q.parallel_for(sycl::range<1>(length), [=](sycl::item<1> id) {
     coherent_dedispertion_item(input, f_min, delta_f, dm, id.get_id(0));
   });
 }
 
-}  // namespace codd
+}  // namespace coherent_dedispersion
+
+namespace codd = coherent_dedispersion;
+
 }  // namespace srtb
 
 #endif  //  __SRTB_COHERENT_DEDISPERSION__
