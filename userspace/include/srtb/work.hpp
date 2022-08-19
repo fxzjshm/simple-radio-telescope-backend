@@ -35,17 +35,15 @@
   {                                                                            \
     bool ret = work_queue.pop(work);                                           \
     if (!ret) [[unlikely]] {                                                   \
-      SRTB_LOGW << tag                                                         \
+      SRTB_LOGD << tag                                                         \
                 << " Popping " #work " from " #work_queue " failed! Retrying." \
                 << srtb::endl;                                                 \
       while (!ret) {                                                           \
         std::this_thread::yield(); /* TODO: spin lock here? */                 \
         ret = work_queue.pop(work);                                            \
       }                                                                        \
-      SRTB_LOGI << tag << " Popped " #work " from " #work_queue << srtb::endl; \
-    } else [[likely]] {                                                        \
-      SRTB_LOGD << tag << " Popped " #work " from " #work_queue << srtb::endl; \
     }                                                                          \
+    SRTB_LOGD << tag << " Popped " #work " from " #work_queue << srtb::endl;   \
   }
 
 namespace srtb {
