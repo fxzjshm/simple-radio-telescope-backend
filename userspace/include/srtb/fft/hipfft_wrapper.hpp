@@ -132,8 +132,10 @@ class hipfft_1d_wrapper
 
   void destroy_impl() { SRTB_CHECK_HIPFFT(hipfftDestroy(plan)); }
 
-  typename std::enable_if<(fft_type == srtb::fft::type::R2C_1D), void>::type
-  process_impl(T* in, Complex* out) {
+  template <typename..., srtb::fft::type fft_type_ = fft_type,
+            typename std::enable_if<(fft_type_ == srtb::fft::type::R2C_1D),
+                                    int>::type = 0>
+  void process_impl(T* in, Complex* out) {
     if constexpr (std::is_same_v<T, hipfftReal>) {
       SRTB_CHECK_HIPFFT(hipfftExecR2C((*this).plan,
                                       static_cast<hipfftReal*>(in),
@@ -143,9 +145,32 @@ class hipfft_1d_wrapper
           hipfftExecD2Z((*this).plan, static_cast<hipfftDoubleReal*>(in),
                         reinterpret_cast<hipfftDoubleComplex*>(out)));
     } else {
-      throw std::runtime_error("[hipfft_wrapper] process_impl: TODO");
+      throw std::runtime_error("[hipfft_wrapper] process_impl<R2C_1D>: ?");
     }
-    (*this).flush();
+    flush();
+  }
+
+  template <
+      typename..., srtb::fft::type fft_type_ = fft_type,
+      typename std::enable_if<(fft_type_ == srtb::fft::type::C2C_1D_FORWARD ||
+                               fft_type_ == srtb::fft::type::C2C_1D_BACKWARD),
+                              int>::type = 0>
+  void process_impl(Complex* in, Complex* out) {
+    constexpr auto direction = (fft_type == srtb::fft::type::C2C_1D_BACKWARD)
+                                   ? HIPFFT_BACKWARD
+                                   : HIPFFT_FORWARD;
+    if constexpr (std::is_same_v<T, hipfftReal>) {
+      SRTB_CHECK_HIPFFT(
+          hipfftExecC2C((*this).plan, static_cast<hipfftComplex*>(in),
+                        reinterpret_cast<hipfftComplex*>(out), direction));
+    } else if constexpr (std::is_same_v<T, hipfftDoubleReal>) {
+      SRTB_CHECK_HIPFFT(hipfftExecZ2Z(
+          (*this).plan, reinterpret_cast<hipfftDoubleComplex*>(in),
+          reinterpret_cast<hipfftDoubleComplex*>(out), direction));
+    } else {
+      throw std::runtime_error("[hipfft_wrapper] process_impl<C2C_1D>: ?");
+    }
+    flush();
   }
 
   bool has_inited_impl() {

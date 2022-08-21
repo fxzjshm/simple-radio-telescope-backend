@@ -79,7 +79,10 @@ class fft_wrapper {
 
   bool has_inited() { return sub().has_inited_impl(); }
 
-  void process(T* in, C* out) { sub().process_impl(in, out); }
+  template <typename DeviceInputAccessor, typename DeviceOutputAccessor>
+  void process(DeviceInputAccessor in, DeviceOutputAccessor out) {
+    sub().process_impl(in, out);
+  }
 
   void reset() {
     sub().destroy_impl();

@@ -63,6 +63,49 @@ class fft_1d_r2c_pipe : public pipe<fft_1d_r2c_pipe> {
   }
 };
 
+/**
+ * @brief This pipe reads from @c srtb::fft_1d_r2c_queue , perform FFT by calling
+ *        @c srtb::fft::dispatch_1d_r2c , then push result to ( TODO: @c srtb::frequency_domain_filterbank_queue )
+ */
+class ifft_1d_c2c_pipe : public pipe<ifft_1d_c2c_pipe> {
+  friend pipe<ifft_1d_c2c_pipe>;
+
+ protected:
+  srtb::fft::fft_1d_dispatcher<srtb::fft::type::C2C_1D_BACKWARD> dispatcher;
+
+ public:
+  ifft_1d_c2c_pipe()
+      : dispatcher{/* n = */
+                   srtb::config.baseband_input_length * srtb::BITS_PER_BYTE /
+                       srtb::config.baseband_input_bits,
+                   /* batch_size = */ srtb::config.ifft_channel_count, q} {}
+
+ protected:
+  void run_once_impl() {
+    srtb::work::ifft_1d_c2c_work ifft_1d_c2c_work;
+    SRTB_POP_WORK(" [ifft 1d c2c pipe] ", srtb::ifft_1d_c2c_queue,
+                  ifft_1d_c2c_work);
+    const size_t count = ifft_1d_c2c_work.count;
+    const size_t batch_size = ifft_1d_c2c_work.batch_size;
+    // reset FFT plan if mismatch
+    if (dispatcher.get_n() != count ||
+        dispatcher.get_batch_size() != batch_size) [[unlikely]] {
+      dispatcher.set_size(count, batch_size);
+    }
+    auto d_in_shared = ifft_1d_c2c_work.ptr;
+    auto d_out_shared =
+        srtb::device_allocator.allocate_shared<srtb::complex<srtb::real> >(
+            count);
+    dispatcher.process(d_in_shared.get(), d_out_shared.get());
+    // TODO: next pipe
+    // temporary work: spectrum analyzer
+    srtb::work::simplify_spectrum_work simplify_spectrum_work{d_out_shared,
+                                                              count};
+    SRTB_PUSH_WORK(" [ifft 1d c2c pipe] ", srtb::simplify_spectrum_queue,
+                   simplify_spectrum_work);
+  }
+};
+
 }  // namespace pipeline
 }  // namespace srtb
 

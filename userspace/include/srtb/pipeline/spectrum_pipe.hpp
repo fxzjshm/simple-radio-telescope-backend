@@ -48,6 +48,7 @@ class simplify_spectrum_pipe : public pipe<simplify_spectrum_pipe> {
     for (size_t i = 0; i < sum_count; i++) {
       SRTB_POP_WORK(" [simplify spectrum pipe] ", srtb::simplify_spectrum_queue,
                     simplify_spectrum_work);
+      // TODO: batch_size
       const size_t in_count = simplify_spectrum_work.count;
       auto d_in_shared = simplify_spectrum_work.ptr;
       auto d_in = d_in_shared.get();

@@ -46,7 +46,7 @@ call_fftw_1d(size_t n, size_t batch_size, double* in, C* out) {
 
 template <srtb::fft::type fft_type, typename C = srtb::complex<float> >
 inline std::enable_if_t<(fft_type == srtb::fft::type::R2C_1D), void>
-call_fftw_1d_r2c(size_t n, size_t batch_size, float* in, C* out) {
+call_fftw_1d(size_t n, size_t batch_size, float* in, C* out) {
   static_assert(sizeof(C) == sizeof(fftwf_complex));
   using T = float;
   const size_t n_real = n, n_complex = n / 2 + 1;
