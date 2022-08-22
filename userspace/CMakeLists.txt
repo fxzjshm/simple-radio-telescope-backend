@@ -88,9 +88,10 @@ set(CMAKE_CXX_STANDARD 20)
 # add extra warnings
 ## known SYCL implementations are gcc compatible
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pedantic -pedantic-errors -Wextra -Wall -Winit-self -Wold-style-cast -Woverloaded-virtual -Wuninitialized -Wmissing-declarations -Winit-self")
+## required for backtrace on crash
 ## why CMAKE_BUILD_TYPE=Debug produces binary without debug info?
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g ")
-
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -fno-omit-frame-pointer ")
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -rdynamic ")
 
 # dependency
 set(THREADS_PREFER_PTHREAD_FLAG ON)
@@ -115,6 +116,7 @@ function(srtb_add_dependency target_name)
     # add dependency
     target_link_libraries(${target_name} PUBLIC fftw3_threads fftw3 fftw3f_threads fftw3f Threads::Threads) # TODO maybe findFFTW
     target_link_libraries(${target_name} PUBLIC stdc++ m)  # TODO: this shouldn't be needed
+    target_link_libraries(${target_name} PUBLIC dl)
     if(SRTB_ENABLE_CUDA)
         # https://cmake.org/cmake/help/latest/module/FindCUDAToolkit.html
         target_link_libraries(${target_name} PUBLIC CUDA::cudart CUDA::cufft)

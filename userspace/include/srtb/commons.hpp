@@ -67,5 +67,6 @@ inline constexpr auto abs(const T x) noexcept {
 
 #include "srtb/global_variables.hpp"
 #include "srtb/log/log.hpp"
+#include "srtb/terminate_handler.hpp"
 
 #endif  // __SRTB_COMMONS__
