@@ -19,6 +19,10 @@
 
 namespace srtb {
 
+// TODO: add `volatile` here?
+//   * config shouldn't be changed frequently, force loading it from memory
+//     would cause too much cache miss;
+//   * however, are there optimizations related to this that are unexpected?
 inline srtb::configs config;
 
 inline sycl::queue queue;
