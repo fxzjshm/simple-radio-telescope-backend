@@ -54,12 +54,18 @@ class fft_1d_r2c_pipe : public pipe<fft_1d_r2c_pipe> {
         srtb::device_allocator.allocate_shared<srtb::complex<srtb::real> >(
             out_count);
     dispatcher.process(d_in_shared.get(), d_out_shared.get());
-    // TODO: next pipe
-    // temporary work: spectrum analyzer
-    srtb::work::simplify_spectrum_work simplify_spectrum_work{d_out_shared,
-                                                              out_count};
-    SRTB_PUSH_WORK(" [fft 1d r2c pipe] ", srtb::simplify_spectrum_queue,
-                   simplify_spectrum_work);
+
+    // TODO: RF detect pipe
+
+    srtb::work::dedisperse_and_channelize_work out_work;
+    out_work.ptr = d_out_shared;
+    out_work.count = out_count;
+    out_work.baseband_freq_low = srtb::config.baseband_freq_low;
+    out_work.baseband_sample_rate = srtb::config.baseband_sample_rate;
+    out_work.channel_count = srtb::config.ifft_channel_count;
+    out_work.dm = srtb::config.dm;
+    SRTB_POP_WORK(" [fft 1d r2c pipe] ", srtb::dedisperse_and_channelize_queue,
+                  out_work);
   }
 };
 
@@ -98,11 +104,6 @@ class ifft_1d_c2c_pipe : public pipe<ifft_1d_c2c_pipe> {
             count);
     dispatcher.process(d_in_shared.get(), d_out_shared.get());
     // TODO: next pipe
-    // temporary work: spectrum analyzer
-    srtb::work::simplify_spectrum_work simplify_spectrum_work{d_out_shared,
-                                                              count};
-    SRTB_PUSH_WORK(" [ifft 1d c2c pipe] ", srtb::simplify_spectrum_queue,
-                   simplify_spectrum_work);
   }
 };
 

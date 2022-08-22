@@ -107,6 +107,7 @@ struct dedisperse_and_channelize_work
 /**
  * @brief contains @c batch_size * @c count of @c srtb::complex<srtb::real>
  *        to be inversed FFT-ed
+ * @note @c count is not total size
  */
 struct ifft_1d_c2c_work
     : public srtb::work::work<std::shared_ptr<srtb::complex<srtb::real> > > {
@@ -118,10 +119,7 @@ struct ifft_1d_c2c_work
  *        ~10^3 @c srtb::real to be displayed on GUI.
  * @note temporary work, just do a software-defined-radio receiver job.
  */
-struct simplify_spectrum_work
-    : public srtb::work::work<std::shared_ptr<srtb::complex<srtb::real> > > {
-  // TODO: related info: sample rate, etc.
-};
+using simplify_spectrum_work = ifft_1d_c2c_work;
 
 /**
  * @brief contains ~10^3 @c srtb::real to be drawn to a line of a pixmap.

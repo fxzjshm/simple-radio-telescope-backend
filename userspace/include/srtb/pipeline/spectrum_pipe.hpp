@@ -27,8 +27,27 @@ namespace pipeline {
 class simplify_spectrum_pipe : public pipe<simplify_spectrum_pipe> {
   friend pipe<simplify_spectrum_pipe>;
 
+ protected:
+  srtb::work::simplify_spectrum_work simplify_spectrum_work;
+  size_t work_counter;
+
  public:
-  simplify_spectrum_pipe() {}
+  simplify_spectrum_pipe() : work_counter{static_cast<size_t>(-1)} {
+    // make sure get_one_work do not crash on first run
+    simplify_spectrum_work.batch_size = 0;
+  }
+
+  auto get_one_work() -> std::pair<srtb::complex<srtb::real>*, size_t> {
+    if (work_counter >= simplify_spectrum_work.batch_size) {
+      // get new set of works
+      SRTB_POP_WORK(" [simplify spectrum pipe] ", srtb::simplify_spectrum_queue,
+                    simplify_spectrum_work);
+      work_counter = 0;
+    }
+    return std::make_pair(simplify_spectrum_work.ptr.get() +
+                              simplify_spectrum_work.count * work_counter,
+                          simplify_spectrum_work.count);
+  }
 
  protected:
   void run_once_impl() {
@@ -44,18 +63,14 @@ class simplify_spectrum_pipe : public pipe<simplify_spectrum_pipe> {
 
     SRTB_LOGD << " [simplify spectrum pipe] "
               << " start simplifying" << srtb::endl;
-    srtb::work::simplify_spectrum_work simplify_spectrum_work;
     for (size_t i = 0; i < sum_count; i++) {
-      SRTB_POP_WORK(" [simplify spectrum pipe] ", srtb::simplify_spectrum_queue,
-                    simplify_spectrum_work);
-      // TODO: batch_size
-      const size_t in_count = simplify_spectrum_work.count;
-      auto d_in_shared = simplify_spectrum_work.ptr;
-      auto d_in = d_in_shared.get();
+      auto tmp_work = get_one_work();
+      const size_t in_count = tmp_work.second;
+      auto d_in = tmp_work.first;
       size_t mask_count = in_count * srtb::config.spectrum_mask_ratio;
       q.parallel_for(sycl::range<1>{mask_count}, [=](sycl::item<1> id) {
          const auto i = id.get_id(0);
-         const auto zero =
+         constexpr auto zero =
              srtb::complex<srtb::real>{srtb::real{0}, srtb::real{0}};
          d_in[i] = zero;
          d_in[in_count - i] = zero;

@@ -42,10 +42,11 @@ class dedisperse_and_channelize_pipe
                   srtb::dedisperse_and_channelize_queue, work);
     // drop the highest frequency point
     const size_t N = work.count - 1;
-    // only size of a power of 2 is supported
-    assert(std::popcount(N) == 1);
-
     const size_t M = work.channel_count;
+    // supported if N % M == 0;
+    const size_t n = N / M;
+    assert(n * M == N);
+    // TODO: check this
     const srtb::real delta_f = work.baseband_sample_rate / N;
     auto d_in_shared = work.ptr;
     auto d_out_shared =
@@ -55,9 +56,15 @@ class dedisperse_and_channelize_pipe
     srtb::coherent_dedispersion_and_frequency_domain_filterbank(
         d_in, d_out, work.baseband_freq_low, delta_f, work.dm, M, N, q);
 
-    srtb::work::ifft_1d_c2c_work ifft_1d_c2c_work{{d_out_shared, N / M}, M};
-    SRTB_PUSH_WORK(" [dedisperse & channelize pipe] ", srtb::ifft_1d_c2c_queue,
-                   ifft_1d_c2c_work);
+    // temporary work: spectrum analyzer
+    srtb::work::simplify_spectrum_work simplify_spectrum_work{{d_out_shared, n},
+                                                              M};
+    SRTB_PUSH_WORK(" [[dedisperse & channelize pipe] ",
+                   srtb::simplify_spectrum_queue, simplify_spectrum_work);
+
+    //srtb::work::ifft_1d_c2c_work ifft_1d_c2c_work{{d_out_shared, N / M}, M};
+    //SRTB_PUSH_WORK(" [dedisperse & channelize pipe] ", srtb::ifft_1d_c2c_queue,
+    //               ifft_1d_c2c_work);
   }
 };
 
