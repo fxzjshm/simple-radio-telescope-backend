@@ -124,8 +124,10 @@ class cufft_1d_wrapper
 
   void destroy_impl() { SRTB_CHECK_CUFFT(cufftDestroy(plan)); }
 
-  typename std::enable_if<(fft_type == srtb::fft::type::R2C_1D), void>::type
-  process_impl(T* in, Complex* out) {
+  template <typename..., srtb::fft::type fft_type_ = fft_type,
+            typename std::enable_if<(fft_type_ == srtb::fft::type::R2C_1D),
+                                    int>::type = 0>
+  void process_impl(T* in, Complex* out) {
     if constexpr (std::is_same_v<T, cufftReal>) {
       SRTB_CHECK_CUFFT(cufftExecR2C((*this).plan, static_cast<cufftReal*>(in),
                                     reinterpret_cast<cufftComplex*>(out)));
@@ -137,6 +139,29 @@ class cufft_1d_wrapper
       throw std::runtime_error("[cufft_wrapper] process_impl: TODO");
     }
     (*this).flush();
+  }
+
+  template <
+      typename..., srtb::fft::type fft_type_ = fft_type,
+      typename std::enable_if<(fft_type_ == srtb::fft::type::C2C_1D_FORWARD ||
+                               fft_type_ == srtb::fft::type::C2C_1D_BACKWARD),
+                              int>::type = 0>
+  void process_impl(Complex* in, Complex* out) {
+    constexpr auto direction = (fft_type == srtb::fft::type::C2C_1D_BACKWARD)
+                                   ? CUFFT_INVERSE
+                                   : CUFFT_FORWARD;
+    if constexpr (std::is_same_v<T, cufftReal>) {
+      SRTB_CHECK_CUFFT(
+          cufftExecC2C((*this).plan, static_cast<cufftComplex*>(in),
+                       reinterpret_cast<cufftComplex*>(out), direction));
+    } else if constexpr (std::is_same_v<T, cufftDoubleReal>) {
+      SRTB_CHECK_CUFFT(
+          cufftExecZ2Z((*this).plan, reinterpret_cast<cufftDoubleComplex*>(in),
+                       reinterpret_cast<cufftDoubleComplex*>(out), direction));
+    } else {
+      throw std::runtime_error("[cufft_wrapper] process_impl<C2C_1D>: ?");
+    }
+    flush();
   }
 
   bool has_inited_impl() {
