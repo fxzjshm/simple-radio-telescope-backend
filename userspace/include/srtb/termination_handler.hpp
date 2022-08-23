@@ -27,18 +27,44 @@
 
 namespace srtb {
 
-inline void termination_handler() {
+// forward declarations
+inline void termination_handler();
+inline void signal_handler(int signal);
+
+class termination_handler_t {
+ public:
+  std::terminate_handler original_terminate_handler;
+  sighandler_t original_SIGILL_handler;
+  sighandler_t original_SIGFPE_handler;
+  sighandler_t original_SIGSEGV_handler;
+
+  termination_handler_t() {
+    original_terminate_handler = std::set_terminate(&srtb::termination_handler);
+    // remember to set the behaviour in signal_handler
+    original_SIGILL_handler = std::signal(SIGILL, srtb::signal_handler);
+    original_SIGFPE_handler = std::signal(SIGFPE, srtb::signal_handler);
+    original_SIGSEGV_handler = std::signal(SIGSEGV, srtb::signal_handler);
+  }
+};
+
+inline termination_handler_t termination_handler_v;
+
+inline void print_stacktrace() {
   try {
     std::cerr << srtb::log::get_log_prefix(srtb::log::levels::ERROR)
               << " [termination handler] "
-              << "Backtrace:" << '\n'
-              << boost::stacktrace::stacktrace();
+              << "Stacktrace:" << '\n'
+              << boost::stacktrace::stacktrace() << '\n';
   } catch (...) {
   }
-  std::abort();
 }
 
-constexpr auto get_signal_name(int signal) {
+inline void termination_handler() {
+  print_stacktrace();
+  (*termination_handler_v.original_terminate_handler)();
+}
+
+constexpr std::string_view get_signal_name(int signal) {
   switch (signal) {
     case SIGTERM:
       return "SIGTERM";
@@ -62,20 +88,21 @@ inline void signal_handler(int signal) {
             << " [singal handler] "
             << "Received signal " << signal << ' ' << get_signal_name(signal)
             << '\n';
-  termination_handler();
-}
-
-class termination_handler_t {
- public:
-  termination_handler_t() {
-    std::set_terminate(&srtb::termination_handler);
-    std::signal(SIGILL, srtb::signal_handler);
-    std::signal(SIGFPE, srtb::signal_handler);
-    std::signal(SIGSEGV, srtb::signal_handler);
+  print_stacktrace();
+  switch (signal) {
+    case SIGSEGV:
+      (*termination_handler_v.original_SIGSEGV_handler)(signal);
+      return;
+    case SIGILL:
+      (*termination_handler_v.original_SIGILL_handler)(signal);
+      return;
+    case SIGFPE:
+      (*termination_handler_v.original_SIGFPE_handler)(signal);
+      return;
+    default:
+      return;
   }
-};
-
-inline termination_handler_t termination_handler_v;
+}
 
 }  // namespace srtb
 
