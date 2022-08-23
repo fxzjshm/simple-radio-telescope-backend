@@ -26,7 +26,7 @@
 #include "srtb/pipeline/unpack_pipe.hpp"
 #include "srtb/spectrum.hpp"
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   // TODO std::thread for other pipelines
 
   srtb::pipeline::udp_receiver_pipe udp_receiver_pipe;
@@ -37,6 +37,9 @@ int main(int argc, char **argv) {
 
   srtb::pipeline::fft_1d_r2c_pipe fft_1d_r2c_pipe;
   fft_1d_r2c_pipe.start();
+
+  srtb::pipeline::dedisperse_and_channelize_pipe dedisperse_and_channelize_pipe;
+  dedisperse_and_channelize_pipe.start();
 
   srtb::pipeline::simplify_spectrum_pipe simplify_spectrum_pipe;
   simplify_spectrum_pipe.start();
