@@ -30,7 +30,7 @@ namespace srtb {
 inline void termination_handler() {
   try {
     std::cerr << srtb::log::get_log_prefix(srtb::log::levels::ERROR)
-              << " [singal handler] "
+              << " [termination handler] "
               << "Backtrace:" << '\n'
               << boost::stacktrace::stacktrace();
   } catch (...) {
@@ -38,10 +38,30 @@ inline void termination_handler() {
   std::abort();
 }
 
+constexpr auto get_signal_name(int signal) {
+  switch (signal) {
+    case SIGTERM:
+      return "SIGTERM";
+    case SIGSEGV:
+      return "SIGSEGV";
+    case SIGINT:
+      return "SIGINT";
+    case SIGILL:
+      return "SIGILL";
+    case SIGABRT:
+      return "SIGABRT";
+    case SIGFPE:
+      return "SIGFPE";
+    default:
+      return "";
+  }
+}
+
 inline void signal_handler(int signal) {
   std::cerr << srtb::log::get_log_prefix(srtb::log::levels::ERROR)
             << " [singal handler] "
-            << "Received signal " << signal << '\n';
+            << "Received signal " << signal << ' ' << get_signal_name(signal)
+            << '\n';
   termination_handler();
 }
 
