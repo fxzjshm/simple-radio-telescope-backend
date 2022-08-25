@@ -87,7 +87,8 @@ set(CMAKE_CXX_STANDARD 20)
 
 # add extra warnings
 ## known SYCL implementations are gcc compatible
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pedantic -pedantic-errors -Wextra -Wall -Winit-self -Wold-style-cast -Woverloaded-virtual -Wuninitialized -Wmissing-declarations -Winit-self")
+## -Wold-style-cast removed due to usage in library
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pedantic -pedantic-errors -Wextra -Wall -Winit-self -Woverloaded-virtual -Wuninitialized -Wmissing-declarations -Winit-self")
 ## required for backtrace on crash
 ## why CMAKE_BUILD_TYPE=Debug produces binary without debug info?
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -fno-omit-frame-pointer ")

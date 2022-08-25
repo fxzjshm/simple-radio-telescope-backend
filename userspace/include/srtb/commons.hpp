@@ -33,7 +33,8 @@
     }                                      \
   }
 
-// TODO: ref: https://github.com/intel/llvm/pull/6424
+// TODO: ROCm: ref: https://github.com/intel/llvm/pull/6424
+//       CUDA: an ptxas "syntax error" encountered if enabled
 #if !defined(SRTB_ENABLE_ROCM_INTEROP) && !defined(SRTB_ENABLE_CUDA_INTEROP)
 #define SRTB_ASSERT_IN_KERNEL(expr) assert(expr)
 #else
