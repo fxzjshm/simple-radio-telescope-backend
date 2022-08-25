@@ -30,6 +30,7 @@ namespace spectrum {
 // TODO: where to put the pixmap?
 inline constexpr int width = 3840;
 inline constexpr int height = 2160;
+inline constexpr int max_draw_update_count = 100;
 inline QColor color = Qt::cyan;
 
 /**
@@ -63,7 +64,7 @@ class SpectrumImageProvider : public QObject, public QQuickImageProvider {
       // draw new line of fft data at top of waterfall bitmap  -- from Gqrx
       _pixmap.scroll(/* dx = */ 0, /* dy = */ 1, /* x = */ 0, /* y = */ 0,
                      width, height);
-      auto ptr = draw_spectrum_work.ptr;
+      auto ptr = draw_spectrum_work.ptr.get();
       size_t len =
           sycl::min(draw_spectrum_work.count, static_cast<size_t>(width));
       SRTB_LOGD << " [SpectrumImageProvider] "
@@ -73,12 +74,18 @@ class SpectrumImageProvider : public QObject, public QQuickImageProvider {
         qreal h, s, v, a;
         color.getHsvF(&h, &s, &v, &a);
         //SRTB_LOGD << " [SpectrumImageProvider] " << "ptr[" << i << "] = " << ptr.get()[i] << srtb::endl;
-        v *= static_cast<qreal>(ptr.get()[i]);
+        v *= static_cast<qreal>(ptr[i]);
         QColor local_color = QColor::fromHsvF(h, s, v, a);
         painter.setPen(local_color);
         painter.drawPoint(i, 0);
       }
       update_count++;
+      if (update_count > max_draw_update_count) {
+        SRTB_LOGW << " [SpectrumImageProvider] "
+                  << "update count limit exceeded, abort updating. "
+                  << "Maybe system load is too high." << srtb::endl;
+        break;
+      }
     }
     SRTB_LOGD << " [SpectrumImageProvider] "
               << "updated pixmap, count = " << update_count << srtb::endl;
