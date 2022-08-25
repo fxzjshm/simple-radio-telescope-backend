@@ -64,8 +64,8 @@ class fft_1d_r2c_pipe : public pipe<fft_1d_r2c_pipe> {
     out_work.baseband_sample_rate = srtb::config.baseband_sample_rate;
     out_work.channel_count = srtb::config.ifft_channel_count;
     out_work.dm = srtb::config.dm;
-    SRTB_POP_WORK(" [fft 1d r2c pipe] ", srtb::dedisperse_and_channelize_queue,
-                  out_work);
+    SRTB_PUSH_WORK(" [fft 1d r2c pipe] ", srtb::dedisperse_and_channelize_queue,
+                   out_work);
   }
 };
 
