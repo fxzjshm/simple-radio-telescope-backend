@@ -59,7 +59,7 @@ class dedisperse_and_channelize_pipe
     // temporary work: spectrum analyzer
     srtb::work::simplify_spectrum_work simplify_spectrum_work{{d_out_shared, n},
                                                               M};
-    SRTB_PUSH_WORK(" [[dedisperse & channelize pipe] ",
+    SRTB_PUSH_WORK(" [dedisperse & channelize pipe] ",
                    srtb::simplify_spectrum_queue, simplify_spectrum_work);
 
     //srtb::work::ifft_1d_c2c_work ifft_1d_c2c_work{{d_out_shared, N / M}, M};

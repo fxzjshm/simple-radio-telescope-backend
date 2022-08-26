@@ -68,6 +68,7 @@ inline void coherent_dedispersion_and_frequency_domain_filterbank_item(
   // data flow: input[i] ----(coherent dedispersion)----> output[j]
   const size_t j = id.get_id(0), N = id.get_range(0), L = N / M,
                L_2 = L / 2 /* == N / 2M */, m = j / L + 1, k = j - (m - 1) * L;
+  SRTB_ASSERT_IN_KERNEL(N % (2 * M) == 0);
   SRTB_ASSERT_IN_KERNEL(0 <= k && k < L && k == j % L);
   size_t i;
   if (0 <= k && k <= L_2 - 1) {
@@ -75,11 +76,16 @@ inline void coherent_dedispersion_and_frequency_domain_filterbank_item(
   } else {
     i = k + N - L * m;
   }
+  SRTB_ASSERT_IN_KERNEL(0 <= i && i < N);
+  if (M == 1) {
+    SRTB_ASSERT_IN_KERNEL(i == j);
+  }
 
   // coherent dedispersion
   // TODO: does pre-computing delta_phi saves time?
   const T f = f_min + delta_f * i;
-  output[j] = input[i] * srtb::codd::coherent_dedispersion_factor(f, f_min, dm);
+  const auto factor = srtb::codd::coherent_dedispersion_factor(f, f_min, dm);
+  output[j] = input[i] * factor;
 }
 
 /**
