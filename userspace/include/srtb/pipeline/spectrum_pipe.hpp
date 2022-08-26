@@ -67,14 +67,18 @@ class simplify_spectrum_pipe : public pipe<simplify_spectrum_pipe> {
       auto tmp_work = get_one_work();
       const size_t in_count = tmp_work.second;
       auto d_in = tmp_work.first;
+
+      // mask out some channels at edges, which are "DC" channels
+      // TODO: use RFI mitigation?
       size_t mask_count = in_count * srtb::config.spectrum_mask_ratio;
       q.parallel_for(sycl::range<1>{mask_count}, [=](sycl::item<1> id) {
          const auto i = id.get_id(0);
          constexpr auto zero =
              srtb::complex<srtb::real>{srtb::real{0}, srtb::real{0}};
          d_in[i] = zero;
-         d_in[in_count - i] = zero;
+         d_in[in_count - 1 - i] = zero;
        }).wait();
+
       srtb::spectrum::simplify_spectrum_norm_and_sum(d_in, in_count, d_sum,
                                                      out_count, q);
     }
