@@ -21,10 +21,11 @@
 #include "srtb/io/udp_receiver.hpp"
 #include "srtb/pipeline/dedisperse_and_channelize_pipe.hpp"
 #include "srtb/pipeline/fft_pipe.hpp"
+#include "srtb/pipeline/rfi_mitigation_pipe.hpp"
 #include "srtb/pipeline/spectrum_pipe.hpp"
 #include "srtb/pipeline/udp_receiver_pipe.hpp"
 #include "srtb/pipeline/unpack_pipe.hpp"
-#include "srtb/spectrum.hpp"
+#include "srtb/spectrum/simplify_spectrum.hpp"
 
 int main(int argc, char** argv) {
   // TODO std::thread for other pipelines
@@ -37,6 +38,9 @@ int main(int argc, char** argv) {
 
   srtb::pipeline::fft_1d_r2c_pipe fft_1d_r2c_pipe;
   fft_1d_r2c_pipe.start();
+
+  srtb::pipeline::rfi_mitigation_pipe rfi_mitigation_pipe;
+  rfi_mitigation_pipe.start();
 
   srtb::pipeline::dedisperse_and_channelize_pipe dedisperse_and_channelize_pipe;
   dedisperse_and_channelize_pipe.start();

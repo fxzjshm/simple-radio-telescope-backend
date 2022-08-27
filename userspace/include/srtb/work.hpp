@@ -93,6 +93,13 @@ struct unpack_work : public srtb::work::work<std::shared_ptr<std::byte> > {
 using fft_1d_r2c_work = srtb::work::work<std::shared_ptr<srtb::real> >;
 
 /**
+ * @brief comtains a block of @c srtb::complex<srtb::real> with radio interference
+ *        to be cleared out
+ */
+using rfi_mitigation_work =
+    srtb::work::work<std::shared_ptr<srtb::complex<srtb::real> > >;
+
+/**
  * @brief contains a piece of @c srtb::complex<srtb::real> to be coherently dedispersed
  *        (and channelized if kernel fused)
  */

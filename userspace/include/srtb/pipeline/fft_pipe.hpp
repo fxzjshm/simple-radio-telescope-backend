@@ -57,15 +57,10 @@ class fft_1d_r2c_pipe : public pipe<fft_1d_r2c_pipe> {
 
     // TODO: RF detect pipe
 
-    srtb::work::dedisperse_and_channelize_work out_work;
+    srtb::work::rfi_mitigation_work out_work;
     out_work.ptr = d_out_shared;
     out_work.count = out_count;
-    out_work.baseband_freq_low = srtb::config.baseband_freq_low;
-    out_work.baseband_sample_rate = srtb::config.baseband_sample_rate;
-    out_work.channel_count = srtb::config.ifft_channel_count;
-    out_work.dm = srtb::config.dm;
-    SRTB_PUSH_WORK(" [fft 1d r2c pipe] ", srtb::dedisperse_and_channelize_queue,
-                   out_work);
+    SRTB_PUSH_WORK(" [fft 1d r2c pipe] ", srtb::rfi_mitigation_queue, out_work);
   }
 };
 

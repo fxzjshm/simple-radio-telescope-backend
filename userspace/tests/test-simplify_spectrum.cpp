@@ -13,7 +13,7 @@
 #include <array>
 #include <vector>
 
-#include "srtb/spectrum.hpp"
+#include "srtb/spectrum/simplify_spectrum.hpp"
 #include "test-common.hpp"
 
 #define SRTB_CHECK_TEST_SIMPLIFY_SPECTRUM(expr)                        \

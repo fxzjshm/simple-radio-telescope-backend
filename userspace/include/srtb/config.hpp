@@ -141,20 +141,20 @@ struct configs {
   std::string fft_fftwf_wisdom_path = "srtb_fftwf_wisdom.txt";
 
   /**
+   * @brief temporary thereshold for RFI mitigation. Channels with signal stronger
+   *        than this thereshold * average strength will be set to 0
+   */
+  srtb::real mitigate_rfi_thereshold = 2;
+
+  /**
    * @brief sum some spectrum before drawing, to reduce CPU side pressure
    */
   size_t simplify_spectrum_sum_count = 1;
 
   /**
-   * @brief cut some RFI-like signal on the lowerest and higherest side of spectrum
-   * TODO: replace by RFI cut out pipe
-   */
-  srtb::real spectrum_mask_ratio = 0.01;
-
-  /**
    * @brief channel count / batch size when performing inverse FFT, also M in frequency domain filterbank
    */
-  size_t ifft_channel_count = 4096;
+  size_t ifft_channel_count = 1;
 };
 
 }  // namespace srtb

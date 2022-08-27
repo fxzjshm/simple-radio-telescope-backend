@@ -11,14 +11,15 @@
  ******************************************************************************/
 
 #pragma once
-#ifndef __SRTB_SPECTRUM__
-#define __SRTB_SPECTRUM__
+#ifndef __SRTB_SIMPLIFY_SPECTRUM__
+#define __SRTB_SIMPLIFY_SPECTRUM__
 
 #include "srtb/commons.hpp"
 
 namespace srtb {
 namespace spectrum {
 
+/** @brief a very small float number to test equivalence of two float numbers */
 inline constexpr srtb::real eps = 1e-5;
 
 /**
@@ -69,7 +70,7 @@ void simplify_spectrum_norm_and_sum(DeviceInputAccessor d_in, size_t in_count,
 }
 
 template <typename T = srtb::real, typename C = srtb::complex<srtb::real>,
-          typename DeviceInputAccessor = T*, typename HostOutputAccessor = T*>
+          typename DeviceInputAccessor = T*>
 void simplify_spectrum_normalize(DeviceInputAccessor d_in, size_t in_count,
                                  sycl::queue& q = srtb::queue) {
   auto d_max_val_shared = srtb::device_allocator.allocate_shared<srtb::real>(1);
@@ -94,4 +95,4 @@ void simplify_spectrum_normalize(DeviceInputAccessor d_in, size_t in_count,
 }  // namespace spectrum
 }  // namespace srtb
 
-#endif  // __SRTB_SPECTRUM__
+#endif  // __SRTB_SIMPLIFY_SPECTRUM__

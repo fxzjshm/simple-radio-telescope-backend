@@ -16,7 +16,7 @@
 
 #include "srtb/commons.hpp"
 #include "srtb/gui/gui.hpp"
-#include "srtb/spectrum.hpp"
+#include "srtb/spectrum/simplify_spectrum.hpp"
 
 // TODO: move to tests and auto skip if "headless"
 void start_gui_test() {
