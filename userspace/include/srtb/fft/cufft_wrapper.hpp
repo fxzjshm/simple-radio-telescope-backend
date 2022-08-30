@@ -189,16 +189,18 @@ class cufft_1d_wrapper
         .submit([&](sycl::handler& cgh) {
           cgh.hipSYCL_enqueue_custom_operation([&](sycl::interop_handle& h) {
             stream = h.get_native_queue<sycl::backend::cuda>();
-            ret = cufftSetStream(plan, stream);
           });
         })
         .wait();
+    // stream seems to be thread-local, so set it in this thread instead of the lambda above
+    ret = cufftSetStream(plan, stream);
     if (ret != CUFFT_SUCCESS) [[unlikely]] {
       throw std::runtime_error("[cufft_wrapper] cufftSetStream returned " +
                                std::to_string(ret));
     }
 #elif
-#warning cufft_wrapper::set_queue_impl does nothing
+#warning cufft_wrapper::set_queue_impl uses default stream
+    stream = nullptr;
 #endif  // SYCL_EXT_ONEAPI_BACKEND_CUDA or __HIPSYCL__
   }
 

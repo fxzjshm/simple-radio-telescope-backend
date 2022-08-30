@@ -189,16 +189,18 @@ class hipfft_1d_wrapper
         .submit([&](sycl::handler& cgh) {
           cgh.hipSYCL_enqueue_custom_operation([&](sycl::interop_handle& h) {
             stream = h.get_native_queue<sycl::backend::hip>();
-            ret = hipfftSetStream(plan, stream);
           });
         })
         .wait();
+    // stream seems to be thread-local, so set it in this thread instead of the lambda above
+    ret = hipfftSetStream(plan, stream);
     if (ret != HIPFFT_SUCCESS) [[unlikely]] {
       throw std::runtime_error("[hipfft_wrapper] hipfftSetStream returned " +
                                std::to_string(ret));
     }
 #elif
-#warning hipfft_wrapper::set_queue_impl does nothing
+#warning hipfft_wrapper::set_queue_impl uses default stream
+    stream = nullptr;
 #endif  // SYCL_EXT_ONEAPI_BACKEND_HIP or __HIPSYCL__
   }
 
