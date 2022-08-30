@@ -59,31 +59,28 @@ class fft_1d_dispatcher {
   * @note total_size := n * batch_size
   */
   fft_1d_dispatcher(size_t n, size_t batch_size = 1,
-                    const sycl::queue& q_ = srtb::queue)
+                    sycl::queue& q_ = srtb::queue)
       : q{q_} {
     auto device = queue.get_device();
     SRTB_IF_ENABLED_CUDA_INTEROP({
       if (device.get_backend() == srtb::backend::cuda) [[likely]] {
-        cufft_1d_wrapper_instance.emplace(n, batch_size);
+        cufft_1d_wrapper_instance.emplace(n, batch_size, q);
         SRTB_CHECK_FFT(cufft_1d_wrapper_instance.has_value());
-        cufft_1d_wrapper_instance.value().set_queue(q);
         return;
       }
     });
 
     SRTB_IF_ENABLED_ROCM_INTEROP({
       if (device.get_backend() == srtb::backend::rocm) [[likely]] {
-        hipfft_1d_wrapper_instance.emplace(n, batch_size);
+        hipfft_1d_wrapper_instance.emplace(n, batch_size, q);
         SRTB_CHECK_FFT(hipfft_1d_wrapper_instance.has_value());
-        hipfft_1d_wrapper_instance.value().set_queue(q);
         return;
       }
     });
 
     if (device.is_cpu() || device.is_host()) {
-      fftw_1d_wrapper_instance.emplace(n, batch_size);
+      fftw_1d_wrapper_instance.emplace(n, batch_size, q);
       SRTB_CHECK_FFT(fftw_1d_wrapper_instance.has_value());
-      fftw_1d_wrapper_instance.value().set_queue(q);
       return;
     }
 

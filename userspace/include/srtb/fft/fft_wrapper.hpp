@@ -57,13 +57,16 @@ class fft_wrapper {
    * @brief total data count = n * batch_size
    */
   size_t batch_size;
+  sycl::queue q;
 
+ protected:
   sub_class& sub() { return static_cast<sub_class&>(*this); }
 
-  void create(size_t n_, size_t batch_size_) {
-    sub().create_impl(n_, batch_size_);
+  void create(size_t n_, size_t batch_size_, sycl::queue& queue_) {
     n = n_;
     batch_size = batch_size_;
+    q = queue_;
+    sub().create_impl(n_, batch_size_, queue_);
   }
 
   void destroy() {
@@ -73,7 +76,10 @@ class fft_wrapper {
   }
 
  public:
-  fft_wrapper(size_t n_, size_t batch_size_ = 1) { create(n_, batch_size_); }
+  fft_wrapper(size_t n_, size_t batch_size_ = 1,
+              sycl::queue& queue_ = srtb::queue) {
+    create(n_, batch_size_, queue_);
+  }
 
   ~fft_wrapper() { destroy(); }
 
@@ -89,8 +95,6 @@ class fft_wrapper {
     sub().create_impl();
   }
 
-  void set_queue(sycl::queue& queue) { sub().set_queue_impl(queue); }
-
   size_t get_n() const { return n; }
 
   size_t get_batch_size() const { return batch_size; }
@@ -105,7 +109,7 @@ class fft_wrapper {
       if (has_inited()) [[likely]] {
         destroy();
       }
-      create(n_, batch_size_);
+      create(n_, batch_size_, q);
     }
   }
 };

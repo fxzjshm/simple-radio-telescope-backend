@@ -73,16 +73,30 @@ class cufft_1d_wrapper
                 (std::is_same_v<T, cufftDoubleReal> &&
                  sizeof(Complex) == sizeof(cufftDoubleComplex)));
 
-  cufft_1d_wrapper(size_t n, size_t batch_size) : super_class{n, batch_size} {}
+ protected:
+  cufftHandle plan;
+  size_t workSize;
+  cudaStream_t stream;
+
+ public:
+  cufft_1d_wrapper(size_t n, size_t batch_size, sycl::queue& queue)
+      : super_class{n, batch_size, queue} {}
 
  protected:
-  void create_impl(size_t n, size_t batch_size) {
+  void create_impl(size_t n, size_t batch_size, sycl::queue& q) {
     // should be equivalent to this
     /*
     plan = fftw_plan_dft_r2c_1d(static_cast<int>(n), tmp_in.get(),
                                reinterpret_cast<fftw_complex*>(tmp_out.get()),
                                FFTW_PATIENT |  FFTW_DESTROY_INPUT);
     */
+
+    // pending: https://github.com/intel/llvm/pull/6649
+#ifndef SYCL_IMPLEMENTATION_ONEAPI
+    auto device = q.get_device();
+    auto native_device = sycl::get_native<srtb::backend::cuda>(device);
+    SRTB_CHECK_CUDA(cudaSetDevice(native_device));
+#endif  // SYCL_IMPLEMENTATION_ONEAPI
 
     SRTB_CHECK_CUFFT(cufftCreate(&plan));
     constexpr cufftType cufft_type = get_cufft_type<T>(fft_type);
@@ -120,6 +134,7 @@ class cufft_1d_wrapper
                                          /* type = */ cufft_type,
                                          /* batch = */ batch_size,
                                          /* worksize = */ &workSize));
+    set_queue_impl(q);
   }
 
   void destroy_impl() { SRTB_CHECK_CUFFT(cufftDestroy(plan)); }
@@ -205,11 +220,6 @@ class cufft_1d_wrapper
   }
 
   void flush() { SRTB_CHECK_CUDA(cudaStreamSynchronize((*this).stream)); }
-
- protected:
-  cufftHandle plan;
-  size_t workSize;
-  cudaStream_t stream = nullptr;
 };
 
 }  // namespace fft

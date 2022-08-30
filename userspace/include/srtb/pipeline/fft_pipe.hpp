@@ -28,17 +28,24 @@ class fft_1d_r2c_pipe : public pipe<fft_1d_r2c_pipe> {
   friend pipe<fft_1d_r2c_pipe>;
 
  protected:
-  srtb::fft::fft_1d_dispatcher<srtb::fft::type::R2C_1D> dispatcher;
+  std::optional<srtb::fft::fft_1d_dispatcher<srtb::fft::type::R2C_1D> >
+      opt_dispatcher;
 
  public:
-  fft_1d_r2c_pipe()
-      : dispatcher{/* n = */
-                   srtb::config.baseband_input_length * srtb::BITS_PER_BYTE /
-                       srtb::config.baseband_input_bits,
-                   /* batch_size = */ 1, q} {}
+  fft_1d_r2c_pipe() = default;
 
  protected:
+  void setup_impl() {
+    opt_dispatcher.emplace(/* n = */
+                           srtb::config.baseband_input_length *
+                               srtb::BITS_PER_BYTE /
+                               srtb::config.baseband_input_bits,
+                           /* batch_size = */ 1, q);
+  }
+
   void run_once_impl() {
+    // assume opt_dispatcher has value
+    auto& dispatcher = opt_dispatcher.value();
     srtb::work::fft_1d_r2c_work fft_1d_r2c_work;
     SRTB_POP_WORK(" [fft 1d r2c pipe] ", srtb::fft_1d_r2c_queue,
                   fft_1d_r2c_work);

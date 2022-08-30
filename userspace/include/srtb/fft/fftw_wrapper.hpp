@@ -84,10 +84,11 @@ class fftw_1d_wrapper<fft_type, double, Complex>
   friend super_class;
   static_assert(sizeof(Complex) == sizeof(fftw_complex));
 
-  fftw_1d_wrapper(size_t n, size_t batch_size) : super_class{n, batch_size} {}
+  fftw_1d_wrapper(size_t n, size_t batch_size, sycl::queue& queue)
+      : super_class{n, batch_size, queue} {}
 
  protected:
-  void create_impl(size_t n, size_t batch_size) {
+  void create_impl(size_t n, size_t batch_size, sycl::queue& queue) {
     constexpr auto flags = FFTW_ESTIMATE | FFTW_DESTROY_INPUT;
     plan = nullptr;
 
@@ -143,6 +144,7 @@ class fftw_1d_wrapper<fft_type, double, Complex>
     if (plan == nullptr) [[unlikely]] {
       throw std::runtime_error("[fftw_wrapper] fftw_plan create failed!");
     }
+    set_queue_impl(queue);
   }
 
   void destroy_impl() {
@@ -242,10 +244,11 @@ class fftw_1d_wrapper<fft_type, float, Complex>
   friend super_class;
   static_assert(sizeof(Complex) == sizeof(fftwf_complex));
 
-  fftw_1d_wrapper(size_t n, size_t batch_size) : super_class{n, batch_size} {}
+  fftw_1d_wrapper(size_t n, size_t batch_size, sycl::queue& queue)
+      : super_class{n, batch_size, queue} {}
 
  protected:
-  void create_impl(size_t n, size_t batch_size) {
+  void create_impl(size_t n, size_t batch_size, sycl::queue& queue) {
     constexpr auto flags = FFTW_ESTIMATE | FFTW_DESTROY_INPUT;
     plan = nullptr;
 
@@ -301,6 +304,7 @@ class fftw_1d_wrapper<fft_type, float, Complex>
     if (plan == nullptr) [[unlikely]] {
       throw std::runtime_error("[fftwf_wrapper] fftwf_plan create failed!");
     }
+    set_queue_impl(queue);
   }
 
   void destroy_impl() {

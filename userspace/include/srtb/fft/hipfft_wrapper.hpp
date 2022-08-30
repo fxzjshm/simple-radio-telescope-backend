@@ -72,16 +72,26 @@ class hipfft_1d_wrapper
                 (std::is_same_v<T, hipfftDoubleReal> &&
                  sizeof(Complex) == sizeof(hipfftDoubleComplex)));
 
-  hipfft_1d_wrapper(size_t n, size_t batch_size) : super_class{n, batch_size} {}
+ protected:
+  hipfftHandle plan;
+  size_t workSize;
+  hipStream_t stream;
+
+ public:
+  hipfft_1d_wrapper(size_t n, size_t batch_size, sycl::queue& queue)
+      : super_class{n, batch_size, queue} {}
 
  protected:
-  void create_impl(size_t n, size_t batch_size) {
+  void create_impl(size_t n, size_t batch_size, sycl::queue& q) {
     // should be equivalent to this
     /*
     plan = fftw_plan_dft_r2c_1d(static_cast<int>(n), tmp_in.get(),
                                reinterpret_cast<fftw_complex*>(tmp_out.get()),
                                FFTW_PATIENT |  FFTW_DESTROY_INPUT);
     */
+    auto device = q.get_device();
+    auto native_device = sycl::get_native<srtb::backend::rocm>(device);
+    SRTB_CHECK_HIP(hipSetDevice(native_device));
 
     SRTB_CHECK_HIPFFT(hipfftCreate(&plan));
     constexpr hipfftType hipfft_type = get_hipfft_type<T>(fft_type);
@@ -128,6 +138,7 @@ class hipfft_1d_wrapper
     //                                       /* worksize = */ &workSize));
     SRTB_LOGD << " [hipfft_wrapper] "
               << "workSize = " << workSize << srtb::endl;
+    set_queue_impl(q);
   }
 
   void destroy_impl() { SRTB_CHECK_HIPFFT(hipfftDestroy(plan)); }
@@ -205,11 +216,6 @@ class hipfft_1d_wrapper
   }
 
   void flush() { SRTB_CHECK_HIP(hipStreamSynchronize((*this).stream)); }
-
- protected:
-  hipfftHandle plan;
-  size_t workSize;
-  hipStream_t stream = nullptr;
 };
 
 }  // namespace fft
