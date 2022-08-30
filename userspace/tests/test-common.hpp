@@ -48,7 +48,7 @@ inline bool check_relative_error(Iterator1 first1, Iterator1 last1,
           return false;
         }
       }
-      if (diff / avg > threshold) {
+      if (diff / avg > threshold) [[unlikely]] {
         return false;
       }
     }
