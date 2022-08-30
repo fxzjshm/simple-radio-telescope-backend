@@ -81,6 +81,8 @@ class fft_wrapper {
     create(n_, batch_size_, queue_);
   }
 
+  fft_wrapper(fft_wrapper& other) = delete;
+
   ~fft_wrapper() { destroy(); }
 
   bool has_inited() { return sub().has_inited_impl(); }
