@@ -26,8 +26,9 @@ namespace pipeline {
 /**
  * @brief Represents a pipe, which receives work from a work_queue,
  *        apply transform and then push the result to next one, on different threads.
- * @note functions required for derived classes to have:
- *           @c setup_impl, @c run_once_impl, @c teardown_impl
+ * @note functions required for derived classes to have: @c run_once_impl
+ *       optional ones: @c setup_impl, @c teardown_impl , which constructs/deconstructs
+ *                      required resources on the thread to be run
  * @note TODO: decouple work queue push and pop from @c run_once_impl
  * @tparam Derived derived class. ref: curiously recurring template pattern (CRTP)
  */
@@ -62,12 +63,18 @@ class pipe {
    * @brief Run on this thread. May block this thread.
    */
   void run(std::stop_token stop_token) {
-    // enable this code if some info isn't ready on construction but when start()/run() is called.
-    //sub().setup_impl();
+    constexpr bool has_setup = requires() { sub().setup_impl(); };
+    constexpr bool has_teardown = requires() { sub().teardown_impl(); };
+
+    if constexpr (has_setup) {
+      sub().setup_impl();
+    }
     while ((!stop_token.stop_possible()) ||
            (stop_token.stop_possible() && !stop_token.stop_requested()))
       [[likely]] { sub().run_once_impl(); }
-    //sub().teardown_impl();
+    if constexpr (has_teardown) {
+      sub().teardown_impl();
+    }
   }
 
   // setup() -> setup_impl(), if constructor doesn't apply here.
@@ -78,6 +85,8 @@ class pipe {
   pipe() {
     q = sycl::queue{srtb::queue.get_context(), srtb::queue.get_device()};
   }
+
+  pipe(sycl::queue q_) : q{q_} {};
 
   /**
    * @brief Shortcut for CRTP.
