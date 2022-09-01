@@ -44,9 +44,11 @@ class simplify_spectrum_pipe : public pipe<simplify_spectrum_pipe> {
                     simplify_spectrum_work);
       work_counter = 0;
     }
-    return std::make_pair(simplify_spectrum_work.ptr.get() +
-                              simplify_spectrum_work.count * work_counter,
-                          simplify_spectrum_work.count);
+    auto ret = std::make_pair(simplify_spectrum_work.ptr.get() +
+                                  simplify_spectrum_work.count * work_counter,
+                              simplify_spectrum_work.count);
+    work_counter++;
+    return ret;
   }
 
  protected:
