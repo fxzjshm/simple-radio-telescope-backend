@@ -156,7 +156,7 @@ class refft_1d_c2c_pipe : public pipe<refft_1d_c2c_pipe> {
     }
     if (refft_dispatcher.get_n() != refft_length ||
         refft_dispatcher.get_batch_size() != refft_batch_size) [[unlikely]] {
-      ifft_dispatcher.set_size(refft_length, refft_batch_size);
+      refft_dispatcher.set_size(refft_length, refft_batch_size);
     }
 
     auto d_in_shared = refft_1d_c2c_work.ptr;
