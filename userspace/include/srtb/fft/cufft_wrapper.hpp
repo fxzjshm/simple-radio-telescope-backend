@@ -92,6 +92,7 @@ class cufft_1d_wrapper
     */
 
     // pending: https://github.com/intel/llvm/pull/6649
+    // therefore, using non-default device for FFT is not supported on intel/llvm
 #ifndef SYCL_IMPLEMENTATION_ONEAPI
     auto device = q.get_device();
     auto native_device = sycl::get_native<srtb::backend::cuda>(device);

@@ -89,9 +89,14 @@ class hipfft_1d_wrapper
                                reinterpret_cast<fftw_complex*>(tmp_out.get()),
                                FFTW_PATIENT |  FFTW_DESTROY_INPUT);
     */
+
+    // pending: https://github.com/intel/llvm/pull/6649
+    // therefore, using non-default device for FFT is not supported on intel/llvm
+#ifndef SYCL_IMPLEMENTATION_ONEAPI
     auto device = q.get_device();
     auto native_device = sycl::get_native<srtb::backend::rocm>(device);
     SRTB_CHECK_HIP(hipSetDevice(native_device));
+#endif  // SYCL_IMPLEMENTATION_ONEAPI
 
     SRTB_CHECK_HIPFFT(hipfftCreate(&plan));
     constexpr hipfftType hipfft_type = get_hipfft_type<T>(fft_type);
