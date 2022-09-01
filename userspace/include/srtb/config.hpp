@@ -153,8 +153,11 @@ struct configs {
 
   /**
    * @brief channel count / batch size when performing inverse FFT, also M in frequency domain filterbank
+   * @note now set to 1 so frequency domain filterbank is not used.
    */
   size_t ifft_channel_count = 1;
+
+  size_t refft_length = 1 << 12;
 };
 
 }  // namespace srtb

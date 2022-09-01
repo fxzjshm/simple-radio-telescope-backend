@@ -122,6 +122,16 @@ struct ifft_1d_c2c_work
 };
 
 /**
+ * @brief contains complex FFT-ed (and dedispersed) data of total length @c count
+ *        to be iFFT-ed and reFFT-ed with length @c refft_length to get much higher
+ *        time resolution.
+ */
+struct refft_1d_c2c_work
+    : public srtb::work::work<std::shared_ptr<srtb::complex<srtb::real> > > {
+  size_t refft_length;
+};
+
+/**
  * @brief contains @c srtb::complex<srtb::real> to be simplified into
  *        ~10^3 @c srtb::real to be displayed on GUI.
  * @note temporary work, just do a software-defined-radio receiver job.
