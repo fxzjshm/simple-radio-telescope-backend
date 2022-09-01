@@ -43,7 +43,7 @@ template <typename T>
 using complex = std::complex<T>;
 #endif  // SYCL_IMPLEMENTATION_ONEAPI
 
-// TODO: check should use queue or spsc_queue here
+// TODO: check should use spsc_queue or shared queue with mutex here
 template <typename... Args>
 using work_queue = boost::lockfree::spsc_queue<Args...>;
 
