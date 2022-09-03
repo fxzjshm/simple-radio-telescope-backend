@@ -128,9 +128,10 @@ class refft_1d_c2c_pipe : public pipe<refft_1d_c2c_pipe> {
 
  protected:
   void setup_impl() {
+    // divided by 2 because input is real number but here is complex
     const size_t input_count = srtb::config.baseband_input_length *
                                srtb::BITS_PER_BYTE /
-                               srtb::config.baseband_input_bits;
+                               srtb::config.baseband_input_bits / 2;
     opt_ifft_dispatcher.emplace(/* n = */ input_count, /* batch_size = */ 1, q);
     const size_t refft_length = srtb::config.refft_length;
     const size_t refft_batch_size = input_count / refft_length;
