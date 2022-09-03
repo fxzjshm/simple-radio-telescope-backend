@@ -17,6 +17,7 @@
 #include <fftw3.h>
 
 #include <concepts>
+#include <mutex>
 #include <thread>
 
 #include "srtb/fft/fft_wrapper.hpp"
@@ -28,6 +29,8 @@ namespace fft {
 template <srtb::fft::type fft_type, std::floating_point T,
           typename Complex = srtb::complex<T> >
 class fftw_1d_wrapper;
+
+inline std::mutex fftw_mutex;
 
 /**
  * @brief This class inits fftw using RAII.
@@ -89,6 +92,9 @@ class fftw_1d_wrapper<fft_type, double, Complex>
 
  protected:
   void create_impl(size_t n, size_t batch_size, sycl::queue& queue) {
+    // fftw plan functions is not thread-safe
+    std::lock_guard lock{srtb::fft::fftw_mutex};
+
     constexpr auto flags = FFTW_ESTIMATE | FFTW_DESTROY_INPUT;
     plan = nullptr;
 
@@ -249,6 +255,9 @@ class fftw_1d_wrapper<fft_type, float, Complex>
 
  protected:
   void create_impl(size_t n, size_t batch_size, sycl::queue& queue) {
+    // fftw plan functions is not thread-safe
+    std::lock_guard lock{srtb::fft::fftw_mutex};
+
     constexpr auto flags = FFTW_ESTIMATE | FFTW_DESTROY_INPUT;
     plan = nullptr;
 

@@ -15,7 +15,6 @@
 #define __SRTB_FFT_WRAPPER__
 
 #include <concepts>
-#include <mutex>
 
 #include "srtb/commons.hpp"
 
