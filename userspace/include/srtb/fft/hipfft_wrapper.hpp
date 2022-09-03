@@ -177,7 +177,7 @@ class hipfft_1d_wrapper
                                    : HIPFFT_FORWARD;
     if constexpr (std::is_same_v<T, hipfftReal>) {
       SRTB_CHECK_HIPFFT(
-          hipfftExecC2C((*this).plan, static_cast<hipfftComplex*>(in),
+          hipfftExecC2C((*this).plan, reinterpret_cast<hipfftComplex*>(in),
                         reinterpret_cast<hipfftComplex*>(out), direction));
     } else if constexpr (std::is_same_v<T, hipfftDoubleReal>) {
       SRTB_CHECK_HIPFFT(hipfftExecZ2Z(

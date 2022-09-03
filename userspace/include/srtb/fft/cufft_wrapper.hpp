@@ -168,7 +168,7 @@ class cufft_1d_wrapper
                                    : CUFFT_FORWARD;
     if constexpr (std::is_same_v<T, cufftReal>) {
       SRTB_CHECK_CUFFT(
-          cufftExecC2C((*this).plan, static_cast<cufftComplex*>(in),
+          cufftExecC2C((*this).plan, reinterpret_cast<cufftComplex*>(in),
                        reinterpret_cast<cufftComplex*>(out), direction));
     } else if constexpr (std::is_same_v<T, cufftDoubleReal>) {
       SRTB_CHECK_CUFFT(
