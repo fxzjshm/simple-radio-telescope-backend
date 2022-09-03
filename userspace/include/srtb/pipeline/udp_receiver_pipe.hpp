@@ -74,14 +74,14 @@ class udp_receiver_pipe : public pipe<udp_receiver_pipe> {
 
     if (nsamps_reserved < baseband_input_length) {
       worker.consume(baseband_input_length - nsamps_reserved);
+      SRTB_LOGD << " [udp receiver pipe] "
+                << "reserved " << nsamps_reserved << " samples" << srtb::endl;
     } else {
       SRTB_LOGW << " [udp receiver pipe] "
                 << "baseband_input_length = " << baseband_input_length
                 << " >= nsamps_reserved = " << nsamps_reserved << srtb::endl;
       worker.consume(baseband_input_length);
     }
-    SRTB_LOGD << " [udp receiver pipe] "
-              << "reserved " << nsamps_reserved << " samples" << srtb::endl;
 
     auto time_after_push = std::chrono::system_clock::now();
     auto push_work_time = std::chrono::duration_cast<std::chrono::microseconds>(

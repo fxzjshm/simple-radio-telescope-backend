@@ -135,6 +135,8 @@ class cufft_1d_wrapper
                                          /* type = */ cufft_type,
                                          /* batch = */ batch_size,
                                          /* worksize = */ &workSize));
+    SRTB_LOGI << " [cufft_wrapper] "
+              << "plan finished. workSize = " << workSize << srtb::endl;
     set_queue_impl(q);
   }
 

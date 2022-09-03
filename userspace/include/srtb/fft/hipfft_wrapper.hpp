@@ -141,8 +141,8 @@ class hipfft_1d_wrapper
     //                                       /* type = */ hipfft_type,
     //                                       /* batch = */ batch_size,
     //                                       /* worksize = */ &workSize));
-    SRTB_LOGD << " [hipfft_wrapper] "
-              << "workSize = " << workSize << srtb::endl;
+    SRTB_LOGI << " [hipfft_wrapper] "
+              << "plan finished. workSize = " << workSize << srtb::endl;
     set_queue_impl(q);
   }
 
