@@ -34,11 +34,11 @@ class cosine_sum_window {
   cosine_sum_window(Args... args) : a{args...} {}
 
   /**
- * @brief calculate window funtion value at x = n / N for 0 <= n <= N
- * 
- * @param x x = n / N, 0 <= n <= N
- * @return T window funtion value at x
- */
+   * @brief calculate window funtion value at x = n / N for 0 <= n <= N
+   * 
+   * @param x x = n / N, 0 <= n <= N
+   * @return T window funtion value at x
+   */
   T operator()(const T& x) const noexcept {
     T ret = 0;
     for (size_t k = 0; k < K; k++) {
@@ -61,9 +61,20 @@ struct hamming : cosine_sum_window<2, T> {
   using cosine_sum_window<2, T>::operator();
 };
 
+template <typename T = srtb::real>
+struct rectangle {
+  /**
+   * @brief coefficients of rectangle window is just 1
+   */
+  T operator()(const T& x) const noexcept {
+    (void)x;
+    return T(1);
+  }
+};
+
 }  // namespace window
 
-typedef srtb::fft::window::hamming<> default_window;
+using default_window = srtb::fft::window::hamming<>;
 
 /**
  * @brief Provide FFT window coefficients for size n, that is, [0, n-1]
