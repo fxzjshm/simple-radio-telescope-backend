@@ -133,6 +133,8 @@ class fft_window_functor_manager {
        _coefficients[i] = window(static_cast<T>(i) / (_n - 1));
      }).wait();
   }
+
+  auto get_coefficients() { return shared_coefficients; }
 };
 
 }  // namespace fft
