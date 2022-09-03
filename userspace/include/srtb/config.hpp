@@ -43,9 +43,25 @@ template <typename T>
 using complex = std::complex<T>;
 #endif  // SYCL_IMPLEMENTATION_ONEAPI
 
+/**
+ * @brief initial capacity of srtb::work_queue
+ */
+inline constexpr size_t work_queue_capacity = 4;
+
 // TODO: check should use spsc_queue or shared queue with mutex here
-template <typename... Args>
-using work_queue = boost::lockfree::spsc_queue<Args...>;
+
+#ifdef SRTB_WORK_QUEUE_FIXED_SIZE
+template <typename T>
+using work_queue = boost::lockfree::spsc_queue<
+    T, boost::lockfree::capacity<srtb::work_queue_capacity> >;
+#else
+template <typename T>
+class work_queue : public boost::lockfree::spsc_queue<T> {
+ public:
+  using super_class = boost::lockfree::spsc_queue<T>;
+  work_queue() : super_class{work_queue_capacity} {}
+};
+#endif
 
 typedef uint64_t udp_packet_counter_type;
 
@@ -59,11 +75,6 @@ inline constexpr size_t BITS_PER_BYTE = 8ul;
 inline constexpr size_t UDP_MAX_SIZE = 1 << 16;
 
 inline constexpr size_t LOG_PREFIX_BUFFER_LENGTH = 64ul;
-
-/**
- * @brief initial capacity of boost::lockfree::{queue, spsc_queue}
- */
-inline constexpr size_t work_queue_initial_capacity = 64;
 
 // ------ Runtime configuration ------
 
