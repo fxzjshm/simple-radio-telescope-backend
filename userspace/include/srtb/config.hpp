@@ -58,6 +58,8 @@ inline constexpr size_t BITS_PER_BYTE = 8ul;
 
 inline constexpr size_t UDP_MAX_SIZE = 1 << 16;
 
+inline constexpr size_t LOG_PREFIX_BUFFER_LENGTH = 64ul;
+
 /**
  * @brief initial capacity of boost::lockfree::{queue, spsc_queue}
  */

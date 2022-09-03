@@ -14,6 +14,7 @@
 #ifndef __SRTB_LOG__
 #define __SRTB_LOG__
 
+#include <chrono>
 #include <iostream>
 #include <syncstream>
 
@@ -39,20 +40,40 @@ enum class levels : int {
   DEBUG = 4
 };
 
-inline constexpr auto get_log_prefix(const log::levels level) {
+inline std::string get_log_prefix(const log::levels level) {
+  // TODO: std::string, std::string_view, char*, or else?
+  //       when can we use std::format ?
+  std::string prefix, suffix, tag;
   switch (level) {
     case srtb::log::levels::ERROR:
-      return "\033[1;31m[SRTB ERROR]\033[0m";  // bright red
+      prefix = "\033[1;31m";  // bright red
+      tag = "E";
+      break;
     case srtb::log::levels::WARNING:
-      return "\033[;35m[SRTB  WARN]\033[0m";  // magenta
+      prefix = "\033[;35m";  // magenta
+      tag = "W";
+      break;
     case srtb::log::levels::INFO:
-      return "\033[;32m[SRTB  INFO]\033[0m";  // green
+      prefix = "\033[;32m";  // green
+      tag = "I";
+      break;
     case srtb::log::levels::DEBUG:
-      return "\033[;36m[SRTB DEBUG]\033[0m";  // cyan
+      prefix = "\033[;36m";  // cyan
+      tag = "D";
+      break;
     case srtb::log::levels::NONE:
     default:
       return "";
   }
+  suffix = "\033[0m";  // clear colour
+
+  auto interval = std::chrono::system_clock::now() - srtb::program_start_time;
+  double interval_sec = static_cast<double>(interval.count()) / 1e9;
+
+  char str[srtb::LOG_PREFIX_BUFFER_LENGTH];
+  std::snprintf(str, sizeof(str), "%s[%9.06f] %s%s:", prefix.c_str(),
+                interval_sec, tag.c_str(), suffix.c_str());
+  return std::string(str);
 }
 
 }  // namespace log

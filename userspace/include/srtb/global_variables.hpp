@@ -27,6 +27,8 @@ inline srtb::configs config;
 
 inline sycl::queue queue;
 
+inline auto program_start_time = std::chrono::system_clock::now();
+
 }  // namespace srtb
 
 #include "srtb/memory/cached_allocator.hpp"
