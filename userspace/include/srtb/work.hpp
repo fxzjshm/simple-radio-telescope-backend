@@ -139,11 +139,14 @@ struct refft_1d_c2c_work
 using simplify_spectrum_work = ifft_1d_c2c_work;
 
 /**
- * @brief contains ~10^3 @c srtb::real to be drawn to a line of a pixmap.
- *        @c ptr should be host pointer
+ * @brief contains ~10^3 * @c batch_size of @c srtb::real to be summed and drawn
+ *        to a line of a pixmap. @c ptr should be host pointer.
  * @note temporary work, see above.
  */
-using draw_spectrum_work = srtb::work::work<std::shared_ptr<srtb::real> >;
+struct draw_spectrum_work
+    : public srtb::work::work<std::shared_ptr<srtb::real> > {
+  size_t batch_size;
+};
 
 // work queues are in global_variables.hpp
 

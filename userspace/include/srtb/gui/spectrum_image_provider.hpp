@@ -45,15 +45,15 @@ class SpectrumImageProvider : public QObject, public QQuickImageProvider {
   Q_OBJECT
 
  private:
-  QPixmap _pixmap;
+  QPixmap pixmap;
   int spectrum_update_counter = 0;
 
  public:
   explicit SpectrumImageProvider(QObject* parent = nullptr)
       : QObject{parent},
         QQuickImageProvider{QQuickImageProvider::Pixmap},
-        _pixmap{width, height} {
-    //_pixmap.fill(color);
+        pixmap{width, height} {
+    //pixmap.fill(color);
   }
 
  public slots:
@@ -62,22 +62,29 @@ class SpectrumImageProvider : public QObject, public QQuickImageProvider {
     size_t update_count = 0;
     while (srtb::draw_spectrum_queue.pop(draw_spectrum_work) != false) {
       // draw new line of fft data at top of waterfall bitmap  -- from Gqrx
-      _pixmap.scroll(/* dx = */ 0, /* dy = */ 1, /* x = */ 0, /* y = */ 0,
-                     width, height);
+      const size_t count = draw_spectrum_work.count;
+      const size_t batch_size = draw_spectrum_work.batch_size;
+      pixmap.scroll(/* dx = */ 0, /* dy = */ batch_size, /* x = */ 0,
+                    /* y = */ 0, width, height);
       auto ptr = draw_spectrum_work.ptr.get();
-      size_t len =
-          sycl::min(draw_spectrum_work.count, static_cast<size_t>(width));
-      SRTB_LOGD << " [SpectrumImageProvider] "
-                << "drawing pixmap, len = " << len << srtb::endl;
-      QPainter painter{&_pixmap};
-      for (size_t i = 0; i < len; i++) {
-        qreal h, s, v, a;
-        color.getHsvF(&h, &s, &v, &a);
-        //SRTB_LOGD << " [SpectrumImageProvider] " << "ptr[" << i << "] = " << ptr.get()[i] << srtb::endl;
-        v *= static_cast<qreal>(ptr[i]);
-        QColor local_color = QColor::fromHsvF(h, s, v, a);
-        painter.setPen(local_color);
-        painter.drawPoint(i, 0);
+      size_t x_max = sycl::min(count, static_cast<size_t>(width));
+      size_t y_max = sycl::min(batch_size, static_cast<size_t>(height));
+      //SRTB_LOGD << " [SpectrumImageProvider] "
+      //          << "drawing pixmap, len = " << x_max << srtb::endl;
+      QPainter painter{&pixmap};
+      for (size_t j = 0; j < y_max; j++) {
+        for (size_t i = 0; i < x_max; i++) {
+          //SRTB_LOGD << " [SpectrumImageProvider] " << "ptr[" << i << "] = " << ptr[i] << srtb::endl;
+          assert(i + j * count < count * batch_size);
+
+          qreal h, s, v, a;
+          color.getHsvF(&h, &s, &v, &a);
+          v *= static_cast<qreal>(ptr[i + j * count]);
+          QColor local_color = QColor::fromHsvF(h, s, v, a);
+
+          painter.setPen(local_color);
+          painter.drawPoint(i, y_max - j - 1);
+        }
       }
       update_count++;
       if (update_count > max_draw_update_count) {
@@ -98,20 +105,21 @@ class SpectrumImageProvider : public QObject, public QQuickImageProvider {
     QMetaObject::invokeMethod(object, "update_spectrum",
                               Q_ARG(QVariant, spectrum_update_counter));
     spectrum_update_counter++;
-    SRTB_LOGD << " [SpectrumImageProvider] "
-              << "trigger update, spectrum_update_counter = "
-              << spectrum_update_counter << srtb::endl;
+    //SRTB_LOGD << " [SpectrumImageProvider] "
+    //          << "trigger update, spectrum_update_counter = "
+    //          << spectrum_update_counter << srtb::endl;
   }
 
   QPixmap requestPixmap(const QString& id, QSize* size,
                         const QSize& requestedSize) override {
-    SRTB_LOGD << " [SpectrumImageProvider] "
-              << "requestPixmap called with id " << id.toStdString()
-              << srtb::endl;
+    //SRTB_LOGD << " [SpectrumImageProvider] "
+    //          << "requestPixmap called with id " << id.toStdString()
+    //          << srtb::endl;
+    (void)id;
     if (size) {
       *size = QSize(width, height);
     }
-    QPixmap pixmap_scaled = _pixmap.scaled(
+    QPixmap pixmap_scaled = pixmap.scaled(
         requestedSize.width() > 0 ? requestedSize.width() : width,
         requestedSize.height() > 0 ? requestedSize.height() : height);
     return pixmap_scaled;

@@ -24,20 +24,32 @@ inline constexpr srtb::real eps = 1e-5;
 
 /**
  * @brief average the norm of input complex numbers
+ *        xxxxxxxxx xxxxxxxxx......xxxxxxxxx
+ *        |-------| |-------|      |-------|
+ *          \   /     \   /          \   /
+ *         \bar{x}   \bar{x}        \bar{x}
  */
 template <typename T = srtb::real, typename C = srtb::complex<srtb::real>,
           typename DeviceInputAccessor = C*, typename DeviceOutputAccessor = T*>
-void simplify_spectrum_norm_and_sum(DeviceInputAccessor d_in, size_t in_count,
-                                    DeviceOutputAccessor d_sum,
-                                    size_t out_count,
-                                    sycl::queue& q = srtb::queue) {
+void simplify_spectrum_calculate_norm(DeviceInputAccessor d_in, size_t in_count,
+                                      DeviceOutputAccessor d_out,
+                                      size_t out_count, size_t batch_size = 1,
+                                      sycl::queue& q = srtb::queue) {
+  static_assert(sizeof(T) * 2 == sizeof(C));
   const srtb::real in_count_real = static_cast<srtb::real>(in_count);
   const srtb::real out_count_real = static_cast<srtb::real>(out_count);
   // count of in data point that average into one out data point
   const srtb::real coverage = in_count_real / out_count_real;
 
-  q.parallel_for(sycl::range<1>{out_count}, [=](sycl::item<1> id) {
-     const size_t i = id.get_id(0);
+  q.parallel_for(sycl::range<1>{out_count * batch_size}, [=](sycl::item<1> id) {
+     const size_t idx = id.get_id(0);
+     const size_t j = idx / out_count;
+     const size_t in_offset = j * in_count;
+     const size_t out_offset = j * out_count;
+     const size_t i = idx - out_offset;
+     SRTB_ASSERT_IN_KERNEL(i < out_count && j < batch_size);
+     SRTB_ASSERT_IN_KERNEL(j * out_count + i == idx);
+
      srtb::real sum = 0;
      const srtb::real left_accurate = coverage * i,
                       right_accurate = coverage * (i + 1),
@@ -47,7 +59,7 @@ void simplify_spectrum_norm_and_sum(DeviceInputAccessor d_in, size_t in_count,
                   right = static_cast<size_t>(right_real);
      for (size_t k = left; k < right; k++) {
        SRTB_ASSERT_IN_KERNEL(k < in_count);
-       sum += srtb::norm(d_in[k]);
+       sum += srtb::norm(d_in[k + in_offset]);
      }
      SRTB_ASSERT_IN_KERNEL(left_real >= left_accurate);
      if (left_real - left_accurate > eps) [[likely]] {
@@ -55,7 +67,8 @@ void simplify_spectrum_norm_and_sum(DeviceInputAccessor d_in, size_t in_count,
        // left_left == static_cast<size_t>(sycl::floor(left_real)),
        const size_t left_right = left;
        SRTB_ASSERT_IN_KERNEL(left_left < in_count);
-       sum += (left_right - left_accurate) * srtb::norm(d_in[left_left]);
+       sum += (left_right - left_accurate) *
+              srtb::norm(d_in[left_left + in_offset]);
      }
      SRTB_ASSERT_IN_KERNEL(right_accurate >= right_real);
      if (right_accurate - right_real > eps) [[likely]] {
@@ -63,9 +76,10 @@ void simplify_spectrum_norm_and_sum(DeviceInputAccessor d_in, size_t in_count,
        // const size_t right_right = right + 1;
        // right_right == static_cast<size_t>(sycl::ceil(right_real));
        SRTB_ASSERT_IN_KERNEL(right_left < in_count);
-       sum += (right_accurate - right_left) * srtb::norm(d_in[right_left]);
+       sum += (right_accurate - right_left) *
+              srtb::norm(d_in[right_left + in_offset]);
      }
-     d_sum[i] += sum;
+     d_out[i + out_offset] = sum;
    }).wait();
 }
 

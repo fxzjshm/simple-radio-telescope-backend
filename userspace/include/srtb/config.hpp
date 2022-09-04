@@ -161,8 +161,9 @@ struct configs {
 
   /**
    * @brief sum some spectrum before drawing, to reduce CPU side pressure
+   * TODO: re-implement
    */
-  size_t simplify_spectrum_sum_count = 1;
+  size_t spectrum_sum_count = 1;
 
   /**
    * @brief channel count / batch size when performing inverse FFT, also M in frequency domain filterbank
