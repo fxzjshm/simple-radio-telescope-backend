@@ -31,7 +31,8 @@ void start_gui_test() {
         return static_cast<srtb::real>(std::rand()) /
                static_cast<srtb::real>(INT_MAX);
       });
-      srtb::work::draw_spectrum_work draw_spectrum_work{h_in_shared, in_size};
+      srtb::work::draw_spectrum_work draw_spectrum_work{{h_in_shared, in_size},
+                                                        1};
       SRTB_PUSH_WORK(" [gui_test] ", srtb::draw_spectrum_queue,
                      draw_spectrum_work);
       using namespace std::chrono_literals;

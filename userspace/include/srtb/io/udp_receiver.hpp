@@ -16,7 +16,6 @@
 
 #include <array>
 #include <boost/asio.hpp>
-#include <boost/bind.hpp>
 #include <chrono>
 #include <cstring>
 #include <iostream>

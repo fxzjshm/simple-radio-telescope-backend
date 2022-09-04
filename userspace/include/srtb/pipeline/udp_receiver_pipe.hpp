@@ -14,12 +14,6 @@
 #ifndef __SRTB_PIPELINE_UDP_RECEIVER_PIPE__
 #define __SRTB_PIPELINE_UDP_RECEIVER_PIPE__
 
-#include <array>
-#include <boost/asio.hpp>
-#include <boost/bind.hpp>
-#include <chrono>
-#include <iostream>
-
 #include "srtb/io/udp_receiver.hpp"
 #include "srtb/pipeline/pipe.hpp"
 

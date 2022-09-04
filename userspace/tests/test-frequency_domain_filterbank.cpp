@@ -42,6 +42,8 @@ inline void coherent_dedispersion_and_frequency_domain_filterbank_host_ptr(
 }
 
 int main(int argc, char** argv) {
+  (void)argc;
+  (void)argv;
   sycl::queue q;
   srtb::real eps = 1e-6;
 

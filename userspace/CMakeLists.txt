@@ -92,6 +92,8 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pedantic -pedantic-errors -Wextra -Wall
 ## required for backtrace on crash
 ## why CMAKE_BUILD_TYPE=Debug produces binary without debug info?
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -fno-omit-frame-pointer ")
+## remove some warnings that do not directly related to this code
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-builtins ")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -rdynamic ")
 
 # dependency
