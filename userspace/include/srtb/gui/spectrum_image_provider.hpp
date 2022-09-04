@@ -28,10 +28,34 @@ namespace gui {
 namespace spectrum {
 
 // TODO: where to put the pixmap?
-inline constexpr int width = 3840;
-inline constexpr int height = 2160;
-inline constexpr int max_draw_update_count = 100;
-inline QColor color = Qt::cyan;
+inline constexpr int width = 640;
+inline constexpr int height = 480;
+inline constexpr int max_draw_update_count = 2;
+
+/** @brief common 8-bit color has 2^8 == 256 values*/
+inline constexpr size_t color_value_count = 1 << 8;
+
+/** @brief cached colors to be used, so that don't need to construct temporary objects frequently */
+class color_map_holder_t {
+ protected:
+  std::array<QColor, color_value_count> color_map;
+
+ public:
+  color_map_holder_t(QColor color = Qt::cyan) { set_color(color); }
+
+  void set_color(QColor color) {
+    int h, s, v, a;
+    color.getHsv(&h, &s, &v, &a);
+    for (size_t i = 0; i < color_map.size(); i++) {
+      const int v2 = static_cast<int>(i);
+      color_map[i] = QColor::fromHsv(h, s, v2, a);
+    }
+  }
+
+  auto operator[](size_t i) const -> const QColor& { return color_map.at(i); }
+};
+
+inline color_map_holder_t color_map_holder;
 
 /**
  * @brief draw processed spectrum data onto the pixmap
@@ -77,10 +101,12 @@ class SpectrumImageProvider : public QObject, public QQuickImageProvider {
           //SRTB_LOGD << " [SpectrumImageProvider] " << "ptr[" << i << "] = " << ptr[i] << srtb::endl;
           assert(i + j * count < count * batch_size);
 
-          qreal h, s, v, a;
-          color.getHsvF(&h, &s, &v, &a);
-          v *= static_cast<qreal>(ptr[i + j * count]);
-          QColor local_color = QColor::fromHsvF(h, s, v, a);
+          size_t v2 =
+              static_cast<size_t>(color_value_count * ptr[i + j * count]);
+          if (v2 >= color_value_count) [[unlikely]] {
+            v2 = color_value_count - 1;
+          }
+          QColor local_color = color_map_holder[v2];
 
           painter.setPen(local_color);
           painter.drawPoint(i, y_max - j - 1);
