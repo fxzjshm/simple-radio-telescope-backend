@@ -89,19 +89,22 @@ inline void signal_handler(int signal) {
             << "Received signal " << signal << ' ' << get_signal_name(signal)
             << '\n';
   print_stacktrace();
+  sighandler_t next_handler;
   switch (signal) {
     case SIGSEGV:
-      (*termination_handler_v.original_SIGSEGV_handler)(signal);
-      return;
+      next_handler = termination_handler_v.original_SIGSEGV_handler;
+      break;
     case SIGILL:
-      (*termination_handler_v.original_SIGILL_handler)(signal);
-      return;
+      next_handler = termination_handler_v.original_SIGILL_handler;
+      break;
     case SIGFPE:
-      (*termination_handler_v.original_SIGFPE_handler)(signal);
-      return;
+      next_handler = termination_handler_v.original_SIGFPE_handler;
+      break;
     default:
-      return;
+      next_handler = SIG_DFL;
+      break;
   }
+  std::signal(signal, next_handler);
 }
 
 }  // namespace srtb
