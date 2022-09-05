@@ -77,7 +77,6 @@ call_fftw_1d(size_t n, size_t batch_size, float* in, C* out) {
 int main(int argc, char** argv) {
   int bit = 2;
   size_t batch_size = 2, test_count = 3;
-  srtb::real threshold = 1e-5;
   const int print_result_thereshold = 32;
   if (argc > 1) {
     try {
@@ -111,6 +110,9 @@ int main(int argc, char** argv) {
 
   const size_t n = static_cast<size_t>(1) << bit, n_real = n,
                n_complex = n / 2 + 1;
+  // assume operations related to an element gives 0.5 ulp error, and max tolerance is 5%
+  srtb::real threshold = std::min(
+      std::numeric_limits<srtb::real>::epsilon() * n / 2, srtb::real{0.05});
   srtb::config.baseband_input_length =
       n * srtb::config.baseband_input_bits / srtb::BITS_PER_BYTE;
   size_t fft_1d_r2c_input_size = srtb::config.baseband_input_length *
