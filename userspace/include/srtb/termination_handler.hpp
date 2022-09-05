@@ -51,8 +51,7 @@ inline termination_handler_t termination_handler_v;
 
 inline void print_stacktrace() {
   try {
-    std::cerr << srtb::log::get_log_prefix(srtb::log::levels::ERROR)
-              << " [termination handler] "
+    SRTB_LOGE << " [termination handler] "
               << "Stacktrace:" << '\n'
               << boost::stacktrace::stacktrace() << '\n';
   } catch (...) {
@@ -84,8 +83,7 @@ constexpr std::string_view get_signal_name(int signal) {
 }
 
 inline void signal_handler(int signal) {
-  std::cerr << srtb::log::get_log_prefix(srtb::log::levels::ERROR)
-            << " [singal handler] "
+  SRTB_LOGE << " [singal handler] "
             << "Received signal " << signal << ' ' << get_signal_name(signal)
             << '\n';
   print_stacktrace();
