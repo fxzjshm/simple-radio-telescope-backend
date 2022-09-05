@@ -26,15 +26,17 @@ namespace unpack {
 
 /**
  * @brief unpack in[x] to out[BITS_PER_BYTE / IN_NBITS * x]
+ *        enabled if IN_NBITS < 8, that is, really needs *unpack*.
  * 
  * @see srtb::unpack::unpack
- * TODO: does these the same after optimization?
+ * TODO: are these the same after optimization?
  */
 template <int IN_NBITS, bool handwritten, typename InputIterator,
           typename OutputIterator, typename TransformFunctor>
-inline typename std::enable_if<(handwritten == false), void>::type unpack_item(
-    InputIterator in, OutputIterator out, const size_t x,
-    TransformFunctor transform) {
+inline typename std::enable_if<
+    (IN_NBITS < srtb::BITS_PER_BYTE && handwritten == false), void>::type
+unpack_item(InputIterator in, OutputIterator out, const size_t x,
+            TransformFunctor transform) {
   static_assert(
       std::is_same_v<std::byte,
                      typename std::iterator_traits<InputIterator>::value_type>);
@@ -128,30 +130,33 @@ inline
   // clang-format on
 }
 
-template <int IN_NBITS, bool handwritten, typename InputIterator,
+/** @brief not a unpack, just type cast and transform. */
+template <int IN_NBITS, bool handwritten = false, typename InputIterator,
           typename OutputIterator, typename TransformFunctor>
 inline
-    typename std::enable_if<(IN_NBITS == 8 && handwritten == true), void>::type
+    typename std::enable_if<(IN_NBITS == sizeof(typename std::iterator_traits<
+                                                InputIterator>::value_type) *
+                                             srtb::BITS_PER_BYTE),
+                            void>::type
     unpack_item(InputIterator in, OutputIterator out, const size_t x,
                 TransformFunctor transform) {
-  static_assert(
-      std::is_same_v<std::byte,
-                     typename std::iterator_traits<InputIterator>::value_type>);
-  typedef typename std::iterator_traits<OutputIterator>::value_type T;
+  typedef typename std::iterator_traits<OutputIterator>::value_type out_type;
 
-  const std::byte in_val = in[x];
-  out[x] = transform(x, static_cast<T>(in_val));
+  const auto in_val = in[x];
+  out[x] = transform(x, static_cast<out_type>(in_val));
 }
 
 /**
- * @brief unpack bytes stream into floating-point numbers, for FFT
+ * @brief unpack bytes stream into type needed. (for IN_BITS == 1, 2, 4)
+ *        copy and cast input to needed type. (for IN_BITS >= 8)
  * 
  * @tparam IN_NBITS bit width of one input number
  * @param d_in iterator of std::byte
  * @param d_out iterator of output
  * @param in_count std::bytes count of in. Make sure [0, BITS_PER_BYTE / IN_NBITS * input_count) of out is accessible.
- * @param transform transform transformtor to be applied after unpacking, e.g. FFT window.
- *             it's operator() has the signature (size_t n, T val) -> T
+ * @param transform transform functor to be applied after unpacking, e.g. FFT window.
+ *                  it's operator() has the signature (size_t n, T val) -> T
+ * @param q the sycl queue to be used
  */
 template <int IN_NBITS, bool handwritten = false, typename InputIterator,
           typename OutputIterator, typename TransformFunctor>
@@ -178,26 +183,36 @@ inline void unpack(InputIterator d_in, OutputIterator d_out, size_t in_count,
                                        srtb::unpack::identity(), q);
 }
 
+/** @brief runtime dispatch version */
 template <bool handwritten = false, typename InputIterator,
           typename OutputIterator, typename TransformFunctor>
 inline void unpack(int in_nbits, InputIterator d_in, OutputIterator d_out,
                    size_t in_count, TransformFunctor transform,
                    sycl::queue& q) {
-  switch (in_nbits) {
-    case 1:
-      return unpack<1, handwritten>(d_in, d_out, in_count, transform, q);
-    case 2:
-      return unpack<2, handwritten>(d_in, d_out, in_count, transform, q);
-    case 4:
-      return unpack<4, handwritten>(d_in, d_out, in_count, transform, q);
-    case 8:
-      return unpack<8, handwritten>(d_in, d_out, in_count, transform, q);
-    default:
-      throw std::runtime_error("unpack: unsupported in_nbits " +
-                               std::to_string(in_nbits));
+  typedef typename std::iterator_traits<InputIterator>::value_type input_type;
+  if constexpr (std::is_same_v<std::byte, input_type>) {
+    switch (in_nbits) {
+      case 1:
+        return unpack<1, handwritten>(d_in, d_out, in_count, transform, q);
+      case 2:
+        return unpack<2, handwritten>(d_in, d_out, in_count, transform, q);
+      case 4:
+        return unpack<4, handwritten>(d_in, d_out, in_count, transform, q);
+      default:
+        break;
+    }
+  }
+  constexpr int expected_in_nbits = sizeof(input_type) * srtb::BITS_PER_BYTE;
+  if (in_nbits == expected_in_nbits) {
+    return unpack<expected_in_nbits>(d_in, d_out, in_count, transform, q);
+  } else {
+    throw std::runtime_error("unpack: unsupported in_nbits " +
+                             std::to_string(in_nbits) + "with type " +
+                             std::string{typeid(input_type).name()});
   }
 }
 
+/** @brief an overload that defaults functor to @c srtb::unpack::identity */
 template <bool handwritten = false, typename InputIterator,
           typename OutputIterator>
 inline void unpack(int in_nbits, InputIterator d_in, OutputIterator d_out,
