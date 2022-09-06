@@ -29,19 +29,23 @@ class udp_receiver_pipe : public pipe<udp_receiver_pipe> {
   friend pipe<udp_receiver_pipe>;
 
  protected:
-  srtb::io::udp_receiver::udp_receiver_worker worker;
+  std::optional<srtb::io::udp_receiver::udp_receiver_worker> opt_worker;
 
  public:
-  udp_receiver_pipe(
-      const std::string& sender_address =
-          srtb::config.udp_receiver_sender_address,
-      const unsigned short sender_port = srtb::config.udp_receiver_sender_port,
-      const int udp_receiver_buffer_size =
-          srtb::config.udp_receiver_buffer_size)
-      : worker{sender_address, sender_port, udp_receiver_buffer_size} {}
+  udp_receiver_pipe() = default;
 
  protected:
+  void setup_impl() {
+    const std::string& sender_address =
+        srtb::config.udp_receiver_sender_address;
+    const unsigned short sender_port = srtb::config.udp_receiver_sender_port;
+    const int udp_receiver_buffer_size = srtb::config.udp_receiver_buffer_size;
+    opt_worker.emplace(sender_address, sender_port, udp_receiver_buffer_size);
+  }
+
   void run_once_impl() {
+    auto& worker = opt_worker.value();
+
     // this config should persist during one work push
     size_t baseband_input_length = srtb::config.baseband_input_length;
     SRTB_LOGD << " [udp receiver pipe] "
