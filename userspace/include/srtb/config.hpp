@@ -136,6 +136,16 @@ struct configs {
   unsigned short udp_receiver_sender_port = 12004;
 
   /**
+   * @brief path to the binary file to be read as baseband input
+   */
+  std::string input_file_path = "";
+
+  /**
+   * @brief skip some data before reading in, usually avoids header
+   */
+  size_t input_file_offset_bytes = 0;
+
+  /**
     * @brief debug level for log
     * @see srtb::log::levels
     */
