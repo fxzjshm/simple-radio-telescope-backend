@@ -141,8 +141,14 @@ class refft_1d_c2c_pipe : public pipe<refft_1d_c2c_pipe> {
     opt_ifft_dispatcher.emplace(/* n = */ input_count, /* batch_size = */ 1, q);
     opt_ifft_window_functor_manager.emplace(srtb::fft::default_window{},
                                             /* n = */ input_count, q);
-    const size_t refft_length = srtb::config.refft_length;
-    const size_t refft_batch_size = input_count / refft_length;
+    size_t refft_length = srtb::config.refft_length;
+    size_t refft_batch_size = input_count / refft_length;
+    if (refft_batch_size == 0) [[unlikely]] {
+      SRTB_LOGW << " [refft 1d c2c pipe] "
+                << "refft_length too large! Set to input length now.";
+      refft_length = input_count;
+      refft_batch_size = 1;
+    }
     opt_refft_dispatcher.emplace(/* n = */ refft_length,
                                  /* batch_size = */ refft_batch_size, q);
     opt_refft_window_functor_manager.emplace(srtb::fft::default_window{},
@@ -157,7 +163,8 @@ class refft_1d_c2c_pipe : public pipe<refft_1d_c2c_pipe> {
     SRTB_POP_WORK(" [refft 1d c2c pipe] ", srtb::refft_1d_c2c_queue,
                   refft_1d_c2c_work);
     const size_t input_count = refft_1d_c2c_work.count;
-    const size_t refft_length = refft_1d_c2c_work.refft_length;
+    const size_t refft_length =
+        std::min(refft_1d_c2c_work.refft_length, input_count);
     const size_t refft_batch_size = input_count / refft_length;
     const size_t refft_total_size = refft_length * refft_batch_size;
 
