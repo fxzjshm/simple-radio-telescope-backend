@@ -62,7 +62,7 @@
 #endif  // SRTB_ENABLE_ROCM_INTEROP
 
 namespace srtb {
-namespace backend{
+namespace backend {
 
 // clang-format off
 #if defined(SYCL_IMPLEMENTATION_ONEAPI)
@@ -86,7 +86,10 @@ namespace backend{
 #endif
 // clang-format on
 
-}
-}
+}  // namespace backend
+}  // namespace srtb
+
+// if conflict between BOOST_NOINLINE and HIP is encountered, upgrade boost to 1.80+
+// ref: https://github.com/boostorg/config/issues/392
 
 #endif  // __SRTB_SYCL__
