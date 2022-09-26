@@ -123,11 +123,32 @@ class cached_allocator {
     auto iter = used_ptrs.find(ptr);
     if (iter == used_ptrs.end()) [[unlikely]] {
       // something wrong here, check double free
-      for (auto [ptr_size, ptr2] : free_ptrs) {
-        if (ptr2 == ptr) {
+      for (auto [free_ptr_size, free_ptr] : free_ptrs) {
+        if (free_ptr == ptr) {
           SRTB_LOGE << " [cached_allocator] "
-                    << "double free of ptr (size "
-                    << ptr_size * sizeof(value_type) << ") detected!"
+                    << "double free of pointer (size "
+                    << free_ptr_size * sizeof(value_type) << ") detected!"
+                    << srtb::endl;
+          return;
+        }
+        // ptr may points to memory inside another ptr,
+        // that is, may be result of `another_ptr + offset`
+        if (free_ptr <= ptr && ptr < free_ptr + free_ptr_size) {
+          SRTB_LOGE << " [cached_allocator] "
+                    << "free of a pointer inside another freed pointer (size "
+                    << free_ptr_size * sizeof(value_type) << ") ! "
+                    << "offset = " << (ptr - free_ptr) * sizeof(value_type)
+                    << srtb::endl;
+          return;
+        }
+      }
+      for (auto [used_ptr, used_ptr_size] : used_ptrs) {
+        // same as above
+        if (used_ptr < ptr && ptr < used_ptr + used_ptr_size) {
+          SRTB_LOGE << " [cached_allocator] "
+                    << "free of a pointer inside another used pointer (size "
+                    << used_ptr_size * sizeof(value_type) << ") ! "
+                    << "offset = " << (ptr - used_ptr) * sizeof(value_type)
                     << srtb::endl;
           return;
         }
