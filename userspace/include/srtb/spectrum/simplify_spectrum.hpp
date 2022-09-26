@@ -83,27 +83,40 @@ void simplify_spectrum_calculate_norm(DeviceInputAccessor d_in, size_t in_count,
    }).wait();
 }
 
-template <typename T = srtb::real, typename C = srtb::complex<srtb::real>,
-          typename DeviceInputAccessor = T*>
+template <typename T = srtb::real, typename DeviceInputAccessor = T*>
 void simplify_spectrum_normalize(DeviceInputAccessor d_in, size_t in_count,
+                                 size_t batch_size,
                                  sycl::queue& q = srtb::queue) {
-  auto d_max_val_shared = srtb::device_allocator.allocate_shared<srtb::real>(1);
+  const size_t total_in_count = in_count * batch_size;
+  auto d_max_val_shared =
+      srtb::device_allocator.allocate_shared<srtb::real>(batch_size);
   auto d_max_val = d_max_val_shared.get();
-  q.submit([&](sycl::handler& cgh) {
-     auto max_reduction =
-         sycl::reduction(d_max_val, sycl::maximum<srtb::real>{});
-     cgh.parallel_for(sycl::range<1>{in_count}, max_reduction,
-                      [=](sycl::id<1> id, auto& max) {
-                        // maybe log() the power?
-                        //auto val = sycl::log(d_in[id]);
-                        //d_in[id] = val;
-                        //max.combine(val);
-                        max.combine(d_in[id]);
-                      });
-   }).wait();
-  q.parallel_for(sycl::range<1>{in_count}, [=](sycl::item<1> id) {
-     const size_t i = id.get_id(0);
-     d_in[i] /= (*d_max_val);
+  q.fill(d_max_val, 0, batch_size).wait();
+
+  // maybe log() the power?
+  //q.parallel_for(sycl::range<1>{total_in_count}, [=](sycl::item<1> id) {
+  //   const size_t i = id.get_id(0);
+  //   d_in[i] = sycl::log(d_in[i] + 1);
+  // }).wait();
+  std::vector<sycl::event> events(batch_size);
+  for (size_t k = 0; k < batch_size; k++) {
+    // k: segment id
+    events.at(k) = q.submit([&](sycl::handler& cgh) {
+      const size_t k_ = k;  // avoid data race, ... or whatever.
+      auto max_reduction_k =
+          sycl::reduction(d_max_val + k_, sycl::maximum<srtb::real>{});
+      cgh.parallel_for(sycl::range<1>{in_count}, max_reduction_k,
+                       [=](sycl::id<1> id, auto& max) {
+                         max.combine(d_in[k_ * in_count + id]);
+                       });
+    });
+  }
+  for (auto it = events.rbegin(); it != events.rend(); it++) {
+    (*it).wait();
+  }
+  q.parallel_for(sycl::range<1>{total_in_count}, [=](sycl::item<1> id) {
+     const size_t i = id.get_id(0), k = i / in_count;
+     d_in[i] /= d_max_val[k];
    }).wait();
 }
 }  // namespace spectrum
