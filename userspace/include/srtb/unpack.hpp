@@ -207,7 +207,7 @@ inline void unpack(int in_nbits, InputIterator d_in, OutputIterator d_out,
     return unpack<expected_in_nbits>(d_in, d_out, in_count, transform, q);
   } else {
     throw std::runtime_error("unpack: unsupported in_nbits " +
-                             std::to_string(in_nbits) + "with type " +
+                             std::to_string(in_nbits) + " with type " +
                              std::string{typeid(input_type).name()});
   }
 }

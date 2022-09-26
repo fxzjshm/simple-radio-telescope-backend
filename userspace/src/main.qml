@@ -17,7 +17,6 @@ Window {
     }
 
     function update_spectrum(counter) {
-        console.log("update_spectrum");
         spectrum_image.source = "image://spectrum-image-provider/" + counter;
     }
 }
