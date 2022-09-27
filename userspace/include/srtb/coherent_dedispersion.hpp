@@ -121,7 +121,7 @@ inline void coherent_dedispertion(Accessor input, const size_t length,
                                   sycl::queue& q) {
   q.parallel_for(sycl::range<1>(length), [=](sycl::item<1> id) {
     coherent_dedispertion_item(input, f_min, delta_f, dm, id.get_id(0));
-  });
+  }).wait();
 }
 
 }  // namespace coherent_dedispersion
