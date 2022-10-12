@@ -127,7 +127,7 @@ function(srtb_add_dependency target_name)
     if(SRTB_ENABLE_ROCM)
         # https://rocmdocs.amd.com/en/latest/Installation_Guide/Using-CMake-with-AMD-ROCm.html
         target_link_libraries(${target_name} PUBLIC hip::hipfft roc::rocfft)
-        target_link_libraries(${target_name} PUBLIC hip::host)
+        target_link_libraries(${target_name} PUBLIC amdhip64)
     endif()
 endfunction()
 
