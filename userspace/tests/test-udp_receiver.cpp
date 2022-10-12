@@ -10,6 +10,7 @@
  * See the Mulan PubL v2 for more details.
  ******************************************************************************/
 
+#include <atomic>
 #include <boost/asio.hpp>
 #include <chrono>
 #include <future>
@@ -25,6 +26,8 @@
         std::to_string(__LINE__) + " returns " + std::to_string(ret)}; \
   })
 
+std::atomic<bool> g_test_passes = false;
+
 int main() {
   // init enivronment
   std::string address = "127.0.0.1";
@@ -39,11 +42,30 @@ int main() {
   size_t data_size = nsamps_reserved * 128;                  // arbitrary
   size_t n_segments = (data_size - nsamps_reserved) /
                       (srtb::config.baseband_input_length - nsamps_reserved);
+  g_test_passes = false;
 
   SRTB_LOGI << " [test-udp_receiver] "
             << "nsamp_reserved = " << nsamps_reserved << ", "
             << "baseband_input_length = " << srtb::config.baseband_input_length
             << srtb::endl;
+
+  // set up watchdog
+  // sometimes the whole program stuck at somewhere (maybe sending/receiving UDP packet?)
+  // so shut this down if test not passed in 1 minute
+  std::jthread watchdog_thread{[]() {
+    for (size_t i = 0; i < 60; i++) {
+      if (g_test_passes) [[unlikely]] {
+        break;
+      } else {
+        std::this_thread::sleep_for(std::chrono::seconds{1});
+      }
+    }
+    if (!g_test_passes) {
+      std::cerr << " [test-udp_receiver] "
+                << " [watchdog] Time out." << std::endl;
+      std::abort();
+    }
+  }};
 
   // set up receiver
   srtb::pipeline::udp_receiver_pipe udp_receiver_pipe;
@@ -156,6 +178,7 @@ int main() {
               << "one segment checked." << srtb::endl;
   }
   SRTB_CHECK_TEST_UDP_RECEIVER(counter == n_segments);
+  g_test_passes = true;
 
   return 0;
 }
