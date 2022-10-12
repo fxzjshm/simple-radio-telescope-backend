@@ -182,6 +182,12 @@ struct configs {
   size_t ifft_channel_count = 1;
 
   size_t refft_length = 1 << 12;
+
+  /**
+   * @brief Wait time in naneseconds for a thread to sleep if it fails to get work now.
+   *        Trade off between CPU usage (most are wasted) and pipeline latency.
+   */
+  size_t thread_query_work_wait_time = 1000;
 };
 
 }  // namespace srtb

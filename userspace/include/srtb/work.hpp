@@ -14,6 +14,8 @@
 #ifndef __SRTB_WORK__
 #define __SRTB_WORK__
 
+#include <thread>
+
 #define SRTB_PUSH_WORK(tag, work_queue, work)                                \
   {                                                                          \
     bool ret = work_queue.push(work);                                        \
@@ -23,6 +25,8 @@
                 << srtb::endl;                                               \
       while (!ret) {                                                         \
         std::this_thread::yield(); /* TODO: spin lock here? */               \
+        std::this_thread::sleep_for(std::chrono::nanoseconds(                \
+            srtb::config.thread_query_work_wait_time));                      \
         ret = work_queue.push(work);                                         \
       }                                                                      \
       SRTB_LOGI << tag << " Pushed " #work " to " #work_queue << srtb::endl; \
@@ -40,6 +44,8 @@
                 << srtb::endl;                                                 \
       while (!ret) {                                                           \
         std::this_thread::yield(); /* TODO: spin lock here? */                 \
+        std::this_thread::sleep_for(std::chrono::nanoseconds(                  \
+            srtb::config.thread_query_work_wait_time));                        \
         ret = work_queue.pop(work);                                            \
       }                                                                        \
     }                                                                          \
