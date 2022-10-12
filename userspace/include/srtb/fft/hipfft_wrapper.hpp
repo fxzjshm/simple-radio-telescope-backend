@@ -14,7 +14,10 @@
 #ifndef __SRTB_HIPFFT_WRAPPER__
 #define __SRTB_HIPFFT_WRAPPER__
 
+#ifndef __HIP_PLATFORM_AMD__
 #define __HIP_PLATFORM_AMD__
+#endif
+
 #include <hipfft/hipfft.h>
 
 #include <concepts>
