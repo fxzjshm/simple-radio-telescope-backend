@@ -49,7 +49,10 @@ class dedisperse_and_channelize_pipe
     const size_t n = N / M;
     assert(n * M == N);
     // TODO: check this
-    const srtb::real delta_f = work.baseband_sample_rate / N;
+    // baseband_sample_rate is samples/second, delta_freq is in MHz
+    // assume Nyquist sample rate here
+    const srtb::real delta_f =
+        static_cast<srtb::real>(work.baseband_sample_rate) / 2 / N / 1e6;
     auto d_in_shared = work.ptr;
     auto d_out_shared =
         srtb::device_allocator.allocate_shared<srtb::complex<srtb::real> >(N);
