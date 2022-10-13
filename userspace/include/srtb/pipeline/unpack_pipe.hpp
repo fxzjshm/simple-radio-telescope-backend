@@ -63,7 +63,9 @@ class unpack_pipe : public pipe<unpack_pipe> {
     srtb::unpack::unpack(unpack_work.baseband_input_bits, d_in, d_out,
                          /* in_count =  */ unpack_work.count,
                          window_functor_manager.functor, q);
-    srtb::work::fft_1d_r2c_work fft_1d_r2c_work{d_out_shared, out_count};
+    srtb::work::fft_1d_r2c_work fft_1d_r2c_work;
+    fft_1d_r2c_work.ptr = d_out_shared;
+    fft_1d_r2c_work.count = out_count;
     SRTB_PUSH_WORK(" [unpack pipe] ", srtb::fft_1d_r2c_queue, fft_1d_r2c_work);
   }
 };

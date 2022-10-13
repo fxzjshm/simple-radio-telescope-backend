@@ -59,8 +59,10 @@ class dedisperse_and_channelize_pipe
     srtb::coherent_dedispersion_and_frequency_domain_filterbank(
         d_in, d_out, work.baseband_freq_low, delta_f, work.dm, M, N, q);
 
-    srtb::work::refft_1d_c2c_work refft_1d_c2c_work{{d_out_shared, n},
-                                                    srtb::config.refft_length};
+    srtb::work::refft_1d_c2c_work refft_1d_c2c_work;
+    refft_1d_c2c_work.ptr = d_out_shared;
+    refft_1d_c2c_work.count = n;
+    refft_1d_c2c_work.refft_length = std::min(N, srtb::config.refft_length);
     SRTB_PUSH_WORK(" [dedisperse & channelize pipe] ", srtb::refft_1d_c2c_queue,
                    refft_1d_c2c_work);
   }

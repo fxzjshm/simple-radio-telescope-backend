@@ -36,8 +36,10 @@ class rfi_mitigation_pipe : public pipe<rfi_mitigation_pipe> {
     srtb::spectrum::mitigate_rfi(d_in, in_count, q);
 
     // shortcut
-    //srtb::work::simplify_spectrum_work simplify_spectrum_work{
-    //    {d_in_shared, in_count}, 1};
+    //srtb::work::simplify_spectrum_work simplify_spectrum_work;
+    //simplify_spectrum_work.ptr = d_in_shared;
+    //simplify_spectrum_work.count = in_count;
+    //simplify_spectrum_work.batch_size = 1;
     //SRTB_PUSH_WORK(" [rfi mitigation pipe] ", srtb::simplify_spectrum_queue,
     //               simplify_spectrum_work);
 

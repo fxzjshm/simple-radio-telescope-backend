@@ -217,8 +217,10 @@ class refft_1d_c2c_pipe : public pipe<refft_1d_c2c_pipe> {
     srtb::spectrum::mitigate_rfi(d_out, refft_total_size, q);
 
     // temporary work: spectrum analyzer
-    srtb::work::simplify_spectrum_work simplify_spectrum_work{
-        {d_out_shared, refft_length}, refft_batch_size};
+    srtb::work::simplify_spectrum_work simplify_spectrum_work;
+    simplify_spectrum_work.ptr = d_out_shared;
+    simplify_spectrum_work.count = refft_length;
+    simplify_spectrum_work.batch_size = refft_batch_size;
     SRTB_PUSH_WORK(" [refft 1d c2c pipe] ", srtb::simplify_spectrum_queue,
                    simplify_spectrum_work);
   }

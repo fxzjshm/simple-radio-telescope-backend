@@ -62,9 +62,10 @@ class udp_receiver_pipe : public pipe<udp_receiver_pipe> {
     q.memcpy(reinterpret_cast<void*>(ptr.get()), buffer.data(),
              baseband_input_length * sizeof(std::byte))
         .wait();
-    srtb::work::unpack_work unpack_work{
-        {ptr, /* size = */ baseband_input_length},
-        srtb::config.baseband_input_bits};
+    srtb::work::unpack_work unpack_work;
+    unpack_work.ptr = ptr;
+    unpack_work.count = baseband_input_length;
+    unpack_work.baseband_input_bits = srtb::config.baseband_input_bits;
     SRTB_PUSH_WORK(" [udp receiver pipe] ", srtb::unpack_queue, unpack_work);
 
     // reserved some samples for next round
