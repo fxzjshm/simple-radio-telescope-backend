@@ -135,7 +135,7 @@ class refft_1d_c2c_pipe : public pipe<refft_1d_c2c_pipe> {
 
  protected:
   void setup_impl() {
-    // divided by 2 because input is real number but here is complex
+    // divided by 2 because baseband input is real number but here is complex
     const size_t input_count = srtb::config.baseband_input_length *
                                srtb::BITS_PER_BYTE /
                                srtb::config.baseband_input_bits / 2;
@@ -167,7 +167,6 @@ class refft_1d_c2c_pipe : public pipe<refft_1d_c2c_pipe> {
     const size_t refft_length =
         std::min(refft_1d_c2c_work.refft_length, input_count);
     const size_t refft_batch_size = input_count / refft_length;
-    const size_t refft_total_size = refft_length * refft_batch_size;
 
     // reset FFT plan if mismatch
     if (ifft_dispatcher.get_n() != input_count ||
@@ -217,9 +216,6 @@ class refft_1d_c2c_pipe : public pipe<refft_1d_c2c_pipe> {
     refft_dispatcher.process(d_tmp, d_out);
     d_tmp = nullptr;
     d_tmp_shared.reset();
-
-    // TODO: why is it needed here? does this bury deeper problems?
-    srtb::spectrum::mitigate_rfi(d_out, refft_total_size, q);
 
     // temporary work: spectrum analyzer
     srtb::work::simplify_spectrum_work simplify_spectrum_work;
