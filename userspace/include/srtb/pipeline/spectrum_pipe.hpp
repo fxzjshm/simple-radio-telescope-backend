@@ -54,10 +54,10 @@ class simplify_spectrum_pipe : public pipe<simplify_spectrum_pipe> {
     srtb::spectrum::simplify_spectrum_calculate_norm(d_in, in_count, d_out,
                                                      out_count, batch_size, q);
     // choice 1: normalize all together
-    //srtb::spectrum::simplify_spectrum_normalize(d_out, total_out_count, 1, q);
+    srtb::spectrum::simplify_spectrum_normalize(d_out, total_out_count, 1, q);
     // choice 2: normalize per spectrum
-    srtb::spectrum::simplify_spectrum_normalize(d_out, out_count, batch_size,
-                                                q);
+    //srtb::spectrum::simplify_spectrum_normalize(d_out, out_count, batch_size,
+    //                                            q);
     SRTB_LOGD << " [simplify spectrum pipe] "
               << " finished simplifying" << srtb::endl;
 
