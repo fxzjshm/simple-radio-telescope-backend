@@ -116,7 +116,7 @@ class fftw_1d_wrapper<fft_type, double, Complex>
                                      reinterpret_cast<fftw_complex*>(tmp_out.get()),
                                      flags);
         */
-        double* in = reinterpret_cast<double*>(tmp_real.get());
+        double* in = static_cast<double*>(tmp_real.get());
         fftw_complex* out = reinterpret_cast<fftw_complex*>(tmp_complex.get());
         fftw_iodim64 howmany_dims{.n = static_cast<ptrdiff_t>(batch_size),
                                   .is = static_cast<ptrdiff_t>(n_real),
@@ -300,7 +300,7 @@ class fftw_1d_wrapper<fft_type, float, Complex>
                                      reinterpret_cast<fftwf_complex*>(tmp_out.get()),
                                      flags);
         */
-        float* in = reinterpret_cast<float*>(tmp_real.get());
+        float* in = static_cast<float*>(tmp_real.get());
         fftwf_complex* out =
             reinterpret_cast<fftwf_complex*>(tmp_complex.get());
         fftwf_iodim64 howmany_dims{.n = static_cast<ptrdiff_t>(batch_size),
