@@ -107,32 +107,50 @@ inline C coherent_dedispersion_factor(const T f, const T f_c,
 /**
  * @brief coherent dedispersion of one frequency channel
  * @param i operate on input[i]
+ * @param delta_f frequency difference between one channel and the next
  * @see srtb::codd::D
  * @see crtb::codd::coherent_dedispertion
  */
 template <typename T, typename C = srtb::complex<T>, typename Accessor>
-inline void coherent_dedispertion_item(Accessor input, const T f_min,
-                                       const T delta_f, const T dm,
-                                       const size_t i) {
-  const T f = f_min + delta_f * i;
-  input[i] *= coherent_dedispersion_factor(f, f_min, dm);
+inline void coherent_dedispertion_item(Accessor input, Accessor output,
+                                       const T f_min, const T delta_f,
+                                       const T dm, const sycl::item<1> id) {
+  const size_t i = id.get_id(0);
+  const size_t n = id.get_range(0);
+  const T freq = f_min + delta_f * i, f_c = f_min + delta_f * n;
+  const C factor = coherent_dedispersion_factor(freq, f_c, dm);
+  const C in = input[i];
+  const C out = in * factor;
+  output[i] = out;
 }
 
 /**
  * @brief coherent dedispersion of frequency channels
  * @param input input buffer accessor, should be FFT-ed baseband signal
+ * @param output output buffer accessor
  * @param f_min actual frequency of input[0]
  * @param delta_f delta frequency between nearest two channels (input[i] and input[i-1])
  * @param dm disperse measurement, note: use "accurate" value
  * @see srtb::codd::D
  */
 template <typename T, typename C = srtb::complex<T>, typename Accessor>
+inline void coherent_dedispertion(Accessor input, Accessor output,
+                                  const size_t length, const T f_min,
+                                  const T delta_f, const T dm, sycl::queue& q) {
+  q.parallel_for(sycl::range<1>(length), [=](sycl::item<1> id) {
+     coherent_dedispertion_item(input, output, f_min, delta_f, dm, id);
+   }).wait();
+}
+
+/**
+ * @brief in-place version of the function above
+ */
+template <typename T, typename C = srtb::complex<T>, typename Accessor>
 inline void coherent_dedispertion(Accessor input, const size_t length,
                                   const T f_min, const T delta_f, const T dm,
                                   sycl::queue& q) {
-  q.parallel_for(sycl::range<1>(length), [=](sycl::item<1> id) {
-    coherent_dedispertion_item(input, f_min, delta_f, dm, id.get_id(0));
-  }).wait();
+  return coherent_dedispertion<T, C, Accessor>(input, input, length, f_min,
+                                               delta_f, dm, q);
 }
 
 }  // namespace coherent_dedispersion
