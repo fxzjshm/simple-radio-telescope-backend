@@ -39,20 +39,33 @@ inline constexpr size_t color_value_count = 1 << 8;
 class color_map_holder_t {
  protected:
   std::array<QColor, color_value_count> color_map;
+  QColor error_color;
 
  public:
-  color_map_holder_t(QColor color = Qt::cyan) { set_color(color); }
+  color_map_holder_t(QColor color = Qt::cyan, QColor error_color = Qt::red) {
+    set_color(color, error_color);
+  }
 
-  void set_color(QColor color) {
+  void set_color(QColor color, QColor error_color_) {
     int h, s, v, a;
     color.getHsv(&h, &s, &v, &a);
     for (size_t i = 0; i < color_map.size(); i++) {
       const int v2 = static_cast<int>(i);
       color_map[i] = QColor::fromHsv(h, s, v2, a);
     }
+    error_color = error_color_;
   }
 
-  auto operator[](size_t i) const -> const QColor& { return color_map.at(i); }
+  auto operator[](size_t i) const -> const QColor& {
+    if (i == color_map.size()) [[unlikely]] {
+      i -= 1;
+    }
+    if (0 <= i && i < color_map.size()) [[likely]] {
+      return color_map.at(i);
+    } else {
+      return error_color;
+    }
+  }
 };
 
 inline color_map_holder_t color_map_holder;
@@ -247,11 +260,9 @@ class SpectrumImageProvider : public QObject, public QQuickImageProvider {
           assert(i + j * count < count * batch_size);
 
           // 'v2' is new value of 'v' in HSV form
-          size_t v2 = static_cast<size_t>(color_value_count *
-                                          ptr[offset + j * count + i]);
-          if (v2 >= color_value_count) [[unlikely]] {
-            v2 = color_value_count - 1;
-          }
+          int v2 =
+              static_cast<int>(color_value_count * ptr[offset + j * count + i]);
+          // invalid v2 values should be handled properly in operator[]
           QColor local_color = color_map_holder[v2];
 
           painter.setPen(local_color);
