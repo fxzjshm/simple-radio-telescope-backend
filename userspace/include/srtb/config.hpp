@@ -63,7 +63,7 @@ class work_queue : public boost::lockfree::spsc_queue<T> {
 };
 #endif
 
-typedef uint64_t udp_packet_counter_type;
+using udp_packet_counter_type = uint64_t;
 
 // FFT default window in srtb/fft/fft_window.hpp
 

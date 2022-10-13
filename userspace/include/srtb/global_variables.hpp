@@ -25,8 +25,10 @@ namespace srtb {
 //   * however, are there optimizations related to this that are unexpected?
 inline srtb::configs config;
 
+/** @brief default queue for all operations if no queue is specified */
 inline sycl::queue queue;
 
+/** @brief record start time of program, used in log to indicate relative time */
 inline auto program_start_time = std::chrono::system_clock::now();
 
 }  // namespace srtb
@@ -45,19 +47,21 @@ inline srtb::memory::cached_allocator<
     srtb::memory::device_allocator<std::byte, srtb::MEMORY_ALIGNMENT> >
     device_allocator{queue};
 
-inline srtb::work_queue<srtb::work::unpack_work> unpack_queue{};
-inline srtb::work_queue<srtb::work::fft_1d_r2c_work> fft_1d_r2c_queue{};
-inline srtb::work_queue<srtb::work::rfi_mitigation_work> rfi_mitigation_queue{};
+inline srtb::work_queue<srtb::work::unpack_work> unpack_queue;
+inline srtb::work_queue<srtb::work::fft_1d_r2c_work> fft_1d_r2c_queue;
+inline srtb::work_queue<srtb::work::rfi_mitigation_work> rfi_mitigation_queue;
 inline srtb::work_queue<srtb::work::dedisperse_and_channelize_work>
-    dedisperse_and_channelize_queue{};
-inline srtb::work_queue<srtb::work::ifft_1d_c2c_work> ifft_1d_c2c_queue{};
-inline srtb::work_queue<srtb::work::refft_1d_c2c_work> refft_1d_c2c_queue{};
+    dedisperse_and_channelize_queue;
+inline srtb::work_queue<srtb::work::ifft_1d_c2c_work> ifft_1d_c2c_queue;
+inline srtb::work_queue<srtb::work::refft_1d_c2c_work> refft_1d_c2c_queue;
 inline srtb::work_queue<srtb::work::simplify_spectrum_work>
-    simplify_spectrum_queue{};
-inline srtb::work_queue<srtb::work::draw_spectrum_work> draw_spectrum_queue{};
-
-}  // namespace srtb
+    simplify_spectrum_queue;
+inline srtb::work_queue<srtb::work::draw_spectrum_work> draw_spectrum_queue;
 
 // fftw initializer in srtb/fft/fftw_wrapper.hpp due to forward declearation
+
+// color map holder in srtb/gui/spectrum_image_provider.hpp due to unnecessary Qt dependencies for tests
+
+}  // namespace srtb
 
 #endif  // __SRTB_GLOBAL_VARIABLES__
