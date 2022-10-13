@@ -51,13 +51,16 @@ class dedisperse_and_channelize_pipe
     // assume Nyquist sample rate here
     const srtb::real delta_f =
         static_cast<srtb::real>(work.baseband_sample_rate) / 2 / N / 1e6;
-    auto d_in_shared = work.ptr;
+    auto& d_in_shared = work.ptr;
     auto d_out_shared =
         srtb::device_allocator.allocate_shared<srtb::complex<srtb::real> >(N);
     auto d_in = d_in_shared.get();
     auto d_out = d_out_shared.get();
     srtb::coherent_dedispersion_and_frequency_domain_filterbank(
         d_in, d_out, work.baseband_freq_low, delta_f, work.dm, M, N, q);
+
+    d_in = nullptr;
+    d_in_shared.reset();
 
     srtb::work::refft_1d_c2c_work refft_1d_c2c_work;
     refft_1d_c2c_work.ptr = d_out_shared;

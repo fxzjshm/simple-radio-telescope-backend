@@ -56,13 +56,17 @@ class unpack_pipe : public pipe<unpack_pipe> {
           srtb::fft::default_window{}, out_count, q};
     }
 
+    auto& d_in_shared = unpack_work.ptr;
     auto d_out_shared =
         srtb::device_allocator.allocate_shared<srtb::real>(out_count);
-    auto d_in = unpack_work.ptr.get();
+    auto d_in = d_in_shared.get();
     auto d_out = d_out_shared.get();
     srtb::unpack::unpack(unpack_work.baseband_input_bits, d_in, d_out,
                          /* in_count =  */ unpack_work.count,
                          window_functor_manager.functor, q);
+    d_in = nullptr;
+    d_in_shared.reset();
+
     srtb::work::fft_1d_r2c_work fft_1d_r2c_work;
     fft_1d_r2c_work.ptr = d_out_shared;
     fft_1d_r2c_work.count = out_count;

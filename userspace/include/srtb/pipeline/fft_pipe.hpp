@@ -58,7 +58,7 @@ class fft_1d_r2c_pipe : public pipe<fft_1d_r2c_pipe> {
         [[unlikely]] {
       dispatcher.set_size(in_count, 1);
     }
-    auto d_in_shared = fft_1d_r2c_work.ptr;
+    auto& d_in_shared = fft_1d_r2c_work.ptr;
     auto d_out_shared =
         srtb::device_allocator.allocate_shared<srtb::complex<srtb::real> >(
             out_count);
@@ -66,6 +66,7 @@ class fft_1d_r2c_pipe : public pipe<fft_1d_r2c_pipe> {
 
     // TODO: RF detect pipe
 
+    d_in_shared.reset();
     srtb::work::rfi_mitigation_work out_work;
     out_work.ptr = d_out_shared;
     out_work.count = out_count;
@@ -102,7 +103,7 @@ class ifft_1d_c2c_pipe : public pipe<ifft_1d_c2c_pipe> {
         dispatcher.get_batch_size() != batch_size) [[unlikely]] {
       dispatcher.set_size(count, batch_size);
     }
-    auto d_in_shared = ifft_1d_c2c_work.ptr;
+    auto& d_in_shared = ifft_1d_c2c_work.ptr;
     auto d_out_shared =
         srtb::device_allocator.allocate_shared<srtb::complex<srtb::real> >(
             count);
@@ -182,18 +183,16 @@ class refft_1d_c2c_pipe : public pipe<refft_1d_c2c_pipe> {
                                                /* n = */ refft_length, q);
     }
 
-    auto d_in_shared = refft_1d_c2c_work.ptr;
+    auto& d_in_shared = refft_1d_c2c_work.ptr;
     auto d_tmp_shared =
-        srtb::device_allocator.allocate_shared<srtb::complex<srtb::real> >(
-            input_count);
-    auto d_out_shared =
         srtb::device_allocator.allocate_shared<srtb::complex<srtb::real> >(
             input_count);
     auto d_in = d_in_shared.get();
     auto d_tmp = d_tmp_shared.get();
-    auto d_out = d_out_shared.get();
 
     ifft_dispatcher.process(d_in, d_tmp);
+    d_in = nullptr;
+    d_in_shared.reset();
 
     // de-apply window function of size input_count and re-apply it of size refft_length
     if constexpr (!std::is_same_v<srtb::fft::default_window,
@@ -211,7 +210,13 @@ class refft_1d_c2c_pipe : public pipe<refft_1d_c2c_pipe> {
        }).wait();
     }
 
+    auto d_out_shared =
+        srtb::device_allocator.allocate_shared<srtb::complex<srtb::real> >(
+            input_count);
+    auto d_out = d_out_shared.get();
     refft_dispatcher.process(d_tmp, d_out);
+    d_tmp = nullptr;
+    d_tmp_shared.reset();
 
     // TODO: why is it needed here? does this bury deeper problems?
     srtb::spectrum::mitigate_rfi(d_out, refft_total_size, q);
