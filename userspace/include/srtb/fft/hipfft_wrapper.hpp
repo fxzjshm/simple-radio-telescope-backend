@@ -192,6 +192,24 @@ class hipfft_1d_wrapper
     flush();
   }
 
+  template <typename..., srtb::fft::type fft_type_ = fft_type,
+            typename std::enable_if<(fft_type_ == srtb::fft::type::C2R_1D),
+                                    int>::type = 0>
+  void process_impl(Complex* in, T* out) {
+    if constexpr (std::is_same_v<T, hipfftReal>) {
+      SRTB_CHECK_HIPFFT(hipfftExecC2R((*this).plan,
+                                      reinterpret_cast<hipfftComplex*>(in),
+                                      static_cast<hipfftReal*>(out)));
+    } else if constexpr (std::is_same_v<T, hipfftDoubleReal>) {
+      SRTB_CHECK_HIPFFT(hipfftExecZ2D(
+          (*this).plan, reinterpret_cast<hipfftDoubleComplex*>(in),
+          static_cast<hipfftDoubleReal*>(out)));
+    } else {
+      throw std::runtime_error("[hipfft_wrapper] process_impl<R2C_1D>: ?");
+    }
+    flush();
+  }
+
   bool has_inited_impl() {
     // invalid plan causes segmentation fault, so not using plan to check here.
     return true;

@@ -182,6 +182,24 @@ class cufft_1d_wrapper
     flush();
   }
 
+  template <typename..., srtb::fft::type fft_type_ = fft_type,
+            typename std::enable_if<(fft_type_ == srtb::fft::type::C2R_1D),
+                                    int>::type = 0>
+  void process_impl(Complex* in, T* out) {
+    if constexpr (std::is_same_v<T, cufftReal>) {
+      SRTB_CHECK_HIPFFT(cufftExecC2R((*this).plan,
+                                      reinterpret_cast<cufftComplex*>(in),
+                                      static_cast<cufftReal*>(out)));
+    } else if constexpr (std::is_same_v<T, cufftDoubleReal>) {
+      SRTB_CHECK_HIPFFT(cufftExecZ2D(
+          (*this).plan, reinterpret_cast<cufftDoubleComplex*>(in),
+          static_cast<cufftDoubleReal*>(out)));
+    } else {
+      throw std::runtime_error("[cufft_wrapper] process_impl<R2C_1D>: ?");
+    }
+    flush();
+  }
+
   bool has_inited_impl() {
     // ref: https://forums.developer.nvidia.com/t/check-for-a-valid-cufft-plan/34297/4
     size_t work_size;

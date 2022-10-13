@@ -227,6 +227,126 @@ class refft_1d_c2c_pipe : public pipe<refft_1d_c2c_pipe> {
   }
 };
 
+/**
+ * @brief This pipe reads coherently dedispersed data from @c srtb::refft_1d_c2c_queue ,
+ *                  performs irFFT and shorter rFFT to get high time resolution,
+ *             then push to @c srtb::simplify_spectrum_queue
+ * @note when using this pipe, remember not to drop a channel in dedisperse_*_pipe
+ */
+class refft_1d_c2r2c_pipe : public pipe<refft_1d_c2r2c_pipe> {
+  friend pipe<refft_1d_c2r2c_pipe>;
+
+ protected:
+  std::optional<srtb::fft::fft_1d_dispatcher<srtb::fft::type::C2R_1D> >
+      opt_ifft_dispatcher;
+  std::optional<srtb::fft::fft_window_functor_manager<> >
+      opt_ifft_window_functor_manager;
+  std::optional<srtb::fft::fft_1d_dispatcher<srtb::fft::type::R2C_1D> >
+      opt_refft_dispatcher;
+  std::optional<srtb::fft::fft_window_functor_manager<> >
+      opt_refft_window_functor_manager;
+
+ public:
+  refft_1d_c2r2c_pipe() = default;
+
+ protected:
+  void setup_impl() {
+    // count of real numbers
+    const size_t input_count_real = srtb::config.baseband_input_length *
+                                    srtb::BITS_PER_BYTE /
+                                    srtb::config.baseband_input_bits;
+    //const size_t input_count_complex = input_count_real / 2 + 1;
+    opt_ifft_dispatcher.emplace(/* n = */ input_count_real,
+                                /* batch_size = */ 1, q);
+    opt_ifft_window_functor_manager.emplace(srtb::fft::default_window{},
+                                            /* n = */ input_count_real, q);
+    size_t refft_length = srtb::config.refft_length;
+    size_t refft_batch_size = input_count_real / refft_length;
+    if (refft_batch_size == 0) [[unlikely]] {
+      SRTB_LOGW << " [refft 1d c2r2c pipe] "
+                << "refft_length too large! Set to input length (of real "
+                   "numbers) now.";
+      refft_length = input_count_real;
+      refft_batch_size = 1;
+    }
+    opt_refft_dispatcher.emplace(/* n = */ refft_length,
+                                 /* batch_size = */ refft_batch_size, q);
+    opt_refft_window_functor_manager.emplace(srtb::fft::default_window{},
+                                             /* n = */ refft_length, q);
+  }
+
+  void run_once_impl() {
+    auto& ifft_dispatcher = opt_ifft_dispatcher.value();
+    auto& refft_dispatcher = opt_refft_dispatcher.value();
+
+    srtb::work::refft_1d_c2c_work refft_1d_c2c_work;
+    SRTB_POP_WORK(" [refft 1d c2r2c pipe] ", srtb::refft_1d_c2c_queue,
+                  refft_1d_c2c_work);
+    const size_t input_count_complex = refft_1d_c2c_work.count;
+    const size_t input_count_real = (input_count_complex - 1) * 2;
+    const size_t refft_length =
+        std::min(refft_1d_c2c_work.refft_length, input_count_real);
+    const size_t refft_batch_size = input_count_real / refft_length;
+    const size_t refft_out_count_complex = refft_length / 2 + 1;
+
+    // reset FFT plan if mismatch
+    if (ifft_dispatcher.get_n() != input_count_real ||
+        ifft_dispatcher.get_batch_size() != 1) [[unlikely]] {
+      ifft_dispatcher.set_size(input_count_real, 1);
+      opt_ifft_window_functor_manager.emplace(srtb::fft::default_window{},
+                                              /* n = */ input_count_real, q);
+    }
+    if (refft_dispatcher.get_n() != refft_length ||
+        refft_dispatcher.get_batch_size() != refft_batch_size) [[unlikely]] {
+      refft_dispatcher.set_size(refft_length, refft_batch_size);
+      opt_refft_window_functor_manager.emplace(srtb::fft::default_window{},
+                                               /* n = */ refft_length, q);
+    }
+
+    auto& d_in_shared = refft_1d_c2c_work.ptr;
+    auto d_tmp_shared =
+        srtb::device_allocator.allocate_shared<srtb::real>(input_count_real);
+    auto d_in = d_in_shared.get();
+    auto d_tmp = d_tmp_shared.get();
+
+    ifft_dispatcher.process(d_in, d_tmp);
+    d_in = nullptr;
+    d_in_shared.reset();
+
+    // de-apply window function of size input_count and re-apply it of size refft_length
+    if constexpr (!std::is_same_v<srtb::fft::default_window,
+                                  srtb::fft::window::rectangle<srtb::real> >) {
+      auto ifft_window =
+          opt_ifft_window_functor_manager.value().get_coefficients().get();
+      auto refft_window =
+          opt_refft_window_functor_manager.value().get_coefficients().get();
+      q.parallel_for(sycl::range<1>{input_count_real}, [=](sycl::item<1> id) {
+         const auto i = id.get_id(0);
+         const auto j = i - ((i / refft_length) * refft_length);
+         SRTB_ASSERT_IN_KERNEL(j < refft_length);
+         const auto x = d_tmp[i];
+         d_tmp[i] = x / ifft_window[i] * refft_window[j];
+       }).wait();
+    }
+
+    auto d_out_shared =
+        srtb::device_allocator.allocate_shared<srtb::complex<srtb::real> >(
+            input_count_complex);
+    auto d_out = d_out_shared.get();
+    refft_dispatcher.process(d_tmp, d_out);
+    d_tmp = nullptr;
+    d_tmp_shared.reset();
+
+    // temporary work: spectrum analyzer
+    srtb::work::simplify_spectrum_work simplify_spectrum_work;
+    simplify_spectrum_work.ptr = d_out_shared;
+    simplify_spectrum_work.count = refft_out_count_complex;
+    simplify_spectrum_work.batch_size = refft_batch_size;
+    SRTB_PUSH_WORK(" [refft 1d c2c pipe] ", srtb::simplify_spectrum_queue,
+                   simplify_spectrum_work);
+  }
+};
+
 }  // namespace pipeline
 }  // namespace srtb
 

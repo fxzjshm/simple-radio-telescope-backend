@@ -98,29 +98,43 @@ class fftw_1d_wrapper<fft_type, double, Complex>
     constexpr auto flags = FFTW_ESTIMATE | FFTW_DESTROY_INPUT;
     plan = nullptr;
 
-    if constexpr (fft_type == srtb::fft::type::R2C_1D) {
+    if constexpr (fft_type == srtb::fft::type::R2C_1D ||
+                  fft_type == srtb::fft::type::C2R_1D) {
       const size_t n_real = n, n_complex = n / 2 + 1;
-      const size_t total_size_real = n * batch_size,
+      const size_t total_size_real = n_real * batch_size,
                    total_size_complex = n_complex * batch_size;
-      auto tmp_in =
+      auto tmp_real =
           srtb::device_allocator.allocate_shared<double>(total_size_real);
-      auto tmp_out =
+      auto tmp_complex =
           srtb::device_allocator.allocate_shared<Complex>(total_size_complex);
-      // should be equivalent to this
-      /*
-      plan = fftw_plan_dft_r2c_1d(static_cast<int>(n), tmp_in.get(),
-                                  reinterpret_cast<fftw_complex*>(tmp_out.get()),
-                                  flags);
-      */
-      double* in = reinterpret_cast<double*>(tmp_in.get());
-      fftw_complex* out = reinterpret_cast<fftw_complex*>(tmp_out.get());
       fftw_iodim64 dims{.n = static_cast<ptrdiff_t>(n_real), .is = 1, .os = 1};
-      fftw_iodim64 howmany_dims{.n = static_cast<ptrdiff_t>(batch_size),
-                                .is = static_cast<ptrdiff_t>(n_real),
-                                .os = static_cast<ptrdiff_t>(n_complex)};
-      plan = fftw_plan_guru64_dft_r2c(
-          /* rank = */ 1, &dims,
-          /* howmany_rank = */ 1, &howmany_dims, in, out, flags);
+
+      if constexpr (fft_type == srtb::fft::type::R2C_1D) {
+        // should be equivalent to this
+        /*
+        plan = fftw_plan_dft_r2c_1d(static_cast<int>(n), tmp_in.get(),
+                                     reinterpret_cast<fftw_complex*>(tmp_out.get()),
+                                     flags);
+        */
+        double* in = reinterpret_cast<double*>(tmp_real.get());
+        fftw_complex* out = reinterpret_cast<fftw_complex*>(tmp_complex.get());
+        fftw_iodim64 howmany_dims{.n = static_cast<ptrdiff_t>(batch_size),
+                                  .is = static_cast<ptrdiff_t>(n_real),
+                                  .os = static_cast<ptrdiff_t>(n_complex)};
+        plan = fftw_plan_guru64_dft_r2c(
+            /* rank = */ 1, &dims,
+            /* howmany_rank = */ 1, &howmany_dims, in, out, flags);
+      } else {
+        // fft_type == srtb::fft::type::C2R_1D
+        fftw_complex* in = reinterpret_cast<fftw_complex*>(tmp_complex.get());
+        double* out = static_cast<double*>(tmp_real.get());
+        fftw_iodim64 howmany_dims{.n = static_cast<ptrdiff_t>(batch_size),
+                                  .is = static_cast<ptrdiff_t>(n_complex),
+                                  .os = static_cast<ptrdiff_t>(n_real)};
+        plan = fftw_plan_guru64_dft_c2r(
+            /* rank = */ 1, &dims,
+            /* howmany_rank = */ 1, &howmany_dims, in, out, flags);
+      }
     } else if constexpr (fft_type == srtb::fft::type::C2C_1D_FORWARD ||
                          fft_type == srtb::fft::type::C2C_1D_BACKWARD) {
       constexpr auto sign = (fft_type == srtb::fft::type::C2C_1D_BACKWARD)
@@ -176,6 +190,13 @@ class fftw_1d_wrapper<fft_type, double, Complex>
   void process_impl(Complex* in, Complex* out) {
     fftw_execute_dft(plan, reinterpret_cast<fftw_complex*>(in),
                      reinterpret_cast<fftw_complex*>(out));
+  }
+
+  template <typename..., srtb::fft::type fft_type_ = fft_type,
+            typename std::enable_if<(fft_type_ == srtb::fft::type::C2R_1D),
+                                    int>::type = 0>
+  void process_impl(Complex* in, double* out) {
+    fftw_execute_dft_c2r(plan, reinterpret_cast<fftw_complex*>(in), out);
   }
 
   void set_queue_impl(sycl::queue& queue) {
@@ -261,29 +282,44 @@ class fftw_1d_wrapper<fft_type, float, Complex>
     constexpr auto flags = FFTW_ESTIMATE | FFTW_DESTROY_INPUT;
     plan = nullptr;
 
-    if constexpr (fft_type == srtb::fft::type::R2C_1D) {
+    if constexpr (fft_type == srtb::fft::type::R2C_1D ||
+                  fft_type == srtb::fft::type::C2R_1D) {
       const size_t n_real = n, n_complex = n / 2 + 1;
-      const size_t total_size_real = n * batch_size,
+      const size_t total_size_real = n_real * batch_size,
                    total_size_complex = n_complex * batch_size;
-      auto tmp_in =
+      auto tmp_real =
           srtb::device_allocator.allocate_shared<float>(total_size_real);
-      auto tmp_out =
+      auto tmp_complex =
           srtb::device_allocator.allocate_shared<Complex>(total_size_complex);
-      // should be equivalent to this
-      /*
-      plan = fftwf_plan_dft_r2c_1d(static_cast<int>(n), tmp_in.get(),
-                                   reinterpret_cast<fftwf_complex*>(tmp_out.get()),
-                                   flags);
-      */
-      float* in = reinterpret_cast<float*>(tmp_in.get());
-      fftwf_complex* out = reinterpret_cast<fftwf_complex*>(tmp_out.get());
       fftwf_iodim64 dims{.n = static_cast<ptrdiff_t>(n_real), .is = 1, .os = 1};
-      fftwf_iodim64 howmany_dims{.n = static_cast<ptrdiff_t>(batch_size),
-                                 .is = static_cast<ptrdiff_t>(n_real),
-                                 .os = static_cast<ptrdiff_t>(n_complex)};
-      plan = fftwf_plan_guru64_dft_r2c(
-          /* rank = */ 1, &dims,
-          /* howmany_rank = */ 1, &howmany_dims, in, out, flags);
+
+      if constexpr (fft_type == srtb::fft::type::R2C_1D) {
+        // should be equivalent to this
+        /*
+        plan = fftwf_plan_dft_r2c_1d(static_cast<int>(n), tmp_in.get(),
+                                     reinterpret_cast<fftwf_complex*>(tmp_out.get()),
+                                     flags);
+        */
+        float* in = reinterpret_cast<float*>(tmp_real.get());
+        fftwf_complex* out =
+            reinterpret_cast<fftwf_complex*>(tmp_complex.get());
+        fftwf_iodim64 howmany_dims{.n = static_cast<ptrdiff_t>(batch_size),
+                                   .is = static_cast<ptrdiff_t>(n_real),
+                                   .os = static_cast<ptrdiff_t>(n_complex)};
+        plan = fftwf_plan_guru64_dft_r2c(
+            /* rank = */ 1, &dims,
+            /* howmany_rank = */ 1, &howmany_dims, in, out, flags);
+      } else {
+        // fft_type == srtb::fft::type::C2R_1D
+        fftwf_complex* in = reinterpret_cast<fftwf_complex*>(tmp_complex.get());
+        float* out = static_cast<float*>(tmp_real.get());
+        fftwf_iodim64 howmany_dims{.n = static_cast<ptrdiff_t>(batch_size),
+                                   .is = static_cast<ptrdiff_t>(n_complex),
+                                   .os = static_cast<ptrdiff_t>(n_real)};
+        plan = fftwf_plan_guru64_dft_c2r(
+            /* rank = */ 1, &dims,
+            /* howmany_rank = */ 1, &howmany_dims, in, out, flags);
+      }
     } else if constexpr (fft_type == srtb::fft::type::C2C_1D_FORWARD ||
                          fft_type == srtb::fft::type::C2C_1D_BACKWARD) {
       constexpr auto sign = (fft_type == srtb::fft::type::C2C_1D_BACKWARD)
@@ -338,6 +374,13 @@ class fftw_1d_wrapper<fft_type, float, Complex>
   void process_impl(Complex* in, Complex* out) {
     fftwf_execute_dft(plan, reinterpret_cast<fftwf_complex*>(in),
                       reinterpret_cast<fftwf_complex*>(out));
+  }
+
+  template <typename..., srtb::fft::type fft_type_ = fft_type,
+            typename std::enable_if<(fft_type_ == srtb::fft::type::C2R_1D),
+                                    int>::type = 0>
+  void process_impl(Complex* in, float* out) {
+    fftwf_execute_dft_c2r(plan, reinterpret_cast<fftwf_complex*>(in), out);
   }
 
   void set_queue_impl(sycl::queue& queue) {
