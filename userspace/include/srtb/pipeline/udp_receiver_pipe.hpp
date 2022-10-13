@@ -14,6 +14,8 @@
 #ifndef __SRTB_PIPELINE_UDP_RECEIVER_PIPE__
 #define __SRTB_PIPELINE_UDP_RECEIVER_PIPE__
 
+#include <optional>
+
 #include "srtb/io/udp_receiver.hpp"
 #include "srtb/pipeline/pipe.hpp"
 
