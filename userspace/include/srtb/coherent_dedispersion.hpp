@@ -80,15 +80,26 @@ inline size_t nsamps_reserved() {
  * Delayed phase is $\Delta \phi = 2 \pi D {\mathrm{DM} \over f}$
  * 
  * @param f signal frequency in MHz
- * @param f_c reference signal frequency in MHz
+ * @param f_c reference signal frequency in MHz. subscription from (3.66) in Jiang (2022)
  * @param dm dispersion measurement
+ * 
+ * ref: C.G. Bassa et al, Enabling pulsar and fast transient searches using coherent dedispersion
+ *      (arXiv:1607.00909), https://github.com/cbassa/cdmt/blob/master/cdmt.cu
  */
 template <typename T, typename C = srtb::complex<T> >
 inline C coherent_dedispersion_factor(const T f, const T f_c,
                                       const T dm) noexcept {
   // TODO: does pre-computing delta_phi saves time?
+  // TODO: check the sign!
+  // phase delay
+  // coefficient 1e6 is here because the unit of f is MHz, not Hz.
+  // NOTE: this delta_phi may be up to 10^9, so the precision of float may not be sufficient here.
   const T delta_phi =
-      2 * M_PI * D * dm * (T(1.0) / f - T(1.0) / f_c);  // TODO: check the sign!
+      -2 * M_PI * D * 1e6 * dm * (T(1.0) / (f * f) - T(1.0) / (f_c * f_c)) * f;
+  // another formula
+  //const T diff_f = f - f_c;
+  //const T delta_phi =
+  //    -2 * M_PI * D * 1e6 * dm * ((diff_f * diff_f) / (f * f_c * f_c));
   const C factor = C(sycl::cos(delta_phi), sycl::sin(delta_phi));
   return factor;
 }
