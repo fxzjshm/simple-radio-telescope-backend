@@ -30,9 +30,12 @@
 int main(int argc, char** argv) {
   // TODO std::thread for other pipelines
 
-  srtb::pipeline::udp_receiver_pipe udp_receiver_pipe;
-  udp_receiver_pipe.start();
+  SRTB_LOGI << " [main] "
+            << "device name = "
+            << srtb::queue.get_device().get_info<sycl::info::device::name>()
+            << srtb::endl;
 
+  srtb::pipeline::udp_receiver_pipe udp_receiver_pipe;
   srtb::pipeline::unpack_pipe unpack_pipe;
   unpack_pipe.start();
 
