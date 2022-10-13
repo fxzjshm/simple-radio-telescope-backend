@@ -42,9 +42,7 @@ class dedisperse_and_channelize_pipe
                   srtb::dedisperse_and_channelize_queue, work);
     // drop the highest frequency point
     const size_t N = work.count - 1;
-    // not using frequency domain filterbank now
-    //const size_t M = work.channel_count;
-    const size_t M = 1;
+    const size_t M = work.channel_count;
     // supported if N % M == 0;
     const size_t n = N / M;
     assert(n * M == N);
@@ -64,6 +62,60 @@ class dedisperse_and_channelize_pipe
     srtb::work::refft_1d_c2c_work refft_1d_c2c_work{{d_out_shared, n},
                                                     srtb::config.refft_length};
     SRTB_PUSH_WORK(" [dedisperse & channelize pipe] ", srtb::refft_1d_c2c_queue,
+                   refft_1d_c2c_work);
+  }
+};
+
+/**
+ * @brief codd = coherent dedispersion, fdfb = frequency domain filterbank
+ *        this pipe applies coherent dedispertion and frequency domain filterbank
+ *        to FFT-ed data.
+ * @note the highest frequency channel is dropped
+ * TODO: check this
+ */
+class dedisperse_pipe : public pipe<dedisperse_pipe> {
+  friend pipe<dedisperse_pipe>;
+
+ public:
+  dedisperse_pipe() {}
+
+ protected:
+  void run_once_impl() {
+    srtb::work::dedisperse_and_channelize_work work;
+    SRTB_POP_WORK(" [dedisperse pipe] ",
+                  srtb::dedisperse_and_channelize_queue, work);
+    // drop the highest frequency point
+    // *Drop*  -- LinusTechTips
+    const size_t N = work.count - 1;
+    // TODO: check this
+    // baseband_sample_rate is samples/second, delta_freq is in MHz
+    // assume Nyquist sastatic_cast<srtb::real>mple rate here
+    const srtb::real delta_f =
+        static_cast<srtb::real>(work.baseband_sample_rate) / 2 / N / 1e6;
+    auto& d_in_shared = work.ptr;
+    auto d_out_shared =
+        srtb::device_allocator.allocate_shared<srtb::complex<srtb::real> >(N);
+    auto d_in = d_in_shared.get();
+    auto d_out = d_out_shared.get();
+    srtb::coherent_dedispersion::coherent_dedispertion(
+        d_in, d_out, N, work.baseband_freq_low, delta_f, work.dm, q);
+
+    d_in = nullptr;
+    d_in_shared.reset();
+
+    // shortcut
+    //srtb::work::simplify_spectrum_work simplify_spectrum_work;
+    //simplify_spectrum_work.ptr = d_out_shared;
+    //simplify_spectrum_work.count = N;
+    //simplify_spectrum_work.batch_size = 1;
+    //SRTB_PUSH_WORK(" [dedisperse pipe] ", srtb::simplify_spectrum_queue,
+    //               simplify_spectrum_work);
+
+    srtb::work::refft_1d_c2c_work refft_1d_c2c_work;
+    refft_1d_c2c_work.ptr = d_out_shared;
+    refft_1d_c2c_work.count = N;
+    refft_1d_c2c_work.refft_length = std::min(N, srtb::config.refft_length);
+    SRTB_PUSH_WORK(" [dedisperse pipe] ", srtb::refft_1d_c2c_queue,
                    refft_1d_c2c_work);
   }
 };
