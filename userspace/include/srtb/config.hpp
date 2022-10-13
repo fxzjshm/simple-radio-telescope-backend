@@ -89,7 +89,7 @@ struct configs {
    * @brief Length of data to be transferred to GPU for once processing, in bytes.
    *        Should be power of 2 so that FFT and channelizing can work properly.
    */
-  size_t baseband_input_length = 1 << 25;
+  size_t baseband_input_length = 1 << 27;
 
   /**
    * @brief Length of a single input data, used in unpack.
@@ -123,7 +123,7 @@ struct configs {
     * @brief Buffer size of socket for receving udp packet.
     * @see srtb::io::udp_receiver
     */
-  int udp_receiver_buffer_size = 1 << 24;
+  int udp_receiver_buffer_size = static_cast<int>((1L << 31) - 1);
 
   /**
    * @brief Address to receive baseband UDP packets
@@ -167,7 +167,7 @@ struct configs {
    * @brief temporary thereshold for RFI mitigation. Channels with signal stronger
    *        than this thereshold * average strength will be set to 0
    */
-  srtb::real mitigate_rfi_thereshold = 2;
+  srtb::real mitigate_rfi_thereshold = 10;
 
   /**
    * @brief sum some spectrum before drawing, to reduce CPU side pressure
@@ -181,7 +181,7 @@ struct configs {
    */
   size_t ifft_channel_count = 1;
 
-  size_t refft_length = 1 << 12;
+  size_t refft_length = 1 << 15;
 
   /**
    * @brief Wait time in naneseconds for a thread to sleep if it fails to get work now.
