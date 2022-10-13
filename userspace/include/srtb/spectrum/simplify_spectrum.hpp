@@ -36,6 +36,10 @@ void simplify_spectrum_calculate_norm(DeviceInputAccessor d_in, size_t in_count,
                                       size_t out_count, size_t batch_size = 1,
                                       sycl::queue& q = srtb::queue) {
   static_assert(sizeof(T) * 2 == sizeof(C));
+  constexpr auto norm = [=](srtb::complex<srtb::real> c) {
+    return srtb::norm(c);
+  };
+
   const srtb::real in_count_real = static_cast<srtb::real>(in_count);
   const srtb::real out_count_real = static_cast<srtb::real>(out_count);
   // count of in data point that average into one out data point
@@ -59,7 +63,7 @@ void simplify_spectrum_calculate_norm(DeviceInputAccessor d_in, size_t in_count,
                   right = static_cast<size_t>(right_real);
      for (size_t k = left; k < right; k++) {
        SRTB_ASSERT_IN_KERNEL(k < in_count);
-       sum += srtb::norm(d_in[k + in_offset]);
+       sum += norm(d_in[k + in_offset]);
      }
      SRTB_ASSERT_IN_KERNEL(left_real >= left_accurate);
      if (left_real - left_accurate > eps) [[likely]] {
@@ -67,8 +71,7 @@ void simplify_spectrum_calculate_norm(DeviceInputAccessor d_in, size_t in_count,
        // left_left == static_cast<size_t>(sycl::floor(left_real)),
        const size_t left_right = left;
        SRTB_ASSERT_IN_KERNEL(left_left < in_count);
-       sum += (left_right - left_accurate) *
-              srtb::norm(d_in[left_left + in_offset]);
+       sum += (left_right - left_accurate) * norm(d_in[left_left + in_offset]);
      }
      SRTB_ASSERT_IN_KERNEL(right_accurate >= right_real);
      if (right_accurate - right_real > eps) [[likely]] {
@@ -76,8 +79,8 @@ void simplify_spectrum_calculate_norm(DeviceInputAccessor d_in, size_t in_count,
        // const size_t right_right = right + 1;
        // right_right == static_cast<size_t>(sycl::ceil(right_real));
        SRTB_ASSERT_IN_KERNEL(right_left < in_count);
-       sum += (right_accurate - right_left) *
-              srtb::norm(d_in[right_left + in_offset]);
+       sum +=
+           (right_accurate - right_left) * norm(d_in[right_left + in_offset]);
      }
      d_out[i + out_offset] = sum;
    }).wait();
