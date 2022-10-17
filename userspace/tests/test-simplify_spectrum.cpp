@@ -48,7 +48,7 @@ bool test_simplify_spectrum(HostContainer1 h_in_original,
   h_out.resize(out_count);
   srtb::spectrum::simplify_spectrum_calculate_norm(d_in, in_count, d_out,
                                                    out_count, 1, q);
-  srtb::spectrum::simplify_spectrum_normalize(d_out, out_count, q);
+  srtb::spectrum::simplify_spectrum_normalize_with_max_value(d_out, out_count, 1, q);
   q.copy(d_out, /* -> */ &h_out[0], out_count).wait();
   return check_absolute_error(h_out_expected.begin(), h_out_expected.end(),
                               h_out.begin(), srtb::spectrum::eps);

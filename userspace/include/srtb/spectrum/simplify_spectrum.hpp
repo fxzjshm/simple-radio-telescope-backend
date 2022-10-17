@@ -86,10 +86,16 @@ void simplify_spectrum_calculate_norm(DeviceInputAccessor d_in, size_t in_count,
    }).wait();
 }
 
+/**
+ * @brief normalize ( intended to scale values to [0, 1] )
+ *        using max value in data.
+ * @note input is not stable, so this is not a proper way.
+ */
 template <typename T = srtb::real, typename DeviceInputAccessor = T*>
-void simplify_spectrum_normalize(DeviceInputAccessor d_in, size_t in_count,
-                                 size_t batch_size,
-                                 sycl::queue& q = srtb::queue) {
+void simplify_spectrum_normalize_with_max_value(DeviceInputAccessor d_in,
+                                                size_t in_count,
+                                                size_t batch_size,
+                                                sycl::queue& q = srtb::queue) {
   const size_t total_in_count = in_count * batch_size;
   auto d_max_val_shared =
       srtb::device_allocator.allocate_shared<srtb::real>(batch_size);
@@ -122,6 +128,23 @@ void simplify_spectrum_normalize(DeviceInputAccessor d_in, size_t in_count,
      d_in[i] /= d_max_val[k];
    }).wait();
 }
+
+/**
+ * @brief normalize ( intended to scale values to [0, 1] )
+ *        using average value in data.
+ */
+template <typename T = srtb::real, typename DeviceInputAccessor = T*>
+void simplify_spectrum_normalize_with_average_value(
+    DeviceInputAccessor d_in, size_t in_count, sycl::queue& q = srtb::queue) {
+  auto d_avg_val_shared =
+      transform_and_average(d_in, in_count, std::identity(), q);
+  auto d_avg_val = d_avg_val_shared.get();
+  q.parallel_for(sycl::range<1>{in_count}, [=](sycl::item<1> id) {
+     const size_t i = id.get_id(0), k = i / in_count;
+     d_in[i] /= d_avg_val[k] * 2;
+   }).wait();
+}
+
 }  // namespace spectrum
 }  // namespace srtb
 
