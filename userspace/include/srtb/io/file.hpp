@@ -41,9 +41,9 @@ void read_file(const std::string& file_path, sycl::queue& q) {
   const size_t baseband_input_bits = srtb::config.baseband_input_bits;
   const size_t out_count = baseband_input_length * sizeof(T) *
                            srtb::BITS_PER_BYTE / baseband_input_bits;
-  srtb::fft::fft_window_functor_manager<> window_functor_manager{
-      srtb::fft::default_window{},
-      /* n = */ out_count, q};
+  srtb::fft::fft_window_functor_manager<srtb::real, srtb::fft::default_window>
+      window_functor_manager{srtb::fft::default_window{},
+                             /* n = */ out_count, q};
 
   input_file_stream.ignore(srtb::config.input_file_offset_bytes);
   // TODO: reserve data because of dedispersion

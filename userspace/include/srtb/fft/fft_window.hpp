@@ -74,7 +74,7 @@ struct rectangle {
 
 }  // namespace window
 
-using default_window = srtb::fft::window::hamming<>;
+using default_window = srtb::fft::window::rectangle<>;
 
 /**
  * @brief Provide FFT window coefficients for size n, that is, [0, n-1]
@@ -89,7 +89,9 @@ struct fft_window_functor {
 
   fft_window_functor(size_t n_, Iterator coefficients_)
       : n{n_}, coefficients{coefficients_} {
-    assert(coefficients != nullptr);
+    if constexpr (std::is_same_v<Iterator, T*>) {
+      assert(coefficients != nullptr);
+    }
   }
 
   T operator()(size_t pos, T val) const noexcept {
