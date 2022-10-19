@@ -235,7 +235,7 @@ class hipfft_1d_wrapper
       throw std::runtime_error("[hipfft_wrapper] hipfftSetStream returned " +
                                std::to_string(ret));
     }
-#elif
+#else
 #warning hipfft_wrapper::set_queue_impl uses default stream
     stream = nullptr;
 #endif  // SYCL_EXT_ONEAPI_BACKEND_HIP or __HIPSYCL__
