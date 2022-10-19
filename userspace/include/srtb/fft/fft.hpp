@@ -78,7 +78,7 @@ class fft_1d_dispatcher {
       }
     });
 
-    if (device.is_cpu() || device.is_host()) {
+    if (device.is_cpu()) {
       fftw_1d_wrapper_instance.emplace(n, batch_size, q);
       SRTB_CHECK_FFT(fftw_1d_wrapper_instance.has_value());
       return;

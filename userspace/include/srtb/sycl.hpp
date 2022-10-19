@@ -72,7 +72,6 @@ namespace backend {
     #if defined(SRTB_ENABLE_ROCM_INTEROP)
         inline constexpr sycl::backend rocm = sycl::backend::ext_oneapi_hip;
     #endif
-    inline constexpr sycl::backend cpu = sycl::backend::host;
 #elif defined(__HIPSYCL__)
     #if defined(SRTB_ENABLE_CUDA_INTEROP)
         inline constexpr sycl::backend cuda = sycl::backend::cuda;
