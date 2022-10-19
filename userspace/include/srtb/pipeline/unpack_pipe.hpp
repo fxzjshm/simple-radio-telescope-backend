@@ -29,7 +29,8 @@ class unpack_pipe : public pipe<unpack_pipe> {
   friend pipe<unpack_pipe>;
 
  protected:
-  srtb::fft::fft_window_functor_manager<> window_functor_manager;
+  srtb::fft::fft_window_functor_manager<srtb::real, srtb::fft::default_window>
+      window_functor_manager;
 
  public:
   unpack_pipe()
@@ -52,8 +53,10 @@ class unpack_pipe : public pipe<unpack_pipe> {
       SRTB_LOGW << " [unpack pipe] "
                 << "re-construct fft_window_functor_manager of size "
                 << out_count << srtb::endl;
-      window_functor_manager = srtb::fft::fft_window_functor_manager{
-          srtb::fft::default_window{}, out_count, q};
+      window_functor_manager =
+          srtb::fft::fft_window_functor_manager<srtb::real,
+                                                srtb::fft::default_window>{
+              srtb::fft::default_window{}, out_count, q};
     }
 
     auto& d_in_shared = unpack_work.ptr;

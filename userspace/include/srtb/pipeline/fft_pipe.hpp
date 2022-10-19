@@ -123,11 +123,13 @@ class refft_1d_c2c_pipe : public pipe<refft_1d_c2c_pipe> {
  protected:
   std::optional<srtb::fft::fft_1d_dispatcher<srtb::fft::type::C2C_1D_BACKWARD> >
       opt_ifft_dispatcher;
-  std::optional<srtb::fft::fft_window_functor_manager<> >
+  std::optional<srtb::fft::fft_window_functor_manager<
+      srtb::real, srtb::fft::default_window> >
       opt_ifft_window_functor_manager;
   std::optional<srtb::fft::fft_1d_dispatcher<srtb::fft::type::C2C_1D_FORWARD> >
       opt_refft_dispatcher;
-  std::optional<srtb::fft::fft_window_functor_manager<> >
+  std::optional<srtb::fft::fft_window_functor_manager<
+      srtb::real, srtb::fft::default_window> >
       opt_refft_window_functor_manager;
 
  public:
@@ -197,9 +199,9 @@ class refft_1d_c2c_pipe : public pipe<refft_1d_c2c_pipe> {
     if constexpr (!std::is_same_v<srtb::fft::default_window,
                                   srtb::fft::window::rectangle<srtb::real> >) {
       auto ifft_window =
-          opt_ifft_window_functor_manager.value().get_coefficients().get();
+          opt_ifft_window_functor_manager.value().get_coefficients();
       auto refft_window =
-          opt_refft_window_functor_manager.value().get_coefficients().get();
+          opt_refft_window_functor_manager.value().get_coefficients();
       q.parallel_for(sycl::range<1>{input_count}, [=](sycl::item<1> id) {
          const auto i = id.get_id(0);
          const auto j = i - ((i / refft_length) * refft_length);
@@ -239,11 +241,13 @@ class refft_1d_c2r2c_pipe : public pipe<refft_1d_c2r2c_pipe> {
  protected:
   std::optional<srtb::fft::fft_1d_dispatcher<srtb::fft::type::C2R_1D> >
       opt_ifft_dispatcher;
-  std::optional<srtb::fft::fft_window_functor_manager<> >
+  std::optional<srtb::fft::fft_window_functor_manager<
+      srtb::real, srtb::fft::default_window> >
       opt_ifft_window_functor_manager;
   std::optional<srtb::fft::fft_1d_dispatcher<srtb::fft::type::R2C_1D> >
       opt_refft_dispatcher;
-  std::optional<srtb::fft::fft_window_functor_manager<> >
+  std::optional<srtb::fft::fft_window_functor_manager<
+      srtb::real, srtb::fft::default_window> >
       opt_refft_window_functor_manager;
 
  public:
@@ -317,9 +321,9 @@ class refft_1d_c2r2c_pipe : public pipe<refft_1d_c2r2c_pipe> {
     if constexpr (!std::is_same_v<srtb::fft::default_window,
                                   srtb::fft::window::rectangle<srtb::real> >) {
       auto ifft_window =
-          opt_ifft_window_functor_manager.value().get_coefficients().get();
+          opt_ifft_window_functor_manager.value().get_coefficients();
       auto refft_window =
-          opt_refft_window_functor_manager.value().get_coefficients().get();
+          opt_refft_window_functor_manager.value().get_coefficients();
       q.parallel_for(sycl::range<1>{input_count_real}, [=](sycl::item<1> id) {
          const auto i = id.get_id(0);
          const auto j = i - ((i / refft_length) * refft_length);

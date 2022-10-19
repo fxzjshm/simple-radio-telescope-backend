@@ -28,8 +28,9 @@ void tiny_test() {
   srtb::fft::window::hamming hamming_window;
 
   constexpr size_t n = 16;
-  srtb::fft::fft_window_functor_manager hamming_window_functor_manager{
-      hamming_window, n, q};
+  srtb::fft::fft_window_functor_manager<srtb::real,
+                                        srtb::fft::window::hamming<> >
+      hamming_window_functor_manager{hamming_window, n, q};
   srtb::fft::fft_window_functor hamming_window_functor =
       hamming_window_functor_manager.functor;
 
@@ -74,7 +75,8 @@ void tiny_test() {
     {
       srtb::fft::window::cosine_sum_window<2> another_hamming_window{
           srtb::real{0.54}, srtb::real{0.46}};
-      srtb::fft::fft_window_functor_manager<srtb::real>
+      srtb::fft::fft_window_functor_manager<
+          srtb::real, srtb::fft::window::cosine_sum_window<2> >
           another_hamming_window_functor_manager{another_hamming_window, n, q};
       srtb::fft::fft_window_functor hamming_window_functor =
           another_hamming_window_functor_manager.functor;

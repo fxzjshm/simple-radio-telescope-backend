@@ -66,6 +66,7 @@ class work_queue : public boost::lockfree::spsc_queue<T> {
 using udp_packet_counter_type = uint64_t;
 
 // FFT default window in srtb/fft/fft_window.hpp
+inline constexpr bool fft_window_precompute = false;
 
 // TODO: is this necessary or too large?
 inline constexpr size_t MEMORY_ALIGNMENT = 64ul;
