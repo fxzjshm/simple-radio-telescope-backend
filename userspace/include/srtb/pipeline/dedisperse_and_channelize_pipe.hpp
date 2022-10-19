@@ -98,26 +98,20 @@ class dedisperse_pipe : public pipe<dedisperse_pipe> {
     const srtb::real delta_f =
         static_cast<srtb::real>(work.baseband_sample_rate) / 2 / N / 1e6;
     auto& d_in_shared = work.ptr;
-    auto d_out_shared =
-        srtb::device_allocator.allocate_shared<srtb::complex<srtb::real> >(N);
     auto d_in = d_in_shared.get();
-    auto d_out = d_out_shared.get();
     srtb::coherent_dedispersion::coherent_dedispertion(
-        d_in, d_out, N, work.baseband_freq_low, delta_f, work.dm, q);
-
-    d_in = nullptr;
-    d_in_shared.reset();
+        d_in, N, work.baseband_freq_low, delta_f, work.dm, q);
 
     // shortcut
     //srtb::work::simplify_spectrum_work simplify_spectrum_work;
-    //simplify_spectrum_work.ptr = d_out_shared;
+    //simplify_spectrum_work.ptr = d_in_shared;
     //simplify_spectrum_work.count = N;
     //simplify_spectrum_work.batch_size = 1;
     //SRTB_PUSH_WORK(" [dedisperse pipe] ", srtb::simplify_spectrum_queue,
     //               simplify_spectrum_work);
 
     srtb::work::refft_1d_c2c_work refft_1d_c2c_work;
-    refft_1d_c2c_work.ptr = d_out_shared;
+    refft_1d_c2c_work.ptr = d_in_shared;
     refft_1d_c2c_work.count = N;
     refft_1d_c2c_work.refft_length = std::min(N, srtb::config.refft_length);
     SRTB_PUSH_WORK(" [dedisperse pipe] ", srtb::refft_1d_c2c_queue,
