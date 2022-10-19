@@ -24,6 +24,15 @@ namespace srtb {
 namespace coherent_dedispersion {
 
 /**
+ * @brief type to calculate phase delay of certain frequency channel because of
+ *        coherent dedipsersion.
+ * @note delta phase of lowerest and highest frequency can be up to 10^9,
+ *       while delta phase of adjacent channels is 1~10
+ */
+using dedisp_real_t = double;
+using dedisp_complex_t = srtb::complex<dedisp_real_t>;
+
+/**
  * @brief dispersion constant in "accurate" value
  * 
  * $\Delta t = D \mathrm{DM} / f^2$,
@@ -35,7 +44,7 @@ namespace coherent_dedispersion {
  *          = 4.149378 \times 10^3 \mathrm{MHz^2 pc^{-1} cm^3 s}$
  *       (Jiang, 2022)
  */
-inline constexpr srtb::real D = 4.148808e3;
+inline constexpr dedisp_real_t D = 4.148808e3;
 
 /**
  * @brief delay time caused by dispersion relative to f_c, assuming f > f_c (for positive result).
@@ -45,7 +54,8 @@ inline constexpr srtb::real D = 4.148808e3;
  */
 template <typename T>
 inline T dispersion_delay_time(const T f, const T f_c, const T dm) {
-  return -D * dm * (T(1.0) / (f * f) - T(1.0) / (f_c * f_c));
+  return -D * dm *
+         (dedisp_real_t(1.0) / (f * f) - dedisp_real_t(1.0) / (f_c * f_c));
 }
 
 inline srtb::real max_delay_time() {
@@ -86,19 +96,21 @@ inline size_t nsamps_reserved() {
  * ref: C.G. Bassa et al, Enabling pulsar and fast transient searches using coherent dedispersion
  *      (arXiv:1607.00909), https://github.com/cbassa/cdmt/blob/master/cdmt.cu
  */
-template <typename T, typename C = srtb::complex<T> >
-inline C coherent_dedispersion_factor(const T f, const T f_c,
-                                      const T dm) noexcept {
+template <typename C = dedisp_complex_t>
+inline C coherent_dedispersion_factor(const dedisp_real_t f,
+                                      const dedisp_real_t f_c,
+                                      const dedisp_real_t dm) noexcept {
   // TODO: does pre-computing delta_phi saves time?
   // TODO: check the sign!
   // phase delay
   // coefficient 1e6 is here because the unit of f is MHz, not Hz.
   // NOTE: this delta_phi may be up to 10^9, so the precision of float may not be sufficient here.
-  const T delta_phi =
-      -2 * M_PI * D * 1e6 * dm * (T(1.0) / (f * f) - T(1.0) / (f_c * f_c)) * f;
+  const dedisp_real_t delta_phi =
+      -2 * M_PI * D * 1e6 * dm *
+      (dedisp_real_t(1.0) / (f * f) - dedisp_real_t(1.0) / (f_c * f_c)) * f;
   // another formula
-  //const T diff_f = f - f_c;
-  //const T delta_phi =
+  //const dedisp_real_t diff_f = f - f_c;
+  //const dedisp_real_t delta_phi =
   //    -2 * M_PI * D * 1e6 * dm * ((diff_f * diff_f) / (f * f_c * f_c));
   const C factor = C(sycl::cos(delta_phi), sycl::sin(delta_phi));
   return factor;
@@ -111,13 +123,15 @@ inline C coherent_dedispersion_factor(const T f, const T f_c,
  * @see srtb::codd::D
  * @see crtb::codd::coherent_dedispertion
  */
-template <typename T, typename C = srtb::complex<T>, typename Accessor>
+template <typename C = dedisp_complex_t, typename Accessor>
 inline void coherent_dedispertion_item(Accessor input, Accessor output,
-                                       const T f_min, const T delta_f,
-                                       const T dm, const sycl::item<1> id) {
+                                       const dedisp_real_t f_min,
+                                       const dedisp_real_t delta_f,
+                                       const dedisp_real_t dm,
+                                       const sycl::item<1> id) {
   const size_t i = id.get_id(0);
   const size_t n = id.get_range(0);
-  const T freq = f_min + delta_f * i, f_c = f_min + delta_f * n;
+  const dedisp_real_t freq = f_min + delta_f * i, f_c = f_min + delta_f * n;
   const C factor = coherent_dedispersion_factor(freq, f_c, dm);
   const C in = input[i];
   const C out = in * factor;

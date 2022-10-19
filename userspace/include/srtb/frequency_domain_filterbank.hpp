@@ -85,7 +85,8 @@ inline void coherent_dedispersion_and_frequency_domain_filterbank_item(
   // TODO: does pre-computing delta_phi saves time?
   const T f = f_min + delta_f * i;
   const auto factor = srtb::codd::coherent_dedispersion_factor(f, f_min, dm);
-  output[j] = input[i] * factor;
+  const decltype(factor) in = input[i], out = in * factor;
+  output[j] = out;
 }
 
 /**
