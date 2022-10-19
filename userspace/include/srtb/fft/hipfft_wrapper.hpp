@@ -93,57 +93,53 @@ class hipfft_1d_wrapper
                                FFTW_PATIENT |  FFTW_DESTROY_INPUT);
     */
 
-    // pending: https://github.com/intel/llvm/pull/6649
-    // therefore, using non-default device for FFT is not supported on intel/llvm
-#ifndef SYCL_IMPLEMENTATION_ONEAPI
     auto device = q.get_device();
     auto native_device = sycl::get_native<srtb::backend::rocm>(device);
     SRTB_CHECK_HIP(hipSetDevice(native_device));
-#endif  // SYCL_IMPLEMENTATION_ONEAPI
 
     SRTB_CHECK_HIPFFT(hipfftCreate(&plan));
     constexpr hipfftType hipfft_type = get_hipfft_type<T>(fft_type);
 
     // 32-bit version
-    SRTB_CHECK_HIPFFT(hipfftMakePlan1d(plan, static_cast<int>(n), hipfft_type,
-                                       batch_size, &workSize));
+    //SRTB_CHECK_HIPFFT(hipfftMakePlan1d(plan, static_cast<int>(n), hipfft_type,
+    //                                   batch_size, &workSize));
 
     // 64-bit version
     // TODO: API call returns HIPFFT_NOT_IMPLEMENTED
-    //long long int n_ = static_cast<long long int>(n);
-    //long long int idist, odist;
-    //long long int inembed[1] = {1}, onembed[1] = {1};  // should have no effect
-    //if constexpr (fft_type == srtb::fft::type::C2C_1D_FORWARD ||
-    //              fft_type == srtb::fft::type::C2C_1D_BACKWARD) {
-    //  const long long int n_complex = n_;
-    //  idist = odist = n_complex;
-    //} else if constexpr (fft_type == srtb::fft::type::R2C_1D) {
-    //  const long long int n_real = n_;
-    //  const long long int n_complex = n_real / 2 + 1;
-    //  idist = n_real;
-    //  odist = n_complex;
-    //} else if constexpr (fft_type == srtb::fft::type::C2R_1D) {
-    //  const long long int n_real = n_;
-    //  const long long int n_complex = n_real / 2 + 1;
-    //  idist = n_complex;
-    //  odist = n_real;
-    //} else {
-    //  throw std::runtime_error("[hipfft_wrapper] create_impl: TODO");
-    //}
+    long long int n_ = static_cast<long long int>(n);
+    long long int idist, odist;
+    long long int inembed[1] = {1}, onembed[1] = {1};  // should have no effect
+    if constexpr (fft_type == srtb::fft::type::C2C_1D_FORWARD ||
+                  fft_type == srtb::fft::type::C2C_1D_BACKWARD) {
+      const long long int n_complex = n_;
+      idist = odist = n_complex;
+    } else if constexpr (fft_type == srtb::fft::type::R2C_1D) {
+      const long long int n_real = n_;
+      const long long int n_complex = n_real / 2 + 1;
+      idist = n_real;
+      odist = n_complex;
+    } else if constexpr (fft_type == srtb::fft::type::C2R_1D) {
+      const long long int n_real = n_;
+      const long long int n_complex = n_real / 2 + 1;
+      idist = n_complex;
+      odist = n_real;
+    } else {
+      throw std::runtime_error("[hipfft_wrapper] create_impl: TODO");
+    }
 
     // This returns HIPFFT_NOT_IMPLEMENTED.
-    //SRTB_CHECK_HIPFFT(hipfftMakePlanMany64(/* plan = */ plan,
-    //                                       /* rank = */ 1,
-    //                                       /* n = */ &n_,
-    //                                       /* inembed = */ inembed,
-    //                                       /* istride = */ 1,
-    //                                       /* idist = */ idist,
-    //                                       /* onembed = */ onembed,
-    //                                       /* ostride = */ 1,
-    //                                       /* odist = */ odist,
-    //                                       /* type = */ hipfft_type,
-    //                                       /* batch = */ batch_size,
-    //                                       /* worksize = */ &workSize));
+    SRTB_CHECK_HIPFFT(hipfftMakePlanMany64(/* plan = */ plan,
+                                           /* rank = */ 1,
+                                           /* n = */ &n_,
+                                           /* inembed = */ inembed,
+                                           /* istride = */ 1,
+                                           /* idist = */ idist,
+                                           /* onembed = */ onembed,
+                                           /* ostride = */ 1,
+                                           /* odist = */ odist,
+                                           /* type = */ hipfft_type,
+                                           /* batch = */ batch_size,
+                                           /* worksize = */ &workSize));
     SRTB_LOGI << " [hipfft_wrapper] "
               << "plan finished. workSize = " << workSize << srtb::endl;
     set_queue_impl(q);

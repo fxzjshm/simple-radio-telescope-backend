@@ -91,13 +91,9 @@ class cufft_1d_wrapper
                                FFTW_PATIENT |  FFTW_DESTROY_INPUT);
     */
 
-    // pending: https://github.com/intel/llvm/pull/6649
-    // therefore, using non-default device for FFT is not supported on intel/llvm
-#ifndef SYCL_IMPLEMENTATION_ONEAPI
     auto device = q.get_device();
     auto native_device = sycl::get_native<srtb::backend::cuda>(device);
     SRTB_CHECK_CUDA(cudaSetDevice(native_device));
-#endif  // SYCL_IMPLEMENTATION_ONEAPI
 
     SRTB_CHECK_CUFFT(cufftCreate(&plan));
     constexpr cufftType cufft_type = get_cufft_type<T>(fft_type);
