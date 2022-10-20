@@ -2,9 +2,9 @@ cmake_minimum_required(VERSION 3.12)
 project(simple-radio-telescope-backend_userspace)
 
 # select SYCL implemention
-if(NOT DEFINED SYCL_IMPLEMENTION)
-    message(WARNING "SYCL_IMPLEMENTION not defined, default to hipSYCL")
-    set(SYCL_IMPLEMENTION "hipSYCL")
+if(NOT DEFINED SRTB_SYCL_IMPLEMENTATION)
+    message(WARNING "SRTB_SYCL_IMPLEMENTATION not defined, default to hipSYCL")
+    set(SRTB_SYCL_IMPLEMENTATION "hipSYCL")
 endif()
 
 # detect backends
@@ -37,7 +37,7 @@ if(SRTB_ENABLE_ROCM)
 endif()
 
 # setup SYCL compilers
-if(SYCL_IMPLEMENTION STREQUAL "hipSYCL")
+if(SRTB_SYCL_IMPLEMENTATION STREQUAL "hipSYCL")
     set(SRTB_HIPSYCL_TARGETS "")
     if(SRTB_ENABLE_CUDA)
         if(NOT DEFINED SRTB_CUDA_ARCH)
@@ -52,7 +52,7 @@ if(SYCL_IMPLEMENTION STREQUAL "hipSYCL")
     message("HIPSYCL_TARGETS set to ${SRTB_HIPSYCL_TARGETS}")  # e.g. HIPSYCL_TARGETS=cuda:sm_86;hip:gfx906;omp
     set(HIPSYCL_TARGETS ${SRTB_HIPSYCL_TARGETS})
     find_package(hipSYCL CONFIG REQUIRED)
-elseif(SYCL_IMPLEMENTION STREQUAL "intel-llvm")
+elseif(SRTB_SYCL_IMPLEMENTATION STREQUAL "intel-llvm")
     # e.g. 
     # CUDA: clang -fsycl -fsycl-targets=nvptx64-nvidia-cuda -Xsycl-target-backend -cuda-gpu-arch=sm_86
     # ROCm: clang -fsycl -fsycl-targets=amdgcn-amd-amdhsa -Xsycl-target-backend --offload-arch=gfx906
@@ -73,7 +73,7 @@ elseif(SYCL_IMPLEMENTION STREQUAL "intel-llvm")
     # if sycl-targets not set, use default
     message("CMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS}")
 else()
-    message(FATAL_ERROR "Sorry, unknown/untested/un-adapted SYCL implementation " ${SYCL_IMPLEMENTION})
+    message(FATAL_ERROR "Sorry, unknown/untested/un-adapted SYCL implementation " ${SRTB_SYCL_IMPLEMENTATION})
 endif()
 
 # set cmake config for Qt
@@ -108,9 +108,9 @@ find_package(Qt5 COMPONENTS Quick Gui REQUIRED)
 
 function(srtb_add_dependency target_name)
     # add SYCL to targets
-    if(SYCL_IMPLEMENTION STREQUAL "hipSYCL")
+    if(SRTB_SYCL_IMPLEMENTATION STREQUAL "hipSYCL")
         add_sycl_to_target(TARGET ${target_name})
-    elseif(SYCL_IMPLEMENTION STREQUAL "intel-llvm")
+    elseif(SRTB_SYCL_IMPLEMENTATION STREQUAL "intel-llvm")
         # maybe nothing to do
     else()
 
