@@ -8,53 +8,56 @@ Future plans include Fast Radio Burst (FRB) detection and maybe pulsar folding.
 Due to vendor neutrality and current status of some heterogeneous computing APIs (I mean OpenCL, IMHO),
 **[SYCL 2020](https://www.khronos.org/sycl/)** from Khronos Group is chosen as target API.
 
-Although say so, currently only CPU (OpenMP, on amd64), CUDA and ROCm backends are tested, due to limited device type available.
+Although say so, currently only CPU (OpenMP, on amd64), ROCm and CUDA backends are tested, due to limited device type available.
 
 ## Dependency
 * a C++ compiler that supports at least C++20
-* SYCL 2020 implementation, such as [intel/llvm](https://github.com/intel/llvm/) and [illuhad/hipSYCL](https://github.com/illuhad/hipSYCL/)
-  * if use intel/llvm, version newer than `1a03643` is needed because of [`sycl_ext_oneapi_complex` extension](https://github.com/intel/llvm/blob/sycl/sycl/doc/extensions/proposed/sycl_ext_oneapi_complex.asciidoc).  
-    Refer to [their guide](https://github.com/intel/llvm/blob/sycl/sycl/doc/GetStartedGuide.md) for installation.
+* SYCL 2020 implementation, such as [illuhad/hipSYCL](https://github.com/illuhad/hipSYCL/) and [intel/llvm](https://github.com/intel/llvm/)
   * if use hipSYCL, refer to [this guide](https://github.com/illuhad/hipSYCL/blob/develop/doc/installing.md)
+  * if use intel/llvm, version newer than `1a03643` is needed because of [`sycl_ext_oneapi_complex` extension](https://github.com/intel/llvm/blob/sycl/sycl/doc/extensions/proposed/sycl_ext_oneapi_complex.asciidoc).  
+    Refer to [this guide](https://github.com/intel/llvm/blob/sycl/sycl/doc/GetStartedGuide.md) for installation.
+* Boost libraries
 * fftw3
 * Qt5
-
-if CUDA backend enabled, additional dependencies:
-* CUDA toolkit
-* cufft
 
 if ROCm backend enabled, additional dependencies:
 * ROCm
 * hipfft
 * rocfft
 
+if CUDA backend enabled, additional dependencies:
+* CUDA toolkit
+* cufft
+
 ## Building
 This project uses CMake 3. 
 Configure options:
-* `SYCL_IMPLEMENTION`: switches SYCL implementation used. 
+* `SRTB_SYCL_IMPLEMENTATION`: switches SYCL implementation used. Default to `hipSYCL`.
+  * set to `hipSYCL` to use hipSYCL
   * set to `intel-llvm` to use intel/llvm
     * additionally, `CMAKE_C_COMPILER` & `CMAKE_CXX_COMPILER` should be set to intel/llvm installation
-  * set to `hipSYCL` to use hipSYCL
+* `SRTB_ENABLE_ROCM`: `ON` or `OFF`
+* `SRTB_ROCM_ARCH`:
+  * if `SRTB_ENABLE_ROCM` is set `ON`, for both hipSYCL and intel/llvm, `SRTB_ROCM_ARCH` is required, which is the arch of target GPU, e.g. `gfx906` or `gfx1030`.
 * `SRTB_ENABLE_CUDA`: `ON` or `OFF`
 * `SRTB_CUDA_ARCH`:
   * if `SRTB_ENABLE_CUDA` is set `ON` and using hipSYCL, `SRTB_CUDA_ARCH` is required, which is the arch of target GPU, e.g. `sm_86`
   * if using intel/llvm, `SRTB_CUDA_ARCH` is optional
-* `SRTB_ENABLE_ROCM`: `ON` or `OFF`
-* `SRTB_ROCM_ARCH`:
-  * if `SRTB_ENABLE_ROCM` is set `ON`, for both hipSYCL and intel/llvm, `SRTB_ROCM_ARCH` is required, which is the arch of target GPU, e.g. `gfx906` or `gfx1030`.
 
 Example configure command:  
-using intel/llvm:
+
+* using hipSYCL:
 ```bash
-cmake -DSYCL_IMPLEMENTION=intel-llvm \
--DCMAKE_C_COMPILER=/opt/intel-llvm/bin/clang -DCMAKE_CXX_COMPILER=/opt/intel-llvm/bin/clang++ \
+cmake -DSRTB_SYCL_IMPLEMENTATION=hipSYCL \
 -DSRTB_ENABLE_CUDA=OFF -DSRTB_ENABLE_ROCM=ON -DSRTB_CUDA_ARCH=sm_86 -DSRTB_ROCM_ARCH=gfx906 \
 -DBOOST_ROOT=/opt/boost \
 ~/workspace/simple-radio-telescope-backend
 ```
-using hipSYCL:
+
+* using intel/llvm:
 ```bash
-cmake -DSYCL_IMPLEMENTION=hipSYCL \
+cmake -DSRTB_SYCL_IMPLEMENTATION=intel-llvm \
+-DCMAKE_C_COMPILER=/opt/intel-llvm/bin/clang -DCMAKE_CXX_COMPILER=/opt/intel-llvm/bin/clang++ \
 -DSRTB_ENABLE_CUDA=OFF -DSRTB_ENABLE_ROCM=ON -DSRTB_CUDA_ARCH=sm_86 -DSRTB_ROCM_ARCH=gfx906 \
 -DBOOST_ROOT=/opt/boost \
 ~/workspace/simple-radio-telescope-backend
