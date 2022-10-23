@@ -60,15 +60,11 @@ void read_file(const std::string& file_path, sycl::queue& q) {
     T* d_in = d_in_shared.get();
     q.copy(h_in, /* -> */ d_in, time_sample_count).wait();
 
-    std::shared_ptr<srtb::real> d_out_shared =
-        srtb::device_allocator.allocate_shared<srtb::real>(time_sample_count);
-    srtb::real* d_out = d_out_shared.get();
-    srtb::unpack::unpack(baseband_input_bits, d_in, d_out,
-                         time_sample_count, window_functor_manager.functor,
-                         q);
-
-    srtb::work::fft_1d_r2c_work fft_1d_r2c_work{d_out_shared, time_sample_count};
-    SRTB_PUSH_WORK(" [read_file] ", srtb::fft_1d_r2c_queue, fft_1d_r2c_work);
+    srtb::work::unpack_work unpack_work;
+    unpack_work.ptr = d_in_shared;
+    unpack_work.count = time_sample_count * sizeof(T);
+    unpack_work.baseband_input_bits = baseband_input_bits;
+    SRTB_PUSH_WORK(" [read_file] ", srtb::unpack_queue, unpack_work);
   }
 }
 
