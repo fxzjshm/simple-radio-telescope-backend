@@ -14,9 +14,6 @@
 #ifndef __SRTB_CONFIG__
 #define __SRTB_CONFIG__
 
-#include <boost/lockfree/queue.hpp>
-#include <boost/lockfree/spsc_queue.hpp>
-
 #include "srtb/sycl.hpp"
 
 #ifdef SYCL_IMPLEMENTATION_ONEAPI
@@ -48,20 +45,8 @@ using complex = std::complex<T>;
  */
 inline constexpr size_t work_queue_capacity = 4;
 
-// TODO: check should use spsc_queue or shared queue with mutex here
-
-#ifdef SRTB_WORK_QUEUE_FIXED_SIZE
-template <typename T>
-using work_queue = boost::lockfree::spsc_queue<
-    T, boost::lockfree::capacity<srtb::work_queue_capacity> >;
-#else
-template <typename T>
-class work_queue : public boost::lockfree::spsc_queue<T> {
- public:
-  using super_class = boost::lockfree::spsc_queue<T>;
-  work_queue() : super_class{work_queue_capacity} {}
-};
-#endif
+// option to use fix the max size of work_queue or not
+//#define SRTB_WORK_QUEUE_FIXED_SIZE
 
 using udp_packet_counter_type = uint64_t;
 
