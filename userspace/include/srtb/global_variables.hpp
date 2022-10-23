@@ -14,6 +14,11 @@
 #ifndef __SRTB_GLOBAL_VARIABLES__
 #define __SRTB_GLOBAL_VARIABLES__
 
+/*
+ * This file contains most of global variables used in this program.
+ * Some global variables need extra dependency, so not written here.
+ */
+
 #include "srtb/config.hpp"
 #include "srtb/sycl.hpp"
 
@@ -57,6 +62,8 @@ inline srtb::work_queue<srtb::work::refft_1d_c2c_work> refft_1d_c2c_queue;
 inline srtb::work_queue<srtb::work::simplify_spectrum_work>
     simplify_spectrum_queue;
 inline srtb::work_queue<srtb::work::draw_spectrum_work> draw_spectrum_queue;
+
+// termination_handler_v in termination_handler.hpp because termination_handler needs it.
 
 // fftw initializer in srtb/fft/fftw_wrapper.hpp due to forward declearation
 
