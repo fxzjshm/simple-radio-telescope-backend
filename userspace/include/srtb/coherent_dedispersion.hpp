@@ -67,7 +67,7 @@ inline srtb::real max_delay_time() {
 /** @brief count of samples to be reused in next round of baseband data submission,
   *        as dedispersed signal at two edges is not accurate
   * 
-  * e.g. baseband_input_length = 20, max delayed samples = 5,
+  * e.g. baseband_input_count = 20, max delayed samples = 5,
   *      x = not accurate signals after dedispersion
   *         ..............................
   *         |---  round  i  ---|

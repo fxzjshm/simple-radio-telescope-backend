@@ -35,18 +35,20 @@ int main() {
   srtb::config.baseband_sample_rate = 4;  // arbitrary
   srtb::config.udp_receiver_sender_address = address;
   srtb::config.udp_receiver_sender_port = port;
+  // below code mixed bytes and count, so should work only if input bits == 8.
+  srtb::config.baseband_input_bits = 8;
   srtb::config.log_level = static_cast<int>(srtb::log::levels::DEBUG);
   srtb::config.dm = 375;
   size_t nsamps_reserved = srtb::codd::nsamps_reserved();
-  srtb::config.baseband_input_length = nsamps_reserved * 4;  // arbitrary
-  size_t data_size = nsamps_reserved * 128;                  // arbitrary
+  srtb::config.baseband_input_count = nsamps_reserved * 4;  // arbitrary
+  size_t data_size = nsamps_reserved * 128;                 // arbitrary
   size_t n_segments = (data_size - nsamps_reserved) /
-                      (srtb::config.baseband_input_length - nsamps_reserved);
+                      (srtb::config.baseband_input_count - nsamps_reserved);
   g_test_passes = false;
 
   SRTB_LOGI << " [test-udp_receiver] "
             << "nsamp_reserved = " << nsamps_reserved << ", "
-            << "baseband_input_length = " << srtb::config.baseband_input_length
+            << "baseband_input_count = " << srtb::config.baseband_input_count
             << srtb::endl;
 
   // set up watchdog
@@ -148,7 +150,9 @@ int main() {
 
   // per byte check of work
   srtb::work::unpack_work unpack_work;
-  size_t counter = 0, index = 0, length = srtb::config.baseband_input_length;
+  size_t counter = 0, index = 0,
+         length = srtb::config.baseband_input_count *
+                  srtb::config.baseband_input_bits;
   std::shared_ptr<std::byte> host_mem =
       srtb::host_allocator.allocate_shared(length);
   auto start_time = std::chrono::system_clock::now();

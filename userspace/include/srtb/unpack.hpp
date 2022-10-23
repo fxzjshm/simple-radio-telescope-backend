@@ -22,6 +22,12 @@
 #include "srtb/commons.hpp"
 
 namespace srtb {
+/**
+ * @brief unpack/type cast input to output.
+ *        if input is std::byte and in_nbits = 1, 2, 4 then an "unpack" is performed,
+ *        otherwise only type cast is done.
+ * @note Additionally, @c transform functor is for kernel fusion, e.g. apply FFT window in unpack stage.
+ */
 namespace unpack {
 
 /**
@@ -151,18 +157,33 @@ inline
  *        copy and cast input to needed type. (for IN_BITS >= 8)
  * 
  * @tparam IN_NBITS bit width of one input number
- * @param d_in iterator of std::byte
+ * @param d_in iterator of std::byte ( for IN_NBITS == 1, 2, 4 )
+ *                      or other ( for IN_NBITS == sizeof(input_type) )
  * @param d_out iterator of output
- * @param in_count std::bytes count of in. Make sure [0, BITS_PER_BYTE / IN_NBITS * input_count) of out is accessible.
+ * @param out_count count of output samples. Make sure [0, out_count) of out is accessible.
  * @param transform transform functor to be applied after unpacking, e.g. FFT window.
  *                  it's operator() has the signature (size_t n, T val) -> T
  * @param q the sycl queue to be used
  */
 template <int IN_NBITS, bool handwritten = false, typename InputIterator,
           typename OutputIterator, typename TransformFunctor>
-inline void unpack(InputIterator d_in, OutputIterator d_out, size_t in_count,
-                   TransformFunctor transform, sycl::queue& q) {
-  q.parallel_for(sycl::range<1>(in_count), [=](sycl::item<1> id) {
+inline void unpack(InputIterator d_in, OutputIterator d_out,
+                   const size_t out_count, TransformFunctor transform,
+                   sycl::queue& q) {
+  size_t range_size;
+  // here the parallel_for range differs.
+  // 1) when in_nbits == 1, 2, 4, 8, one work item operates on 1 input std::byte,
+  //    which write 8, 4, 2, 1 output(s), respectively
+  // 2) when in_nbits == 8, 16, 32, 64 or whatever else, 
+  //    1 work item operates on only 1 input of some other type,
+  //    which is not "unpack" but type casting to output type.
+  // refer to device kernels above to see the difference.
+  if constexpr (IN_NBITS < srtb::BITS_PER_BYTE) {
+    range_size = out_count * IN_NBITS / srtb::BITS_PER_BYTE;
+  } else {
+    range_size = out_count;
+  }
+  q.parallel_for(sycl::range<1>(range_size), [=](sycl::item<1> id) {
      unpack_item<IN_NBITS, handwritten>(d_in, d_out, id.get_id(0), transform);
    }).wait();
 }
@@ -177,9 +198,9 @@ struct identity : std::identity {
 
 template <int IN_NBITS, bool handwritten = false, typename InputIterator,
           typename OutputIterator>
-inline void unpack(InputIterator d_in, OutputIterator d_out, size_t in_count,
-                   sycl::queue& q) {
-  return unpack<IN_NBITS, handwritten>(d_in, d_out, in_count,
+inline void unpack(InputIterator d_in, OutputIterator d_out,
+                   const size_t out_count, sycl::queue& q) {
+  return unpack<IN_NBITS, handwritten>(d_in, d_out, out_count,
                                        srtb::unpack::identity(), q);
 }
 
@@ -187,24 +208,26 @@ inline void unpack(InputIterator d_in, OutputIterator d_out, size_t in_count,
 template <bool handwritten = false, typename InputIterator,
           typename OutputIterator, typename TransformFunctor>
 inline void unpack(int in_nbits, InputIterator d_in, OutputIterator d_out,
-                   size_t in_count, TransformFunctor transform,
+                   const size_t out_count, TransformFunctor transform,
                    sycl::queue& q) {
   typedef typename std::iterator_traits<InputIterator>::value_type input_type;
   if constexpr (std::is_same_v<std::byte, input_type>) {
     switch (in_nbits) {
       case 1:
-        return unpack<1, handwritten>(d_in, d_out, in_count, transform, q);
+        return unpack<1, handwritten>(d_in, d_out, out_count, transform, q);
       case 2:
-        return unpack<2, handwritten>(d_in, d_out, in_count, transform, q);
+        return unpack<2, handwritten>(d_in, d_out, out_count, transform, q);
       case 4:
-        return unpack<4, handwritten>(d_in, d_out, in_count, transform, q);
+        return unpack<4, handwritten>(d_in, d_out, out_count, transform, q);
+      // case 8 is included below, in (in_nbits == expected_in_nbits) branch
       default:
         break;
     }
   }
   constexpr int expected_in_nbits = sizeof(input_type) * srtb::BITS_PER_BYTE;
   if (in_nbits == expected_in_nbits) {
-    return unpack<expected_in_nbits>(d_in, d_out, in_count, transform, q);
+    return unpack<expected_in_nbits, handwritten>(d_in, d_out, out_count,
+                                                  transform, q);
   } else {
     throw std::runtime_error("unpack: unsupported in_nbits " +
                              std::to_string(in_nbits) + " with type " +
@@ -216,8 +239,8 @@ inline void unpack(int in_nbits, InputIterator d_in, OutputIterator d_out,
 template <bool handwritten = false, typename InputIterator,
           typename OutputIterator>
 inline void unpack(int in_nbits, InputIterator d_in, OutputIterator d_out,
-                   size_t in_count, sycl::queue& q) {
-  return unpack<handwritten>(in_nbits, d_in, d_out, in_count,
+                   const size_t out_count, sycl::queue& q) {
+  return unpack<handwritten>(in_nbits, d_in, d_out, out_count,
                              srtb::unpack::identity(), q);
 }
 

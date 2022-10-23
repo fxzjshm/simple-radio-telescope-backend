@@ -49,39 +49,42 @@ class udp_receiver_pipe : public pipe<udp_receiver_pipe> {
     auto& worker = opt_worker.value();
 
     // this config should persist during one work push
-    size_t baseband_input_length = srtb::config.baseband_input_length;
+    const size_t baseband_input_count = srtb::config.baseband_input_count;
+    const size_t baseband_input_bits = srtb::config.baseband_input_bits;
+    const size_t baseband_input_bytes =
+        baseband_input_count * baseband_input_bits / srtb::BITS_PER_BYTE;
     SRTB_LOGD << " [udp receiver pipe] "
               << "start receiving" << srtb::endl;
-    auto buffer = worker.receive(/* required_length = */ baseband_input_length);
+    auto buffer = worker.receive(/* required_length = */ baseband_input_bytes);
     SRTB_LOGD << " [udp receiver pipe] "
               << "receive finished" << srtb::endl;
 
     auto time_before_push = std::chrono::system_clock::now();
 
-    // flush input of baseband_input_length
+    // flush input of baseband_input_bytes
     std::shared_ptr<std::byte> ptr =
-        srtb::device_allocator.allocate_shared(baseband_input_length);
-    q.memcpy(reinterpret_cast<void*>(ptr.get()), buffer.data(),
-             baseband_input_length * sizeof(std::byte))
+        srtb::device_allocator.allocate_shared(baseband_input_bytes);
+    q.memcpy(reinterpret_cast<void*>(ptr.get()), /* <- */ buffer.data(),
+             baseband_input_bytes * sizeof(std::byte))
         .wait();
     srtb::work::unpack_work unpack_work;
     unpack_work.ptr = ptr;
-    unpack_work.count = baseband_input_length;
-    unpack_work.baseband_input_bits = srtb::config.baseband_input_bits;
+    unpack_work.count = baseband_input_bytes;
+    unpack_work.baseband_input_bits = baseband_input_bits;
     SRTB_PUSH_WORK(" [udp receiver pipe] ", srtb::unpack_queue, unpack_work);
 
     // reserved some samples for next round
     size_t nsamps_reserved = srtb::codd::nsamps_reserved();
 
-    if (nsamps_reserved < baseband_input_length) {
-      worker.consume(baseband_input_length - nsamps_reserved);
+    if (nsamps_reserved < baseband_input_count) {
+      worker.consume(baseband_input_count - nsamps_reserved);
       SRTB_LOGD << " [udp receiver pipe] "
                 << "reserved " << nsamps_reserved << " samples" << srtb::endl;
     } else {
       SRTB_LOGW << " [udp receiver pipe] "
-                << "baseband_input_length = " << baseband_input_length
+                << "baseband_input_count = " << baseband_input_count
                 << " >= nsamps_reserved = " << nsamps_reserved << srtb::endl;
-      worker.consume(baseband_input_length);
+      worker.consume(baseband_input_count);
     }
 
     auto time_after_push = std::chrono::system_clock::now();

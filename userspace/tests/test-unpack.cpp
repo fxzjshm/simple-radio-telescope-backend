@@ -48,7 +48,7 @@ inline std::chrono::nanoseconds unpack_host_ptr(std::byte* h_in,
   q.copy(h_in, d_in, in_count).wait();
   q.copy(h_out, d_out, out_count).wait();
   auto unpack_start = std::chrono::system_clock::now();
-  srtb::unpack::unpack<IN_NBITS, handwritten>(d_in, d_out, in_count, q);
+  srtb::unpack::unpack<IN_NBITS, handwritten>(d_in, d_out, out_count, q);
   auto unpack_end = std::chrono::system_clock::now();
   q.copy(d_in, h_in, in_count).wait();
   q.copy(d_out, h_out, out_count).wait();

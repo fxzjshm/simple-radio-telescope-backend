@@ -37,37 +37,37 @@ namespace file {
 template <typename T>
 void read_file(const std::string& file_path, sycl::queue& q) {
   std::ifstream input_file_stream{file_path};
-  const size_t baseband_input_length = srtb::config.baseband_input_length;
+  const size_t baseband_input_count = srtb::config.baseband_input_count;
   const size_t baseband_input_bits = srtb::config.baseband_input_bits;
-  const size_t out_count = baseband_input_length * sizeof(T) *
-                           srtb::BITS_PER_BYTE / baseband_input_bits;
+  const size_t time_sample_count = baseband_input_count;
   srtb::fft::fft_window_functor_manager<srtb::real, srtb::fft::default_window>
       window_functor_manager{srtb::fft::default_window{},
-                             /* n = */ out_count, q};
+                             /* n = */ time_sample_count, q};
 
   input_file_stream.ignore(srtb::config.input_file_offset_bytes);
   // TODO: reserve data because of dedispersion
   while (input_file_stream) {
     std::shared_ptr<T> h_in_shared =
-        srtb::host_allocator.allocate_shared<T>(baseband_input_length);
+        srtb::host_allocator.allocate_shared<T>(time_sample_count);
     T* h_in = h_in_shared.get();
-    q.fill(h_in, T(0), baseband_input_length).wait();
+    q.fill(h_in, T(0), time_sample_count).wait();
+    // why don't STL use std::byte ? maybe because std::byte is too new ...
     input_file_stream.read(reinterpret_cast<char*>(h_in),
-                           sizeof(T) / sizeof(char) * baseband_input_length);
+                           sizeof(T) / sizeof(char) * time_sample_count);
 
     std::shared_ptr<T> d_in_shared =
-        srtb::device_allocator.allocate_shared<T>(baseband_input_length);
+        srtb::device_allocator.allocate_shared<T>(time_sample_count);
     T* d_in = d_in_shared.get();
-    q.copy(h_in, /* -> */ d_in, baseband_input_length).wait();
+    q.copy(h_in, /* -> */ d_in, time_sample_count).wait();
 
     std::shared_ptr<srtb::real> d_out_shared =
-        srtb::device_allocator.allocate_shared<srtb::real>(out_count);
+        srtb::device_allocator.allocate_shared<srtb::real>(time_sample_count);
     srtb::real* d_out = d_out_shared.get();
     srtb::unpack::unpack(baseband_input_bits, d_in, d_out,
-                         baseband_input_length, window_functor_manager.functor,
+                         time_sample_count, window_functor_manager.functor,
                          q);
 
-    srtb::work::fft_1d_r2c_work fft_1d_r2c_work{d_out_shared, out_count};
+    srtb::work::fft_1d_r2c_work fft_1d_r2c_work{d_out_shared, time_sample_count};
     SRTB_PUSH_WORK(" [read_file] ", srtb::fft_1d_r2c_queue, fft_1d_r2c_work);
   }
 }

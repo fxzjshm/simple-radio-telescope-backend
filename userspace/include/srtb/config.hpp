@@ -87,10 +87,10 @@ inline constexpr size_t LOG_PREFIX_BUFFER_LENGTH = 64ul;
  */
 struct configs {
   /**
-   * @brief Length of data to be transferred to GPU for once processing, in bytes.
+   * @brief Count of data to be transferred to GPU for once processing, in sample counts.
    *        Should be power of 2 so that FFT and channelizing can work properly.
    */
-  size_t baseband_input_length = 1 << 27;
+  size_t baseband_input_count = 1 << 28;
 
   /**
    * @brief Length of a single input data, used in unpack.

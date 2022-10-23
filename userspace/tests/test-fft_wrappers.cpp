@@ -113,11 +113,8 @@ int main(int argc, char** argv) {
   // assume operations related to an element gives 0.5 ulp error, and max tolerance is 5%
   srtb::real threshold = std::min(
       std::numeric_limits<srtb::real>::epsilon() * n / 2, srtb::real{0.05});
-  srtb::config.baseband_input_length =
-      n * srtb::config.baseband_input_bits / srtb::BITS_PER_BYTE;
-  size_t fft_1d_r2c_input_size = srtb::config.baseband_input_length *
-                                 srtb::BITS_PER_BYTE /
-                                 srtb::config.baseband_input_bits;
+  srtb::config.baseband_input_count = n;
+  size_t fft_1d_r2c_input_size = srtb::config.baseband_input_count;
   SRTB_LOGD << " [test fft wrappers] "
             << "n = " << n << ", "
             << "batch_size = " << batch_size << ", "

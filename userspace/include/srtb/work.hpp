@@ -79,10 +79,10 @@ struct work {
 /**
  * @brief contains a chunk of @c std::byte of size @c count, which is 
  *        baseband data and should be unpacked into @c srtb::real
+ * @note count is count of std::byte, not of output time series,
+ *       and should equal to `srtb::config.baseband_input_count * srtb::config.baseband_input_bits / srtb::BITS_PER_BYTE`
  */
 struct unpack_work : public srtb::work::work<std::shared_ptr<std::byte> > {
-  // `count` should equal to `srtb::config.baseband_input_length`
-
   /**
    * @brief length of a single time sample in the input, come from @c srtb::config.baseband_input_bits
    *        currently 1, 2, 4 and 8 bit(s) baseband input is implemented,

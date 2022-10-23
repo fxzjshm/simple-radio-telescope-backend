@@ -108,7 +108,7 @@ void tiny_test() {
     auto d_in = d_in_shared.get();
     auto d_out = d_out_shared.get();
     q.copy(&h_in[0], /* -> */ d_in, in_count).wait();
-    srtb::unpack::unpack<1, false>(d_in, d_out, in_count,
+    srtb::unpack::unpack<1, false>(d_in, d_out, out_count,
                                    hamming_window_functor, q);
     q.copy(d_out, &h_out[0], out_count).wait();
     SRTB_CHECK_TEST_FFT_WINDOW(out_count == n);

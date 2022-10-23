@@ -38,10 +38,7 @@ class fft_1d_r2c_pipe : public pipe<fft_1d_r2c_pipe> {
 
  protected:
   void setup_impl() {
-    opt_dispatcher.emplace(/* n = */
-                           srtb::config.baseband_input_length *
-                               srtb::BITS_PER_BYTE /
-                               srtb::config.baseband_input_bits,
+    opt_dispatcher.emplace(/* n = */ srtb::config.baseband_input_count,
                            /* batch_size = */ 1, q);
   }
 
@@ -86,9 +83,7 @@ class ifft_1d_c2c_pipe : public pipe<ifft_1d_c2c_pipe> {
 
  public:
   ifft_1d_c2c_pipe()
-      : dispatcher{/* n = */
-                   srtb::config.baseband_input_length * srtb::BITS_PER_BYTE /
-                       srtb::config.baseband_input_bits,
+      : dispatcher{/* n = */ srtb::config.baseband_input_count,
                    /* batch_size = */ srtb::config.ifft_channel_count, q} {}
 
  protected:
@@ -137,10 +132,8 @@ class refft_1d_c2c_pipe : public pipe<refft_1d_c2c_pipe> {
 
  protected:
   void setup_impl() {
-    // divided by 2 because baseband input is real number but here is complex
-    const size_t input_count = srtb::config.baseband_input_length *
-                               srtb::BITS_PER_BYTE /
-                               srtb::config.baseband_input_bits / 2;
+    // divided by 2 because baseband input is real number, but here is complex
+    const size_t input_count = srtb::config.baseband_input_count / 2;
     opt_ifft_dispatcher.emplace(/* n = */ input_count, /* batch_size = */ 1, q);
     opt_ifft_window_functor_manager.emplace(srtb::fft::default_window{},
                                             /* n = */ input_count, q);
@@ -256,9 +249,7 @@ class refft_1d_c2r2c_pipe : public pipe<refft_1d_c2r2c_pipe> {
  protected:
   void setup_impl() {
     // count of real numbers
-    const size_t input_count_real = srtb::config.baseband_input_length *
-                                    srtb::BITS_PER_BYTE /
-                                    srtb::config.baseband_input_bits;
+    const size_t input_count_real = srtb::config.baseband_input_count;
     //const size_t input_count_complex = input_count_real / 2 + 1;
     opt_ifft_dispatcher.emplace(/* n = */ input_count_real,
                                 /* batch_size = */ 1, q);
