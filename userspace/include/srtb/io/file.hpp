@@ -20,6 +20,7 @@
 #include "srtb/coherent_dedispersion.hpp"
 #include "srtb/commons.hpp"
 #include "srtb/fft/fft_window.hpp"
+#include "srtb/pipeline/pipe.hpp"
 #include "srtb/unpack.hpp"
 
 namespace srtb {
@@ -65,6 +66,8 @@ void read_file(const std::string& file_path, sycl::queue& q) {
     unpack_work.count = time_sample_count * sizeof(T);
     unpack_work.baseband_input_bits = baseband_input_bits;
     SRTB_PUSH_WORK(" [read_file] ", srtb::unpack_queue, unpack_work);
+
+    srtb::pipeline::wait_for_notify();
   }
 }
 

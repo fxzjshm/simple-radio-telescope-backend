@@ -94,6 +94,20 @@ class pipe {
   Derived& sub() { return static_cast<Derived&>(*this); }
 };
 
+inline void wait_for_notify() {
+  std::unique_lock lock{srtb::pipeline::pipeline_mutex};
+  srtb::pipeline::pipeline_cv.wait(
+      lock, [] { return srtb::pipeline::one_work_just_finished; });
+  one_work_just_finished = false;
+}
+
+inline void notify() {
+  std::unique_lock lock{srtb::pipeline::pipeline_mutex};
+  one_work_just_finished = true;
+  lock.unlock();
+  srtb::pipeline::pipeline_cv.notify_one();
+}
+
 }  // namespace pipeline
 }  // namespace srtb
 

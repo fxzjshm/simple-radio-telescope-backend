@@ -66,12 +66,17 @@ class simplify_spectrum_pipe : public pipe<simplify_spectrum_pipe> {
               << " finished simplifying" << srtb::endl;
 
     q.copy(d_out, /* -> */ h_out, total_out_count).wait();
+    d_out = nullptr;
+    d_out_shared.reset();
+
     srtb::work::draw_spectrum_work draw_spectrum_work;
     draw_spectrum_work.ptr = h_out_shared;
     draw_spectrum_work.count = out_count;
     draw_spectrum_work.batch_size = batch_size;
     SRTB_PUSH_WORK(" [simplify spectrum pipe] ", srtb::draw_spectrum_queue,
                    draw_spectrum_work);
+
+    srtb::pipeline::notify();
   }
 };
 

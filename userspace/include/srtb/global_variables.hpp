@@ -19,6 +19,10 @@
  * Some global variables need extra dependency, so not written here.
  */
 
+#include <condition_variable>
+#include <mutex>
+#include <thread>
+
 #include "srtb/config.hpp"
 #include "srtb/sycl.hpp"
 
@@ -62,6 +66,15 @@ inline srtb::work_queue<srtb::work::refft_1d_c2c_work> refft_1d_c2c_queue;
 inline srtb::work_queue<srtb::work::simplify_spectrum_work>
     simplify_spectrum_queue;
 inline srtb::work_queue<srtb::work::draw_spectrum_work> draw_spectrum_queue;
+
+namespace pipeline {
+
+// currently used for end of pipeline to send a signal to start of the pipeline.
+inline std::mutex pipeline_mutex;
+inline std::condition_variable pipeline_cv;
+inline bool one_work_just_finished = false;
+
+}  // namespace pipeline
 
 // termination_handler_v in termination_handler.hpp because termination_handler needs it.
 
