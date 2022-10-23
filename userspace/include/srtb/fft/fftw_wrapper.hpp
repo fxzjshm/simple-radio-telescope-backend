@@ -248,7 +248,9 @@ class fftw_1d_wrapper : public fft_wrapper<fftw_1d_wrapper, fft_type, T, C> {
     // fftw plan functions is not thread-safe
     std::lock_guard lock{srtb::fft::fftw_mutex};
 
-    constexpr auto flags = FFTW_ESTIMATE | FFTW_DESTROY_INPUT;
+    constexpr auto flags =
+        FFTW_ESTIMATE |
+        ((srtb::fft_operate_in_place) ? (0) : (FFTW_DESTROY_INPUT));
     plan = nullptr;
 
     if constexpr (fft_type == srtb::fft::type::R2C_1D ||

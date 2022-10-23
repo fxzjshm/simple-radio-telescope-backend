@@ -56,14 +56,23 @@ class fft_1d_r2c_pipe : public pipe<fft_1d_r2c_pipe> {
       dispatcher.set_size(in_count, 1);
     }
     auto& d_in_shared = fft_1d_r2c_work.ptr;
-    auto d_out_shared =
-        srtb::device_allocator.allocate_shared<srtb::complex<srtb::real> >(
-            out_count);
+    std::shared_ptr<srtb::complex<srtb::real> > d_out_shared;
+    if constexpr (srtb::fft_operate_in_place) {
+      d_out_shared = std::reinterpret_pointer_cast<srtb::complex<srtb::real> >(
+          d_in_shared);
+    } else {
+      d_out_shared =
+          srtb::device_allocator.allocate_shared<srtb::complex<srtb::real> >(
+              out_count);
+    }
     dispatcher.process(d_in_shared.get(), d_out_shared.get());
 
     // TODO: RF detect pipe
 
+    // no need to check if srtb::fft_operate_in_place here
+    // because std::reinterpret_pointer_cast() "share ownership with the initial value of r"
     d_in_shared.reset();
+
     srtb::work::rfi_mitigation_work out_work;
     out_work.ptr = d_out_shared;
     out_work.count = out_count;
@@ -99,9 +108,15 @@ class ifft_1d_c2c_pipe : public pipe<ifft_1d_c2c_pipe> {
       dispatcher.set_size(count, batch_size);
     }
     auto& d_in_shared = ifft_1d_c2c_work.ptr;
-    auto d_out_shared =
-        srtb::device_allocator.allocate_shared<srtb::complex<srtb::real> >(
-            count);
+    std::shared_ptr<srtb::complex<srtb::real> > d_out_shared;
+    if constexpr (srtb::fft_operate_in_place) {
+      d_out_shared = std::reinterpret_pointer_cast<srtb::complex<srtb::real> >(
+          d_in_shared);
+    } else {
+      d_out_shared =
+          srtb::device_allocator.allocate_shared<srtb::complex<srtb::real> >(
+              count);
+    }
     dispatcher.process(d_in_shared.get(), d_out_shared.get());
     // TODO: next pipe
   }
@@ -178,9 +193,15 @@ class refft_1d_c2c_pipe : public pipe<refft_1d_c2c_pipe> {
     }
 
     auto& d_in_shared = refft_1d_c2c_work.ptr;
-    auto d_tmp_shared =
-        srtb::device_allocator.allocate_shared<srtb::complex<srtb::real> >(
-            input_count);
+    std::shared_ptr<srtb::complex<srtb::real> > d_tmp_shared;
+    if constexpr (srtb::fft_operate_in_place) {
+      d_tmp_shared = std::reinterpret_pointer_cast<srtb::complex<srtb::real> >(
+          d_in_shared);
+    } else {
+      d_tmp_shared =
+          srtb::device_allocator.allocate_shared<srtb::complex<srtb::real> >(
+              input_count);
+    }
     auto d_in = d_in_shared.get();
     auto d_tmp = d_tmp_shared.get();
 
@@ -204,9 +225,15 @@ class refft_1d_c2c_pipe : public pipe<refft_1d_c2c_pipe> {
        }).wait();
     }
 
-    auto d_out_shared =
-        srtb::device_allocator.allocate_shared<srtb::complex<srtb::real> >(
-            input_count);
+    std::shared_ptr<srtb::complex<srtb::real> > d_out_shared;
+    if constexpr (srtb::fft_operate_in_place) {
+      d_out_shared = std::reinterpret_pointer_cast<srtb::complex<srtb::real> >(
+          d_tmp_shared);
+    } else {
+      d_out_shared =
+          srtb::device_allocator.allocate_shared<srtb::complex<srtb::real> >(
+              input_count);
+    }
     auto d_out = d_out_shared.get();
     refft_dispatcher.process(d_tmp, d_out);
     d_tmp = nullptr;
