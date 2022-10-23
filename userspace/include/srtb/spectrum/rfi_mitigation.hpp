@@ -32,7 +32,10 @@ auto transform_and_average(DeviceInputAccessor d_in, size_t in_count,
          sycl::reduction(d_sum, sycl::plus<transformed_type>{});
      cgh.parallel_for(
          sycl::range<1>{in_count}, sum_reduction,
-         [=](sycl::id<1> id, auto& sum) { sum.combine(func(d_in[id])); });
+         [=](sycl::id<1> id, auto& sum) {
+           const transformed_type val = func(d_in[id]);
+           sum.combine(val);
+         });
    }).wait();
   auto d_avg = d_sum;  // same pointer, renaming for different meaning
   q.single_task([=] { (*d_avg) = (*d_sum) / in_count; }).wait();

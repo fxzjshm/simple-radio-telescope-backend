@@ -132,17 +132,24 @@ void simplify_spectrum_normalize_with_max_value(DeviceInputAccessor d_in,
 /**
  * @brief normalize ( intended to scale values to [0, 1] )
  *        using average value in data.
+ * @return average value
  */
 template <typename T = srtb::real, typename DeviceInputAccessor = T*>
-void simplify_spectrum_normalize_with_average_value(
-    DeviceInputAccessor d_in, size_t in_count, sycl::queue& q = srtb::queue) {
+auto simplify_spectrum_normalize_with_average_value(
+    DeviceInputAccessor d_in, size_t in_count, sycl::queue& q = srtb::queue)
+    -> T {
   auto d_avg_val_shared =
       transform_and_average(d_in, in_count, std::identity(), q);
   auto d_avg_val = d_avg_val_shared.get();
-  q.parallel_for(sycl::range<1>{in_count}, [=](sycl::item<1> id) {
-     const size_t i = id.get_id(0), k = i / in_count;
-     d_in[i] /= d_avg_val[k] * 2;
-   }).wait();
+  T h_avg_val;
+  q.copy(d_avg_val, /* -> */ &h_avg_val, 1).wait();
+  if (h_avg_val > std::numeric_limits<T>::epsilon()) [[likely]] {
+    q.parallel_for(sycl::range<1>{in_count}, [=](sycl::item<1> id) {
+       const size_t i = id.get_id(0);
+       d_in[i] /= (*d_avg_val) * 2;
+     }).wait();
+  }
+  return h_avg_val;
 }
 
 }  // namespace spectrum
