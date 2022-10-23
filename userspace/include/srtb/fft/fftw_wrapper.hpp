@@ -231,12 +231,13 @@ class fftw_1d_wrapper : public fft_wrapper<fftw_1d_wrapper, fft_type, T, C> {
  public:
   using super_class = fft_wrapper<fftw_1d_wrapper, fft_type, T, C>;
   friend super_class;
-  using FFTW_complex = fftw_traits<T>::complex;
+  using FFTW_complex = typename fftw_traits<T>::complex;
   static_assert(sizeof(C) == sizeof(FFTW_complex));
-  using FFTW_iodim64 = fftw_traits<T>::iodim64;
+  using FFTW_iodim64 = typename fftw_traits<T>::iodim64;
+  using FFTW_plan = typename fftw_traits<T>::plan;
 
  protected:
-  fftw_traits<T>::plan plan;
+  FFTW_plan plan;
 
  public:
   fftw_1d_wrapper(size_t n, size_t batch_size, sycl::queue& queue)
