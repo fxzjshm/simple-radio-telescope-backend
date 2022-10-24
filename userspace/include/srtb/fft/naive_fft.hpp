@@ -98,9 +98,10 @@ inline void fft_1d_c2c_butterfly(const size_t m, const size_t i,
  * @param output Accessor or pointer or something like that of output buffer
  * @param invert 1 -> forward, -1 -> backward
  */
-template <typename T, typename C = srtb::complex<T>, typename Accessor>
-inline void fft_1d_c2c(const size_t k, sycl::queue& q, Accessor input,
-                       Accessor output, const int direction) noexcept {
+template <typename T, typename C = srtb::complex<T>, typename InputAccessor,
+          typename OutputAccessor>
+inline void fft_1d_c2c(const size_t k, sycl::queue& q, InputAccessor input,
+                       OutputAccessor output, const int direction) {
   const size_t n = 1 << k;
   q.parallel_for(sycl::range{n}, [=](sycl::item<1> id) {
      const size_t i = id.get_id(0);
@@ -112,7 +113,7 @@ inline void fft_1d_c2c(const size_t k, sycl::queue& q, Accessor input,
     // NOTE: the size of range is n/2 as every thread do 2 points (output[x] and output[y])
     q.parallel_for(sycl::range{n / 2}, [=](sycl::item<1> id) {
        const size_t i = id.get_id(0);
-       fft_1d_c2c_butterfly<T, C, Accessor>(m, i, output, direction);
+       fft_1d_c2c_butterfly<T, C, OutputAccessor>(m, i, output, direction);
      }).wait();
   }
 
