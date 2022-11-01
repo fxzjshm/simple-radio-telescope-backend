@@ -66,6 +66,7 @@ inline srtb::work_queue<srtb::work::refft_1d_c2c_work> refft_1d_c2c_queue;
 inline srtb::work_queue<srtb::work::simplify_spectrum_work>
     simplify_spectrum_queue;
 inline srtb::work_queue<srtb::work::draw_spectrum_work> draw_spectrum_queue;
+inline srtb::work_queue<srtb::work::baseband_output_work> baseband_output_queue;
 
 namespace pipeline {
 

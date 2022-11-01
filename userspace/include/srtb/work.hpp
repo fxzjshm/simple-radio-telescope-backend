@@ -170,6 +170,19 @@ struct draw_spectrum_work
   size_t batch_size;
 };
 
+/**
+ * @brief contains baseband data without UDP packet counter in host memory.
+ *        @c counter contains counter of first UDP packet.
+ * TODO: put this in a pool or first-in-first-out queue, and write data only if signal is detected.
+ */
+struct baseband_output_work : public srtb::work::work<std::shared_ptr<std::byte> > {
+  /**
+   * @brief time stamp these data
+   */
+  uint64_t timestamp;
+  // TODO: udp_packet_counter_type counter;
+};
+
 // work queues are in global_variables.hpp
 
 }  // namespace work

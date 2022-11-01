@@ -133,6 +133,11 @@ struct configs {
   size_t input_file_offset_bytes = 0;
 
   /**
+   * @brief Prefix of saved baseband data. Full name will be ${prefix}_${counter}.bin
+   */
+  std::string baseband_output_file_prefix = "srtb_baseband_output_";
+
+  /**
     * @brief debug level for log
     * @see srtb::log::levels
     */

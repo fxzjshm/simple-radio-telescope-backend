@@ -62,19 +62,37 @@ class udp_receiver_pipe : public pipe<udp_receiver_pipe> {
     auto time_before_push = std::chrono::system_clock::now();
 
     // flush input of baseband_input_bytes
-    std::shared_ptr<std::byte> ptr =
+    std::shared_ptr<std::byte> d_ptr =
         srtb::device_allocator.allocate_shared(baseband_input_bytes);
-    q.memcpy(reinterpret_cast<void*>(ptr.get()), /* <- */ buffer.data(),
-             baseband_input_bytes * sizeof(std::byte))
-        .wait();
-    srtb::work::unpack_work unpack_work;
-    unpack_work.ptr = ptr;
-    unpack_work.count = baseband_input_bytes;
-    unpack_work.baseband_input_bits = baseband_input_bits;
-    SRTB_PUSH_WORK(" [udp receiver pipe] ", srtb::unpack_queue, unpack_work);
+    std::shared_ptr<std::byte> h_ptr =
+        srtb::host_allocator.allocate_shared(baseband_input_bytes);
+    auto event =
+        q.memcpy(reinterpret_cast<void*>(d_ptr.get()), /* <- */ buffer.data(),
+                 baseband_input_bytes * sizeof(std::byte));
+    std::memcpy(reinterpret_cast<void*>(h_ptr.get()), /* <- */ buffer.data(),
+                baseband_input_bytes * sizeof(std::byte));
+    event.wait();
+    {
+      srtb::work::unpack_work unpack_work;
+      unpack_work.ptr = d_ptr;
+      unpack_work.count = baseband_input_bytes;
+      unpack_work.baseband_input_bits = baseband_input_bits;
+      SRTB_PUSH_WORK(" [udp receiver pipe] ", srtb::unpack_queue, unpack_work);
+    }
+    /*
+    {
+      srtb::work::baseband_output_work baseband_output_work;
+      baseband_output_work.ptr = h_ptr;
+      baseband_output_work.count = baseband_input_bytes;
+      baseband_output_work.timestamp =
+          std::chrono::system_clock::now().time_since_epoch().count();
+      SRTB_PUSH_WORK(" [udp receiver pipe] ", srtb::baseband_output_queue,
+                     baseband_output_work);
+    }
+    */
 
     // reserved some samples for next round
-    size_t nsamps_reserved = srtb::codd::nsamps_reserved();
+    const size_t nsamps_reserved = srtb::codd::nsamps_reserved();
 
     if (nsamps_reserved < baseband_input_count) {
       worker.consume(baseband_input_count - nsamps_reserved);
