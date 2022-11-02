@@ -107,3 +107,8 @@ index f3a43857b7..08cb75e5e3 100644
      # with macOS target right now.
 ```
 Also add `openmp` if needed, e.g. use intel/llvm as a compiler for hipSYCL
+
+## Credits
+This repo also contains some 3rd-party code:
+* `exprgrammar.hpp` from [Suzerain](https://bitbucket.org/RhysU/suzerain) by RhysU, licensed under [Mozilla Public License, v. 2.0](https://mozilla.org/MPL/2.0/) .
+

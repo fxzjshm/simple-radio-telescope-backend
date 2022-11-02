@@ -14,6 +14,10 @@
 #ifndef __SRTB_CONFIG__
 #define __SRTB_CONFIG__
 
+#include <cstddef>  // for size_t
+#include <string>
+#include <string_view>
+
 #include "srtb/sycl.hpp"
 
 #ifdef SYCL_IMPLEMENTATION_ONEAPI
@@ -68,10 +72,17 @@ inline constexpr size_t LOG_PREFIX_BUFFER_LENGTH = 64ul;
 /**
  * @brief Runtime configuration.
  * @note module specific config names should prepend module name
- * @note named configs so that srtb::config is a variable
+ * @note this struct is named configs so that srtb::config is a variable
+ * @note remember to add program options parser in srtb/program_options.hpp
+ *       if an option is added here.
  * @see srtb::config in srtb/global_variables.hpp
  */
 struct configs {
+  /**
+   * @brief Path to config file to be used to read other configs.
+   */
+  std::string config_file_name = "srtb_config.cfg";
+
   /**
    * @brief Count of data to be transferred to GPU for once processing, in sample counts.
    *        Should be power of 2 so that FFT and channelizing can work properly.
@@ -113,22 +124,22 @@ struct configs {
   int udp_receiver_buffer_size = static_cast<int>((1L << 31) - 1);
 
   /**
-   * @brief Address to receive baseband UDP packets
+   * @brief Address to receive baseband UDP packets.
    */
   std::string udp_receiver_sender_address = "10.0.1.2";
 
   /**
-   * @brief Port to receive baseband UDP packets
+   * @brief Port to receive baseband UDP packets.
    */
   unsigned short udp_receiver_sender_port = 12004;
 
   /**
-   * @brief path to the binary file to be read as baseband input
+   * @brief Path to the binary file to be read as baseband input.
    */
   std::string input_file_path = "";
 
   /**
-   * @brief skip some data before reading in, usually avoids header
+   * @brief Skip some data before reading in, usually avoids header.
    */
   size_t input_file_offset_bytes = 0;
 
@@ -138,25 +149,19 @@ struct configs {
   std::string baseband_output_file_prefix = "srtb_baseband_output_";
 
   /**
-    * @brief debug level for log
+    * @brief Debug level for console log output.
     * @see srtb::log::levels
     */
   /* srtb::log::levels */ int log_level = /* srtb::log::levels::DEBUG */ 4;
 
   /**
-   * @brief location to save fftw wisdom
+   * @brief Location to save fftw wisdom.
    * @note TODO: change to char* if pure C ABI is needed.
    */
   std::string fft_fftw_wisdom_path = "srtb_fftw_wisdom.txt";
 
   /**
-   * @brief location to save fftwf (float32) wisdom
-   * @note TODO: change to char* if pure C ABI is needed.
-   */
-  std::string fft_fftwf_wisdom_path = "srtb_fftwf_wisdom.txt";
-
-  /**
-   * @brief temporary thereshold for RFI mitigation. Channels with signal stronger
+   * @brief Temporary thereshold for RFI mitigation. Channels with signal stronger
    *        than this thereshold * average strength will be set to 0
    */
   srtb::real mitigate_rfi_thereshold = 10;
@@ -173,6 +178,9 @@ struct configs {
    */
   size_t ifft_channel_count = 1;
 
+  /**
+   * @brief Length of FFT for re-constructing signals after coherent dedispersion.
+   */
   size_t refft_length = 1 << 15;
 
   /**

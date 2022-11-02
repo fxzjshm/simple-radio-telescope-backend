@@ -28,11 +28,18 @@
 
 namespace srtb {
 
+
+// configs
+
 // TODO: add `volatile` here?
 //   * config shouldn't be changed frequently, force loading it from memory
 //     would cause too much cache miss;
 //   * however, are there optimizations related to this that are unexpected?
 inline srtb::configs config;
+
+/** @brief names and expressions of changed items of @c srtb::config */
+inline std::map<std::string, std::string> changed_configs;
+
 
 /** @brief default queue for all operations if no queue is specified */
 inline sycl::queue queue;

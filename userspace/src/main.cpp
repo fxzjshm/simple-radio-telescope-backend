@@ -25,9 +25,14 @@
 #include "srtb/pipeline/spectrum_pipe.hpp"
 #include "srtb/pipeline/udp_receiver_pipe.hpp"
 #include "srtb/pipeline/unpack_pipe.hpp"
+#include "srtb/program_options.hpp"
 #include "srtb/spectrum/simplify_spectrum.hpp"
 
 int main(int argc, char** argv) {
+  srtb::changed_configs = srtb::program_options::parse_arguments(
+      argc, argv, std::string(srtb::config.config_file_name));
+  srtb::program_options::apply_changed_configs(srtb::changed_configs,
+                                               srtb::config);
   // TODO std::thread for other pipelines
 
   SRTB_LOGI << " [main] "
