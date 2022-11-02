@@ -108,6 +108,11 @@ index f3a43857b7..08cb75e5e3 100644
 ```
 Also add `openmp` if needed, e.g. use intel/llvm as a compiler for hipSYCL
 
+## License
+Main part of this program is licensed under [Mulan Public License, Version 2](http://license.coscl.org.cn/MulanPubL-2.0/index.html) .  
+
+Please notice that Mulan Public License (MulanPubL) is different from Mulan Permissive License (MulanPSL). The former, which this program uses, is more of GPL-like.
+
 ## Credits
 This repo also contains some 3rd-party code:
 * `exprgrammar.hpp` from [Suzerain](https://bitbucket.org/RhysU/suzerain) by RhysU, licensed under [Mozilla Public License, v. 2.0](https://mozilla.org/MPL/2.0/) .

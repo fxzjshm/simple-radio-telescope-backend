@@ -55,6 +55,8 @@ inline auto program_start_time = std::chrono::system_clock::now();
 
 namespace srtb {
 
+// memory
+
 inline srtb::memory::cached_allocator<sycl::usm_allocator<
     std::byte, sycl::usm::alloc::host, srtb::MEMORY_ALIGNMENT> >
     host_allocator{queue};
@@ -62,6 +64,9 @@ inline srtb::memory::cached_allocator<sycl::usm_allocator<
 inline srtb::memory::cached_allocator<
     srtb::memory::device_allocator<std::byte, srtb::MEMORY_ALIGNMENT> >
     device_allocator{queue};
+
+
+// work queues
 
 inline srtb::work_queue<srtb::work::unpack_work> unpack_queue;
 inline srtb::work_queue<srtb::work::fft_1d_r2c_work> fft_1d_r2c_queue;
