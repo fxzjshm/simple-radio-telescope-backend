@@ -6,6 +6,7 @@ foreach (file ${files})
     add_executable(${name} ${name}.cpp)
     # add dependency to targets
     srtb_add_dependency(${name})
+    #target_precompile_headers(${name} REUSE_FROM simple-radio-telescope-backend)
     add_test(NAME ${name} COMMAND ${name})
 endforeach()
 
