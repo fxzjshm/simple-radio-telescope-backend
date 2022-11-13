@@ -16,8 +16,8 @@ Although say so, currently only CPU (OpenMP, on amd64), ROCm and CUDA backends a
   * if use hipSYCL, refer to [this guide](https://github.com/illuhad/hipSYCL/blob/develop/doc/installing.md)
   * if use intel/llvm, version newer than `998fd91` (2022.11.07) is needed. Refer to [this guide](https://github.com/intel/llvm/blob/sycl/sycl/doc/GetStartedGuide.md) for installation.
 * Boost libraries
-* fftw3
-* Qt5
+* FFTW 3
+* Qt 5
 
 if ROCm backend enabled, additional dependencies:
 * ROCm
@@ -84,7 +84,7 @@ cmake -DSRTB_SYCL_IMPLEMENTATION=intel-llvm \
 #### 1. BOOST_INLINE and HIP conflicts
 See [Boost.Config issue 392](https://github.com/boostorg/config/issues/392) , which means if compile for ROCm, Boost 1.80+ may be needed.
 
-You may use CMake configure option `BOOST_ROOT` to set the Boost library used.
+You may use CMake configure option `BOOST_ROOT` to set the Boost library used, see example configure command above.
 
 #### 2. configure error: "clangrt builtins lib not found"
 If compile with intel/llvm, HIP may search 'clang_rt.builtins' in intel/llvm, but this module isn't built by default. 
