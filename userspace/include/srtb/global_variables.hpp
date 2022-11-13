@@ -62,10 +62,15 @@ inline srtb::memory::cached_allocator<sycl::usm_allocator<
     std::byte, sycl::usm::alloc::host, srtb::MEMORY_ALIGNMENT> >
     host_allocator{queue};
 
+#ifdef SRTB_USE_USM
+inline srtb::memory::cached_allocator<sycl::usm_allocator<
+    std::byte, sycl::usm::alloc::shared, srtb::MEMORY_ALIGNMENT> >
+    device_allocator{queue};
+#else
 inline srtb::memory::cached_allocator<
     srtb::memory::device_allocator<std::byte, srtb::MEMORY_ALIGNMENT> >
     device_allocator{queue};
-
+#endif
 
 // work queues
 

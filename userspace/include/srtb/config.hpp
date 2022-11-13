@@ -44,6 +44,9 @@ template <typename T>
 using complex = std::complex<T>;
 #endif  // SYCL_IMPLEMENTATION_ONEAPI
 
+// option to use managed/unified memory as device memory
+#define SRTB_USE_USM
+
 /**
  * @brief initial capacity of srtb::work_queue
  */
