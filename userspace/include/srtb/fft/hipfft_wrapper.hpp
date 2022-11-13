@@ -22,25 +22,69 @@
 
 #include <concepts>
 
-#include "srtb/fft/fft_wrapper.hpp"
-#include "srtb/global_variables.hpp"
-
-#define SRTB_CHECK_HIPFFT_WRAPPER(expr, expected)                      \
-  SRTB_CHECK(expr, expected,                                           \
-             throw std::runtime_error(                                 \
-                 std::string("[hipfft_wrapper] " #expr " returned ") + \
-                 std::to_string(ret)););
-
-#define SRTB_CHECK_HIPFFT(expr) SRTB_CHECK_HIPFFT_WRAPPER(expr, HIPFFT_SUCCESS)
-
-#define SRTB_CHECK_HIP(expr) SRTB_CHECK_HIPFFT_WRAPPER(expr, hipSuccess)
+#include "srtb/fft/cufft_like_wrapper.hpp"
 
 namespace srtb {
 namespace fft {
 
-template <std::floating_point T>
-constexpr inline hipfftType get_hipfft_type(srtb::fft::type fft_type) {
-  if constexpr (std::is_same_v<T, hipfftReal>) {
+// common types & functions that not related to data type
+struct hipfft_common_trait {
+  static constexpr auto backend = srtb::backend::rocm;
+  using fft_handle = hipfftHandle;
+  using stream_t = hipStream_t;
+
+  static constexpr auto C2C = HIPFFT_C2C;
+  static constexpr auto R2C = HIPFFT_R2C;
+  static constexpr auto C2R = HIPFFT_C2R;
+
+  static constexpr auto FORWARD = HIPFFT_FORWARD;
+  static constexpr auto BACKWARD = HIPFFT_BACKWARD;
+
+  static constexpr auto FFT_SUCCESS = HIPFFT_SUCCESS;
+  static constexpr auto API_SUCCESS = hipSuccess;
+
+  template <typename... Args>
+  static inline decltype(auto) SetDevice(Args&&... args) {
+    return hipSetDevice(std::forward<Args>(args)...);
+  }
+
+  template <typename... Args>
+  static inline decltype(auto) StreamSynchronize(Args&&... args) {
+    return hipStreamSynchronize(std::forward<Args>(args)...);
+  }
+
+  template <typename... Args>
+  static inline decltype(auto) fftCreate(Args&&... args) {
+    return hipfftCreate(std::forward<Args>(args)...);
+  }
+
+  template <typename... Args>
+  static inline decltype(auto) fftDestroy(Args&&... args) {
+    return hipfftDestroy(std::forward<Args>(args)...);
+  }
+
+  template <typename... Args>
+  static inline decltype(auto) fftMakePlan1d(Args&&... args) {
+    return hipfftMakePlan1d(std::forward<Args>(args)...);
+  }
+
+  template <typename... Args>
+  static inline decltype(auto) fftMakePlanMany64(Args&&... args) {
+    return hipfftMakePlanMany64(std::forward<Args>(args)...);
+  }
+
+  template <typename... Args>
+  static inline decltype(auto) fftSetStream(Args&&... args) {
+    return hipfftSetStream(std::forward<Args>(args)...);
+  }
+};
+
+template <>
+struct cufft_like_trait<float, srtb::backend::rocm> : hipfft_common_trait {
+  using real = hipfftReal;
+  using complex = hipfftComplex;
+
+  static inline constexpr auto get_native_fft_type(srtb::fft::type fft_type) {
     switch (fft_type) {
       case srtb::fft::type::C2C_1D_FORWARD:
       case srtb::fft::type::C2C_1D_BACKWARD:
@@ -50,7 +94,30 @@ constexpr inline hipfftType get_hipfft_type(srtb::fft::type fft_type) {
       case srtb::fft::type::C2R_1D:
         return HIPFFT_C2R;
     }
-  } else if constexpr (std::is_same_v<T, hipfftDoubleReal>) {
+  }
+
+  template <typename... Args>
+  static inline decltype(auto) fftExecR2C(Args&&... args) {
+    return hipfftExecR2C(std::forward<Args>(args)...);
+  }
+
+  template <typename... Args>
+  static inline decltype(auto) fftExecC2C(Args&&... args) {
+    return hipfftExecC2C(std::forward<Args>(args)...);
+  }
+
+  template <typename... Args>
+  static inline decltype(auto) fftExecC2R(Args&&... args) {
+    return hipfftExecC2R(std::forward<Args>(args)...);
+  }
+};
+
+template <>
+struct cufft_like_trait<double, srtb::backend::rocm> : hipfft_common_trait {
+  using real = hipfftDoubleReal;
+  using complex = hipfftDoubleComplex;
+
+  static inline constexpr auto get_native_fft_type(srtb::fft::type fft_type) {
     switch (fft_type) {
       case srtb::fft::type::C2C_1D_FORWARD:
       case srtb::fft::type::C2C_1D_BACKWARD:
@@ -61,184 +128,30 @@ constexpr inline hipfftType get_hipfft_type(srtb::fft::type fft_type) {
         return HIPFFT_Z2D;
     }
   }
-}
+
+  template <typename... Args>
+  static inline decltype(auto) fftExecR2C(Args&&... args) {
+    return hipfftExecD2Z(std::forward<Args>(args)...);
+  }
+
+  template <typename... Args>
+  static inline decltype(auto) fftExecC2C(Args&&... args) {
+    return hipfftExecZ2Z(std::forward<Args>(args)...);
+  }
+
+  template <typename... Args>
+  static inline decltype(auto) fftExecC2R(Args&&... args) {
+    return hipfftExecZ2D(std::forward<Args>(args)...);
+  }
+};
+
+template <std::floating_point T>
+using hipfft_trait = cufft_like_trait<T, srtb::backend::rocm>;
 
 template <srtb::fft::type fft_type, std::floating_point T,
-          typename Complex = srtb::complex<T> >
-class hipfft_1d_wrapper
-    : public fft_wrapper<hipfft_1d_wrapper, fft_type, T, Complex> {
- public:
-  using super_class = fft_wrapper<hipfft_1d_wrapper, fft_type, T, Complex>;
-  friend super_class;
-  static_assert((std::is_same_v<T, hipfftReal> &&
-                 sizeof(Complex) == sizeof(hipfftComplex)) ||
-                (std::is_same_v<T, hipfftDoubleReal> &&
-                 sizeof(Complex) == sizeof(hipfftDoubleComplex)));
-
- protected:
-  hipfftHandle plan;
-  size_t workSize;
-  hipStream_t stream;
-
- public:
-  hipfft_1d_wrapper(size_t n, size_t batch_size, sycl::queue& queue)
-      : super_class{n, batch_size, queue} {}
-
- protected:
-  void create_impl(size_t n, size_t batch_size, sycl::queue& q) {
-    // should be equivalent to this
-    /*
-    plan = fftw_plan_dft_r2c_1d(static_cast<int>(n), tmp_in.get(),
-                               reinterpret_cast<fftw_complex*>(tmp_out.get()),
-                               FFTW_PATIENT |  FFTW_DESTROY_INPUT);
-    */
-
-    auto device = q.get_device();
-    auto native_device = sycl::get_native<srtb::backend::rocm>(device);
-    SRTB_CHECK_HIP(hipSetDevice(native_device));
-
-    SRTB_CHECK_HIPFFT(hipfftCreate(&plan));
-    constexpr hipfftType hipfft_type = get_hipfft_type<T>(fft_type);
-
-    // 32-bit version
-    //SRTB_CHECK_HIPFFT(hipfftMakePlan1d(plan, static_cast<int>(n), hipfft_type,
-    //                                   batch_size, &workSize));
-
-    // 64-bit version
-    // TODO: API call returns HIPFFT_NOT_IMPLEMENTED
-    long long int n_ = static_cast<long long int>(n);
-    long long int idist, odist;
-    long long int inembed[1] = {1}, onembed[1] = {1};  // should have no effect
-    if constexpr (fft_type == srtb::fft::type::C2C_1D_FORWARD ||
-                  fft_type == srtb::fft::type::C2C_1D_BACKWARD) {
-      const long long int n_complex = n_;
-      idist = odist = n_complex;
-    } else if constexpr (fft_type == srtb::fft::type::R2C_1D) {
-      const long long int n_real = n_;
-      const long long int n_complex = n_real / 2 + 1;
-      idist = n_real;
-      odist = n_complex;
-    } else if constexpr (fft_type == srtb::fft::type::C2R_1D) {
-      const long long int n_real = n_;
-      const long long int n_complex = n_real / 2 + 1;
-      idist = n_complex;
-      odist = n_real;
-    } else {
-      throw std::runtime_error("[hipfft_wrapper] create_impl: TODO");
-    }
-
-    // This returns HIPFFT_NOT_IMPLEMENTED.
-    SRTB_CHECK_HIPFFT(hipfftMakePlanMany64(/* plan = */ plan,
-                                           /* rank = */ 1,
-                                           /* n = */ &n_,
-                                           /* inembed = */ inembed,
-                                           /* istride = */ 1,
-                                           /* idist = */ idist,
-                                           /* onembed = */ onembed,
-                                           /* ostride = */ 1,
-                                           /* odist = */ odist,
-                                           /* type = */ hipfft_type,
-                                           /* batch = */ batch_size,
-                                           /* worksize = */ &workSize));
-    SRTB_LOGI << " [hipfft_wrapper] "
-              << "plan finished. workSize = " << workSize << srtb::endl;
-    set_queue_impl(q);
-  }
-
-  void destroy_impl() { SRTB_CHECK_HIPFFT(hipfftDestroy(plan)); }
-
-  template <typename..., srtb::fft::type fft_type_ = fft_type,
-            typename std::enable_if<(fft_type_ == srtb::fft::type::R2C_1D),
-                                    int>::type = 0>
-  void process_impl(T* in, Complex* out) {
-    if constexpr (std::is_same_v<T, hipfftReal>) {
-      SRTB_CHECK_HIPFFT(hipfftExecR2C((*this).plan,
-                                      static_cast<hipfftReal*>(in),
-                                      reinterpret_cast<hipfftComplex*>(out)));
-    } else if constexpr (std::is_same_v<T, hipfftDoubleReal>) {
-      SRTB_CHECK_HIPFFT(
-          hipfftExecD2Z((*this).plan, static_cast<hipfftDoubleReal*>(in),
-                        reinterpret_cast<hipfftDoubleComplex*>(out)));
-    } else {
-      throw std::runtime_error("[hipfft_wrapper] process_impl<R2C_1D>: ?");
-    }
-    flush();
-  }
-
-  template <
-      typename..., srtb::fft::type fft_type_ = fft_type,
-      typename std::enable_if<(fft_type_ == srtb::fft::type::C2C_1D_FORWARD ||
-                               fft_type_ == srtb::fft::type::C2C_1D_BACKWARD),
-                              int>::type = 0>
-  void process_impl(Complex* in, Complex* out) {
-    constexpr auto direction = (fft_type == srtb::fft::type::C2C_1D_BACKWARD)
-                                   ? HIPFFT_BACKWARD
-                                   : HIPFFT_FORWARD;
-    if constexpr (std::is_same_v<T, hipfftReal>) {
-      SRTB_CHECK_HIPFFT(
-          hipfftExecC2C((*this).plan, reinterpret_cast<hipfftComplex*>(in),
-                        reinterpret_cast<hipfftComplex*>(out), direction));
-    } else if constexpr (std::is_same_v<T, hipfftDoubleReal>) {
-      SRTB_CHECK_HIPFFT(hipfftExecZ2Z(
-          (*this).plan, reinterpret_cast<hipfftDoubleComplex*>(in),
-          reinterpret_cast<hipfftDoubleComplex*>(out), direction));
-    } else {
-      throw std::runtime_error("[hipfft_wrapper] process_impl<C2C_1D>: ?");
-    }
-    flush();
-  }
-
-  template <typename..., srtb::fft::type fft_type_ = fft_type,
-            typename std::enable_if<(fft_type_ == srtb::fft::type::C2R_1D),
-                                    int>::type = 0>
-  void process_impl(Complex* in, T* out) {
-    if constexpr (std::is_same_v<T, hipfftReal>) {
-      SRTB_CHECK_HIPFFT(hipfftExecC2R((*this).plan,
-                                      reinterpret_cast<hipfftComplex*>(in),
-                                      static_cast<hipfftReal*>(out)));
-    } else if constexpr (std::is_same_v<T, hipfftDoubleReal>) {
-      SRTB_CHECK_HIPFFT(hipfftExecZ2D(
-          (*this).plan, reinterpret_cast<hipfftDoubleComplex*>(in),
-          static_cast<hipfftDoubleReal*>(out)));
-    } else {
-      throw std::runtime_error("[hipfft_wrapper] process_impl<R2C_1D>: ?");
-    }
-    flush();
-  }
-
-  bool has_inited_impl() {
-    // invalid plan causes segmentation fault, so not using plan to check here.
-    return true;
-  }
-
-  void set_queue_impl(sycl::queue& queue) {
-#if defined(SYCL_EXT_ONEAPI_BACKEND_HIP)
-    stream = sycl::get_native<sycl::backend::ext_oneapi_hip>(queue);
-    SRTB_CHECK_HIPFFT(hipfftSetStream(plan, stream));
-#elif defined(__HIPSYCL__)
-    // ref: https://github.com/illuhad/hipSYCL/issues/722
-    hipfftResult ret = HIPFFT_SUCCESS;
-    queue
-        .submit([&](sycl::handler& cgh) {
-          cgh.hipSYCL_enqueue_custom_operation([&](sycl::interop_handle& h) {
-            stream = h.get_native_queue<sycl::backend::hip>();
-          });
-        })
-        .wait();
-    // stream seems to be thread-local, so set it in this thread instead of the lambda above
-    ret = hipfftSetStream(plan, stream);
-    if (ret != HIPFFT_SUCCESS) [[unlikely]] {
-      throw std::runtime_error("[hipfft_wrapper] hipfftSetStream returned " +
-                               std::to_string(ret));
-    }
-#else
-#warning hipfft_wrapper::set_queue_impl uses default stream
-    stream = nullptr;
-#endif  // SYCL_EXT_ONEAPI_BACKEND_HIP or __HIPSYCL__
-  }
-
-  void flush() { SRTB_CHECK_HIP(hipStreamSynchronize((*this).stream)); }
-};
+          typename C = srtb::complex<T> >
+using hipfft_1d_wrapper =
+    cufft_like_1d_wrapper<srtb::backend::rocm, fft_type, T, C>;
 
 }  // namespace fft
 }  // namespace srtb

@@ -38,13 +38,13 @@ enum class type {
  * @tparam T Data type
  * @tparam C Complex type of T, default to srtb::complex<T>
  */
-template <template <srtb::fft::type, typename, typename> class Derived,
+template <typename Derived,
           srtb::fft::type fft_type, std::floating_point T,
           typename C = srtb::complex<T> >
 class fft_wrapper {
  public:
   static_assert(sizeof(T) * 2 == sizeof(C));
-  using sub_class = Derived<fft_type, T, C>;
+  using sub_class = Derived;
   friend sub_class;
 
  protected:

@@ -227,7 +227,8 @@ class fftw_initializer {
 inline fftw_initializer<srtb::real> global_fftw_initializer;
 
 template <srtb::fft::type fft_type, std::floating_point T, typename C>
-class fftw_1d_wrapper : public fft_wrapper<fftw_1d_wrapper, fft_type, T, C> {
+class fftw_1d_wrapper
+    : public fft_wrapper<fftw_1d_wrapper<fft_type, T, C>, fft_type, T, C> {
  public:
   using super_class = fft_wrapper<fftw_1d_wrapper, fft_type, T, C>;
   friend super_class;
