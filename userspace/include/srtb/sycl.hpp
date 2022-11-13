@@ -61,6 +61,12 @@
 #define SRTB_IF_ENABLED_ROCM_INTEROP(...)
 #endif  // SRTB_ENABLE_ROCM_INTEROP
 
+// fix for sycl::get_native<sycl::backend::ext_oneapi_hip>(device)
+// https://github.com/intel/llvm/pull/7145
+#if defined(SYCL_IMPLEMENTATION_ONEAPI) && defined(SRTB_ENABLE_ROCM_INTEROP)
+#include <sycl/ext/oneapi/backend/hip.hpp>
+#endif
+
 namespace srtb {
 namespace backend {
 

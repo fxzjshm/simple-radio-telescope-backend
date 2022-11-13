@@ -14,8 +14,7 @@ Although say so, currently only CPU (OpenMP, on amd64), ROCm and CUDA backends a
 * a C++ compiler that supports at least C++20
 * SYCL 2020 implementation, such as [illuhad/hipSYCL](https://github.com/illuhad/hipSYCL/) and [intel/llvm](https://github.com/intel/llvm/)
   * if use hipSYCL, refer to [this guide](https://github.com/illuhad/hipSYCL/blob/develop/doc/installing.md)
-  * if use intel/llvm, version newer than `1a03643` is needed because of [`sycl_ext_oneapi_complex` extension](https://github.com/intel/llvm/blob/sycl/sycl/doc/extensions/proposed/sycl_ext_oneapi_complex.asciidoc).  
-    Refer to [this guide](https://github.com/intel/llvm/blob/sycl/sycl/doc/GetStartedGuide.md) for installation.
+  * if use intel/llvm, version newer than `998fd91` (2022.11.07) is needed. Refer to [this guide](https://github.com/intel/llvm/blob/sycl/sycl/doc/GetStartedGuide.md) for installation.
 * Boost libraries
 * fftw3
 * Qt5
