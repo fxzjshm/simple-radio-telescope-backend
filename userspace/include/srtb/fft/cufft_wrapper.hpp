@@ -19,25 +19,69 @@
 
 #include <concepts>
 
-#include "srtb/fft/fft_wrapper.hpp"
-#include "srtb/global_variables.hpp"
-
-#define SRTB_CHECK_CUFFT_WRAPPER(expr, expected)                      \
-  SRTB_CHECK(expr, expected,                                          \
-             throw std::runtime_error(                                \
-                 std::string("[cufft_wrapper] " #expr " returned ") + \
-                 std::to_string(ret)););
-
-#define SRTB_CHECK_CUFFT(expr) SRTB_CHECK_CUFFT_WRAPPER(expr, CUFFT_SUCCESS)
-
-#define SRTB_CHECK_CUDA(expr) SRTB_CHECK_CUFFT_WRAPPER(expr, cudaSuccess)
+#include "srtb/fft/cufft_like_wrapper.hpp"
 
 namespace srtb {
 namespace fft {
 
-template <std::floating_point T>
-constexpr inline cufftType get_cufft_type(srtb::fft::type fft_type) {
-  if constexpr (std::is_same_v<T, cufftReal>) {
+// common types & functions that not related to data type
+struct cufft_common_trait {
+  static constexpr auto backend = srtb::backend::cuda;
+  using fft_handle = cufftHandle;
+  using stream_t = cudaStream_t;
+
+  static constexpr auto C2C = CUFFT_C2C;
+  static constexpr auto R2C = CUFFT_R2C;
+  static constexpr auto C2R = CUFFT_C2R;
+
+  static constexpr auto FORWARD = CUFFT_FORWARD;
+  static constexpr auto BACKWARD = CUFFT_INVERSE;
+
+  static constexpr auto FFT_SUCCESS = CUFFT_SUCCESS;
+  static constexpr auto API_SUCCESS = cudaSuccess;
+
+  template <typename... Args>
+  static inline decltype(auto) SetDevice(Args&&... args) {
+    return cudaSetDevice(std::forward<Args>(args)...);
+  }
+
+  template <typename... Args>
+  static inline decltype(auto) StreamSynchronize(Args&&... args) {
+    return cudaStreamSynchronize(std::forward<Args>(args)...);
+  }
+
+  template <typename... Args>
+  static inline decltype(auto) fftCreate(Args&&... args) {
+    return cufftCreate(std::forward<Args>(args)...);
+  }
+
+  template <typename... Args>
+  static inline decltype(auto) fftDestroy(Args&&... args) {
+    return cufftDestroy(std::forward<Args>(args)...);
+  }
+
+  template <typename... Args>
+  static inline decltype(auto) fftMakePlan1d(Args&&... args) {
+    return cufftMakePlan1d(std::forward<Args>(args)...);
+  }
+
+  template <typename... Args>
+  static inline decltype(auto) fftMakePlanMany64(Args&&... args) {
+    return cufftMakePlanMany64(std::forward<Args>(args)...);
+  }
+
+  template <typename... Args>
+  static inline decltype(auto) fftSetStream(Args&&... args) {
+    return cufftSetStream(std::forward<Args>(args)...);
+  }
+};
+
+template <>
+struct cufft_like_trait<float, srtb::backend::cuda> : cufft_common_trait {
+  using real = cufftReal;
+  using complex = cufftComplex;
+
+  static inline constexpr auto get_native_fft_type(srtb::fft::type fft_type) {
     switch (fft_type) {
       case srtb::fft::type::C2C_1D_FORWARD:
       case srtb::fft::type::C2C_1D_BACKWARD:
@@ -47,7 +91,30 @@ constexpr inline cufftType get_cufft_type(srtb::fft::type fft_type) {
       case srtb::fft::type::C2R_1D:
         return CUFFT_C2R;
     }
-  } else if constexpr (std::is_same_v<T, cufftDoubleReal>) {
+  }
+
+  template <typename... Args>
+  static inline decltype(auto) fftExecR2C(Args&&... args) {
+    return cufftExecR2C(std::forward<Args>(args)...);
+  }
+
+  template <typename... Args>
+  static inline decltype(auto) fftExecC2C(Args&&... args) {
+    return cufftExecC2C(std::forward<Args>(args)...);
+  }
+
+  template <typename... Args>
+  static inline decltype(auto) fftExecC2R(Args&&... args) {
+    return cufftExecC2R(std::forward<Args>(args)...);
+  }
+};
+
+template <>
+struct cufft_like_trait<double, srtb::backend::cuda> : cufft_common_trait {
+  using real = cufftDoubleReal;
+  using complex = cufftDoubleComplex;
+
+  static inline constexpr auto get_native_fft_type(srtb::fft::type fft_type) {
     switch (fft_type) {
       case srtb::fft::type::C2C_1D_FORWARD:
       case srtb::fft::type::C2C_1D_BACKWARD:
@@ -58,186 +125,30 @@ constexpr inline cufftType get_cufft_type(srtb::fft::type fft_type) {
         return CUFFT_Z2D;
     }
   }
-}
 
-// ref: https://docs.nvidia.com/cuda/cufft/index.html
-template <srtb::fft::type fft_type, std::floating_point T,
-          typename Complex = srtb::complex<T> >
-class cufft_1d_wrapper
-    : public fft_wrapper<cufft_1d_wrapper, fft_type, T, Complex> {
- public:
-  using super_class = fft_wrapper<cufft_1d_wrapper, fft_type, T, Complex>;
-  friend super_class;
-  static_assert((std::is_same_v<T, cufftReal> &&
-                 sizeof(Complex) == sizeof(cufftComplex)) ||
-                (std::is_same_v<T, cufftDoubleReal> &&
-                 sizeof(Complex) == sizeof(cufftDoubleComplex)));
-
- protected:
-  cufftHandle plan;
-  size_t workSize;
-  cudaStream_t stream;
-
- public:
-  cufft_1d_wrapper(size_t n, size_t batch_size, sycl::queue& queue)
-      : super_class{n, batch_size, queue} {}
-
- protected:
-  void create_impl(size_t n, size_t batch_size, sycl::queue& q) {
-    // should be equivalent to this
-    /*
-    plan = fftw_plan_dft_r2c_1d(static_cast<int>(n), tmp_in.get(),
-                               reinterpret_cast<fftw_complex*>(tmp_out.get()),
-                               FFTW_PATIENT |  FFTW_DESTROY_INPUT);
-    */
-
-    auto device = q.get_device();
-    auto native_device = sycl::get_native<srtb::backend::cuda>(device);
-    SRTB_CHECK_CUDA(cudaSetDevice(native_device));
-
-    SRTB_CHECK_CUFFT(cufftCreate(&plan));
-    constexpr cufftType cufft_type = get_cufft_type<T>(fft_type);
-
-    long long int n_ = static_cast<long long int>(n);
-    long long int idist, odist;
-    long long int inembed[1] = {1}, onembed[1] = {1};  // should have no effect
-    if constexpr (fft_type == srtb::fft::type::C2C_1D_FORWARD ||
-                  fft_type == srtb::fft::type::C2C_1D_BACKWARD) {
-      const long long int n_complex = n_;
-      idist = odist = n_complex;
-    } else if constexpr (fft_type == srtb::fft::type::R2C_1D) {
-      const long long int n_real = n_;
-      const long long int n_complex = n_real / 2 + 1;
-      idist = n_real;
-      odist = n_complex;
-    } else if constexpr (fft_type == srtb::fft::type::C2R_1D) {
-      const long long int n_real = n_;
-      const long long int n_complex = n_real / 2 + 1;
-      idist = n_complex;
-      odist = n_real;
-    } else {
-      throw std::runtime_error("[cufft_wrapper] create_impl: TODO");
-    }
-
-    SRTB_CHECK_CUFFT(cufftMakePlanMany64(/* plan = */ plan,
-                                         /* rank = */ 1,
-                                         /* n = */ &n_,
-                                         /* inembed = */ inembed,
-                                         /* istride = */ 1,
-                                         /* idist = */ idist,
-                                         /* onembed = */ onembed,
-                                         /* ostride = */ 1,
-                                         /* odist = */ odist,
-                                         /* type = */ cufft_type,
-                                         /* batch = */ batch_size,
-                                         /* worksize = */ &workSize));
-    SRTB_LOGI << " [cufft_wrapper] "
-              << "plan finished. workSize = " << workSize << srtb::endl;
-    set_queue_impl(q);
+  template <typename... Args>
+  static inline decltype(auto) fftExecR2C(Args&&... args) {
+    return cufftExecD2Z(std::forward<Args>(args)...);
   }
 
-  void destroy_impl() { SRTB_CHECK_CUFFT(cufftDestroy(plan)); }
-
-  template <typename..., srtb::fft::type fft_type_ = fft_type,
-            typename std::enable_if<(fft_type_ == srtb::fft::type::R2C_1D),
-                                    int>::type = 0>
-  void process_impl(T* in, Complex* out) {
-    if constexpr (std::is_same_v<T, cufftReal>) {
-      SRTB_CHECK_CUFFT(cufftExecR2C((*this).plan, static_cast<cufftReal*>(in),
-                                    reinterpret_cast<cufftComplex*>(out)));
-    } else if constexpr (std::is_same_v<T, cufftDoubleReal>) {
-      SRTB_CHECK_CUFFT(
-          cufftExecD2Z((*this).plan, static_cast<cufftDoubleReal*>(in),
-                       reinterpret_cast<cufftDoubleComplex*>(out)));
-    } else {
-      throw std::runtime_error("[cufft_wrapper] process_impl: TODO");
-    }
-    (*this).flush();
+  template <typename... Args>
+  static inline decltype(auto) fftExecC2C(Args&&... args) {
+    return cufftExecZ2Z(std::forward<Args>(args)...);
   }
 
-  template <
-      typename..., srtb::fft::type fft_type_ = fft_type,
-      typename std::enable_if<(fft_type_ == srtb::fft::type::C2C_1D_FORWARD ||
-                               fft_type_ == srtb::fft::type::C2C_1D_BACKWARD),
-                              int>::type = 0>
-  void process_impl(Complex* in, Complex* out) {
-    constexpr auto direction = (fft_type == srtb::fft::type::C2C_1D_BACKWARD)
-                                   ? CUFFT_INVERSE
-                                   : CUFFT_FORWARD;
-    if constexpr (std::is_same_v<T, cufftReal>) {
-      SRTB_CHECK_CUFFT(
-          cufftExecC2C((*this).plan, reinterpret_cast<cufftComplex*>(in),
-                       reinterpret_cast<cufftComplex*>(out), direction));
-    } else if constexpr (std::is_same_v<T, cufftDoubleReal>) {
-      SRTB_CHECK_CUFFT(
-          cufftExecZ2Z((*this).plan, reinterpret_cast<cufftDoubleComplex*>(in),
-                       reinterpret_cast<cufftDoubleComplex*>(out), direction));
-    } else {
-      throw std::runtime_error("[cufft_wrapper] process_impl<C2C_1D>: ?");
-    }
-    flush();
+  template <typename... Args>
+  static inline decltype(auto) fftExecC2R(Args&&... args) {
+    return cufftExecZ2D(std::forward<Args>(args)...);
   }
-
-  template <typename..., srtb::fft::type fft_type_ = fft_type,
-            typename std::enable_if<(fft_type_ == srtb::fft::type::C2R_1D),
-                                    int>::type = 0>
-  void process_impl(Complex* in, T* out) {
-    if constexpr (std::is_same_v<T, cufftReal>) {
-      SRTB_CHECK_CUFFT(cufftExecC2R((*this).plan,
-                                    reinterpret_cast<cufftComplex*>(in),
-                                    static_cast<cufftReal*>(out)));
-    } else if constexpr (std::is_same_v<T, cufftDoubleReal>) {
-      SRTB_CHECK_CUFFT(cufftExecZ2D((*this).plan,
-                                    reinterpret_cast<cufftDoubleComplex*>(in),
-                                    static_cast<cufftDoubleReal*>(out)));
-    } else {
-      throw std::runtime_error("[cufft_wrapper] process_impl<R2C_1D>: ?");
-    }
-    flush();
-  }
-
-  bool has_inited_impl() {
-    // ref: https://forums.developer.nvidia.com/t/check-for-a-valid-cufft-plan/34297/4
-    size_t work_size;
-    auto ret_val = cufftGetSize(plan, &work_size);
-    switch (ret_val) {
-      [[likely]] case CUFFT_SUCCESS : return true;
-      case CUFFT_INVALID_PLAN:
-        return false;
-      default:
-        SRTB_CHECK_CUFFT(ret_val);
-        return false;
-    }
-  }
-
-  void set_queue_impl(sycl::queue& queue) {
-#if defined(SYCL_EXT_ONEAPI_BACKEND_CUDA)
-    stream = sycl::get_native<sycl::backend::ext_oneapi_cuda>(queue);
-    SRTB_CHECK_CUFFT(cufftSetStream(plan, stream));
-#elif defined(__HIPSYCL__)
-    // ref: https://github.com/illuhad/hipSYCL/issues/722
-    cufftResult ret = CUFFT_SUCCESS;
-    queue
-        .submit([&](sycl::handler& cgh) {
-          cgh.hipSYCL_enqueue_custom_operation([&](sycl::interop_handle& h) {
-            stream = h.get_native_queue<sycl::backend::cuda>();
-          });
-        })
-        .wait();
-    // stream seems to be thread-local, so set it in this thread instead of the lambda above
-    ret = cufftSetStream(plan, stream);
-    if (ret != CUFFT_SUCCESS) [[unlikely]] {
-      throw std::runtime_error("[cufft_wrapper] cufftSetStream returned " +
-                               std::to_string(ret));
-    }
-#else
-#warning cufft_wrapper::set_queue_impl uses default stream
-    stream = nullptr;
-#endif  // SYCL_EXT_ONEAPI_BACKEND_CUDA or __HIPSYCL__
-  }
-
-  void flush() { SRTB_CHECK_CUDA(cudaStreamSynchronize((*this).stream)); }
 };
+
+template <std::floating_point T>
+using cufft_trait = cufft_like_trait<T, srtb::backend::cuda>;
+
+template <srtb::fft::type fft_type, std::floating_point T,
+          typename C = srtb::complex<T> >
+using cufft_1d_wrapper =
+    cufft_like_1d_wrapper<srtb::backend::cuda, fft_type, T, C>;
 
 }  // namespace fft
 }  // namespace srtb
