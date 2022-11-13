@@ -42,13 +42,31 @@ class cached_allocator {
   using size_type = typename std::allocator_traits<RealAllocator>::size_type;
   using pointer = typename std::allocator_traits<RealAllocator>::pointer;
 
+ protected:
+  std::multimap<size_type, pointer> free_ptrs;
+  std::map<pointer, size_type> used_ptrs;
+  RealAllocator allocator;
+  std::mutex mutex;
+
+ public:
   template <typename... Args>
-  explicit cached_allocator(Args... args) : allocator(args...) {
-    p_mutex = std::make_shared<std::mutex>();
+  explicit cached_allocator(Args... args) : allocator(args...) {}
+
+  // https://stackoverflow.com/questions/29986208/how-should-i-deal-with-mutexes-in-movable-types-in-c
+  cached_allocator& operator=(cached_allocator&& rhs) {
+    if (this != &rhs) {
+      std::unique_lock lhs_lock{mutex, std::defer_lock};
+      std::unique_lock rhs_lock{rhs.mutex, std::defer_lock};
+      std::lock(lhs_lock, rhs_lock);
+      free_ptrs = std::move(rhs.free_ptrs);
+      used_ptrs = std::move(rhs.used_ptrs);
+      allocator = std::move(rhs.allocator);
+    }
+    return *this;
   }
 
   [[nodiscard]] pointer allocate(size_type n) {
-    std::lock_guard lock{*p_mutex};
+    std::lock_guard lock{mutex};
 
     // find a memory region that is cached
     auto iter = free_ptrs.lower_bound(n);
@@ -117,8 +135,16 @@ class cached_allocator {
     return std::shared_ptr<U>{ptr, [&](U* ptr) { deallocate_raw<U>(ptr); }};
   }
 
+  template <typename U = value_type,
+            typename = typename std::enable_if<std::is_convertible_v<
+                typename std::remove_cv<pointer>::type, value_type*> >::type>
+  [[nodiscard]] std::unique_ptr<U> allocate_unique(size_type n_U) {
+    U* ptr = allocate_raw<U>(n_U);
+    return std::unique_ptr<U>{ptr, [&](U* ptr) { deallocate_raw<U>(ptr); }};
+  }
+
   void deallocate(pointer ptr) {
-    std::lock_guard lock{*p_mutex};
+    std::lock_guard lock{mutex};
 
     auto iter = used_ptrs.find(ptr);
     if (iter == used_ptrs.end()) [[unlikely]] {
@@ -173,7 +199,7 @@ class cached_allocator {
   }
 
   void deallocate_all_free_ptrs() {
-    std::lock_guard lock{*p_mutex};
+    std::lock_guard lock{mutex};
     for (auto iter : free_ptrs) {
       size_type ptr_size = iter.first;
       pointer ptr = iter.second;
@@ -196,13 +222,6 @@ class cached_allocator {
                 << " pointer(s) still in use!" << srtb::endl;
     }
   }
-
- protected:
-  std::multimap<size_type, pointer> free_ptrs;
-  std::map<pointer, size_type> used_ptrs;
-  RealAllocator allocator;
-  // TODO: is a shared_ptr here appropriate?
-  std::shared_ptr<std::mutex> p_mutex;
 };
 
 }  // namespace memory

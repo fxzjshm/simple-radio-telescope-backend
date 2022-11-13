@@ -147,10 +147,9 @@ int main(int argc, char** argv) {
   for (auto device : devices) {
     // set up test environment
     srtb::queue = sycl::queue{device};
-    srtb::device_allocator = std::move(
-        srtb::memory::cached_allocator<
-            srtb::memory::device_allocator<std::byte, srtb::MEMORY_ALIGNMENT> >{
-            srtb::queue});
+    srtb::device_allocator = srtb::memory::cached_allocator<
+        srtb::memory::device_allocator<std::byte, srtb::MEMORY_ALIGNMENT> >{
+        srtb::queue};
     SRTB_LOGI << " [test fft wrappers] "
               << "device name = " << '\"'
               << device.get_info<sycl::info::device::name>() << '\"'
