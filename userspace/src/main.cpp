@@ -11,6 +11,7 @@
  ******************************************************************************/
 
 #include <chrono>
+#include <filesystem>
 #include <iostream>
 #include <vector>
 
@@ -21,6 +22,7 @@
 #include "srtb/io/udp_receiver.hpp"
 #include "srtb/pipeline/dedisperse_and_channelize_pipe.hpp"
 #include "srtb/pipeline/fft_pipe.hpp"
+#include "srtb/pipeline/read_file_pipe.hpp"
 #include "srtb/pipeline/rfi_mitigation_pipe.hpp"
 #include "srtb/pipeline/spectrum_pipe.hpp"
 #include "srtb/pipeline/udp_receiver_pipe.hpp"
@@ -41,6 +43,18 @@ int main(int argc, char** argv) {
             << srtb::endl;
 
   srtb::pipeline::udp_receiver_pipe udp_receiver_pipe;
+  srtb::pipeline::read_file_pipe read_file_pipe;
+
+  if (std::filesystem::exists(srtb::config.input_file_path)) {
+    SRTB_LOGI << " [main] "
+              << "Reading file " << srtb::config.input_file_path << srtb::endl;
+    read_file_pipe.start();
+  } else {
+    SRTB_LOGI << " [main] "
+              << "Receiving UDP packets" << srtb::endl;
+    udp_receiver_pipe.start();
+  }
+
   srtb::pipeline::unpack_pipe unpack_pipe;
   unpack_pipe.start();
 
