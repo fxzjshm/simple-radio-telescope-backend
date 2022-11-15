@@ -54,7 +54,7 @@ class read_file_pipe : public pipe<read_file_pipe> {
         baseband_input_count * baseband_input_bits / BITS_PER_BYTE;
 
     input_file_stream.ignore(input_file_offset_bytes);
-    // TODO: reserve data because of dedispersion
+
     while (input_file_stream) {
       std::shared_ptr<std::byte> h_in_shared =
           srtb::host_allocator.allocate_shared<std::byte>(time_sample_bytes);
@@ -73,6 +73,21 @@ class read_file_pipe : public pipe<read_file_pipe> {
       unpack_work.count = time_sample_bytes;
       unpack_work.baseband_input_bits = baseband_input_bits;
       SRTB_PUSH_WORK(" [read_file] ", srtb::unpack_queue, unpack_work);
+
+      // reserved some samples for next round
+      const size_t nsamps_reserved = srtb::codd::nsamps_reserved();
+      const std::streamoff reserved_bytes =
+          nsamps_reserved * baseband_input_bits / BITS_PER_BYTE;
+      if (static_cast<size_t>(reserved_bytes) < time_sample_bytes) {
+        auto pos = input_file_stream.tellg();
+        input_file_stream.seekg(pos - reserved_bytes);
+        SRTB_LOGD << " [read_file] "
+                  << "reserved " << reserved_bytes << " bytes" << srtb::endl;
+      } else {
+        SRTB_LOGW << " [read_file] "
+                  << "time_sample_bytes = " << time_sample_bytes
+                  << " >= reserved_bytes = " << reserved_bytes << srtb::endl;
+      }
 
       srtb::pipeline::wait_for_notify();
     }
