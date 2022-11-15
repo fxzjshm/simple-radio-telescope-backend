@@ -49,27 +49,27 @@ class read_file_pipe : public pipe<read_file_pipe> {
                  const size_t baseband_input_count,
                  const size_t baseband_input_bits,
                  const size_t input_file_offset_bytes, sycl::queue& q) {
-    std::ifstream input_file_stream{file_path};
+    std::ifstream input_file_stream{file_path,
+                                    std::ifstream::in | std::ifstream::binary};
     const size_t time_sample_bytes =
         baseband_input_count * baseband_input_bits / BITS_PER_BYTE;
 
     input_file_stream.ignore(input_file_offset_bytes);
 
     while (input_file_stream) {
-      std::shared_ptr<std::byte> h_in_shared =
-          srtb::host_allocator.allocate_shared<std::byte>(time_sample_bytes);
-      std::byte* h_in = h_in_shared.get();
-      q.fill(h_in, std::byte(0), time_sample_bytes).wait();
-      // why don't STL use std::byte ? maybe because std::byte is too new ...
+      std::shared_ptr<char> h_in_shared =
+          srtb::host_allocator.allocate_shared<char>(time_sample_bytes);
+      char* h_in = h_in_shared.get();
+      q.fill(h_in, 0, time_sample_bytes).wait();
       input_file_stream.read(reinterpret_cast<char*>(h_in), time_sample_bytes);
 
-      std::shared_ptr<std::byte> d_in_shared =
-          srtb::device_allocator.allocate_shared<std::byte>(time_sample_bytes);
-      std::byte* d_in = d_in_shared.get();
+      std::shared_ptr<char> d_in_shared =
+          srtb::device_allocator.allocate_shared<char>(time_sample_bytes);
+      char* d_in = d_in_shared.get();
       q.copy(h_in, /* -> */ d_in, time_sample_bytes).wait();
 
       srtb::work::unpack_work unpack_work;
-      unpack_work.ptr = d_in_shared;
+      unpack_work.ptr = std::reinterpret_pointer_cast<std::byte>(d_in_shared);
       unpack_work.count = time_sample_bytes;
       unpack_work.baseband_input_bits = baseband_input_bits;
       SRTB_PUSH_WORK(" [read_file] ", srtb::unpack_queue, unpack_work);
@@ -96,7 +96,8 @@ class read_file_pipe : public pipe<read_file_pipe> {
   void run_once_impl() {
     // nothing to do ...
     // NOTE: here is 1000x sleep time, because thread_query_work_wait_time is of nanosecond
-    std::this_thread::sleep_for(std::chrono::microseconds(srtb::config.thread_query_work_wait_time));
+    std::this_thread::sleep_for(
+        std::chrono::microseconds(srtb::config.thread_query_work_wait_time));
   }
 };
 
