@@ -259,10 +259,16 @@ class fftw_1d_wrapper
       const size_t n_real = n, n_complex = n / 2 + 1;
       const size_t total_size_real = n_real * batch_size,
                    total_size_complex = n_complex * batch_size;
-      auto tmp_real =
-          srtb::device_allocator.allocate_shared<T>(total_size_real);
-      auto tmp_complex =
+
+      std::shared_ptr<C> tmp_complex =
           srtb::device_allocator.allocate_shared<C>(total_size_complex);
+
+      std::shared_ptr<T> tmp_real;
+      if constexpr (srtb::fft_operate_in_place) {
+        tmp_real = std::reinterpret_pointer_cast<T>(tmp_complex);
+      } else {
+        tmp_real = srtb::device_allocator.allocate_shared<T>(total_size_real);
+      }
       FFTW_iodim64 dims{.n = static_cast<ptrdiff_t>(n_real), .is = 1, .os = 1};
 
       if constexpr (fft_type == srtb::fft::type::R2C_1D) {
@@ -297,8 +303,15 @@ class fftw_1d_wrapper
                                 ? FFTW_BACKWARD
                                 : FFTW_FORWARD;
       const size_t total_size = n * batch_size;
-      auto tmp_in = srtb::device_allocator.allocate_shared<C>(total_size);
-      auto tmp_out = srtb::device_allocator.allocate_shared<C>(total_size);
+
+      std::shared_ptr<C> tmp_in =
+          srtb::device_allocator.allocate_shared<C>(total_size);
+      std::shared_ptr<C> tmp_out;
+      if constexpr (srtb::fft_operate_in_place) {
+        tmp_out = tmp_in;
+      } else {
+        tmp_out = srtb::device_allocator.allocate_shared<C>(total_size);
+      }
       // should be equivalent to this
       /*
       plan = fftw_traits<T>::plan_dft_1d(static_cast<int>(n), tmp_in.get(), tmp_out.get(),
