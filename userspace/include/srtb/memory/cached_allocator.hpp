@@ -132,15 +132,17 @@ class cached_allocator {
                 typename std::remove_cv<pointer>::type, value_type*> >::type>
   [[nodiscard]] std::shared_ptr<U> allocate_shared(size_type n_U) {
     U* ptr = allocate_raw<U>(n_U);
-    return std::shared_ptr<U>{ptr, [&](U* ptr) { deallocate_raw<U>(ptr); }};
+    auto deleter = [&](U* ptr) { deallocate_raw<U>(ptr); };
+    return std::shared_ptr<U>{ptr, deleter};
   }
 
   template <typename U = value_type,
             typename = typename std::enable_if<std::is_convertible_v<
                 typename std::remove_cv<pointer>::type, value_type*> >::type>
-  [[nodiscard]] std::unique_ptr<U> allocate_unique(size_type n_U) {
+  [[nodiscard]] auto allocate_unique(size_type n_U) {
     U* ptr = allocate_raw<U>(n_U);
-    return std::unique_ptr<U>{ptr, [&](U* ptr) { deallocate_raw<U>(ptr); }};
+    auto deleter = [&](U* ptr) { deallocate_raw<U>(ptr); };
+    return std::unique_ptr<U, decltype(deleter)>{ptr, deleter};
   }
 
   void deallocate(pointer ptr) {
