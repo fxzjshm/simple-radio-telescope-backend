@@ -49,10 +49,10 @@ class cufft_like_1d_wrapper
   using super_class =
       fft_wrapper<cufft_like_1d_wrapper<backend, fft_type, T, C>, fft_type, T,
                   C>;
-  using fft_handle = trait::fft_handle;
-  using stream_t = trait::stream_t;
-  using real = trait::real;
-  using complex = trait::complex;
+  using fft_handle = typename trait::fft_handle;
+  using stream_t = typename trait::stream_t;
+  using real = typename trait::real;
+  using complex = typename trait::complex;
   friend super_class;
   static_assert(std::is_same_v<T, real> && sizeof(C) == sizeof(complex));
 
