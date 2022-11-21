@@ -60,7 +60,7 @@ class read_file_pipe : public pipe<read_file_pipe> {
       std::shared_ptr<char> h_in_shared =
           srtb::host_allocator.allocate_shared<char>(time_sample_bytes);
       char* h_in = h_in_shared.get();
-      q.fill(h_in, 0, time_sample_bytes).wait();
+      std::memset(h_in, 0, time_sample_bytes);
       input_file_stream.read(reinterpret_cast<char*>(h_in), time_sample_bytes);
 
       std::shared_ptr<char> d_in_shared =
