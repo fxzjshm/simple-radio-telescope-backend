@@ -56,12 +56,25 @@ class read_file_pipe : public pipe<read_file_pipe> {
 
     input_file_stream.ignore(input_file_offset_bytes);
 
+    std::shared_ptr<char> h_in_shared =
+        srtb::host_allocator.allocate_shared<char>(time_sample_bytes);
+    char* h_in = h_in_shared.get();
+
+    // counting bytes read manually because position of file may stop at end of
+    // file when reading to that, but that calculating position when reserving
+    // sample needs continuous bytes counting, i.e.
+    //         ......xxxxxxxxxxxx00000000
+    //                          ^       ^
+    //      position in file stream    logical end of this chunk of data
+    //                    <-------------|
+    //                     samples reserved because of coherent dedispersion
+    std::streampos logical_file_pos = input_file_offset_bytes;
+
     while (input_file_stream) {
-      std::shared_ptr<char> h_in_shared =
-          srtb::host_allocator.allocate_shared<char>(time_sample_bytes);
-      char* h_in = h_in_shared.get();
+      // parallel memset ?
       std::memset(h_in, 0, time_sample_bytes);
       input_file_stream.read(reinterpret_cast<char*>(h_in), time_sample_bytes);
+      logical_file_pos += time_sample_bytes;
 
       std::shared_ptr<char> d_in_shared =
           srtb::device_allocator.allocate_shared<char>(time_sample_bytes);
@@ -79,8 +92,8 @@ class read_file_pipe : public pipe<read_file_pipe> {
       const std::streamoff reserved_bytes =
           nsamps_reserved * baseband_input_bits / BITS_PER_BYTE;
       if (static_cast<size_t>(reserved_bytes) < time_sample_bytes) {
-        auto pos = input_file_stream.tellg();
-        input_file_stream.seekg(pos - reserved_bytes);
+        logical_file_pos -= reserved_bytes;
+        input_file_stream.seekg(logical_file_pos);
         SRTB_LOGD << " [read_file] "
                   << "reserved " << reserved_bytes << " bytes" << srtb::endl;
       } else {
