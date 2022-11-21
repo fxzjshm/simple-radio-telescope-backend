@@ -100,7 +100,8 @@ namespace program_options {
        "Temporary thereshold for RFI mitigation. Channels with signal stronger "
        "than this thereshold * average strength will be set to 0 .")
       ("refft_length", boost::program_options::value<std::string>(),
-       "Length of FFT for re-constructing signals after coherent dedispersion.")
+       "Length of FFT for re-constructing signals after coherent dedispersion, "
+       "of complex numbers, so refft_length <= baseband_input_count / 2")
     ;
   /* clang-format on */
   data_io_option.add(udp_receiver_options).add(file_io_options);
@@ -179,7 +180,7 @@ inline void evaluate_and_apply_changed_config(const std::string& name,
     config.target_name = value;  \
   } else
 
-  ; // <- for clang-format
+  ;  // <- for clang-format
   SRTB_PARSE(baseband_input_count)
   SRTB_PARSE(baseband_input_bits)
   SRTB_PARSE(baseband_freq_low)

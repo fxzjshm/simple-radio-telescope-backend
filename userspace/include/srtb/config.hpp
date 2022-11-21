@@ -182,7 +182,8 @@ struct configs {
   size_t ifft_channel_count = 1;
 
   /**
-   * @brief Length of FFT for re-constructing signals after coherent dedispersion.
+   * @brief Length of FFT for re-constructing signals after coherent dedispersion,
+   *        of complex numbers, so <= baseband_input_count / 2
    */
   size_t refft_length = 1 << 15;
 
