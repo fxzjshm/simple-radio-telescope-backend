@@ -91,7 +91,7 @@ namespace pipeline {
 // currently used for end of pipeline to send a signal to start of the pipeline.
 inline std::mutex pipeline_mutex;
 inline std::condition_variable pipeline_cv;
-inline bool one_work_just_finished = false;
+inline bool need_more_work = false;
 
 }  // namespace pipeline
 

@@ -97,13 +97,13 @@ class pipe {
 inline void wait_for_notify() {
   std::unique_lock lock{srtb::pipeline::pipeline_mutex};
   srtb::pipeline::pipeline_cv.wait(
-      lock, [] { return srtb::pipeline::one_work_just_finished; });
-  one_work_just_finished = false;
+      lock, [] { return srtb::pipeline::need_more_work; });
+  need_more_work = false;
 }
 
 inline void notify() {
   std::unique_lock lock{srtb::pipeline::pipeline_mutex};
-  one_work_just_finished = true;
+  need_more_work = true;
   lock.unlock();
   srtb::pipeline::pipeline_cv.notify_one();
 }
