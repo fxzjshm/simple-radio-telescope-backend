@@ -238,7 +238,8 @@ class fftw_1d_wrapper
   using FFTW_plan = typename fftw_traits<T>::plan;
 
  protected:
-  FFTW_plan plan;
+  FFTW_plan in_place_plan;
+  FFTW_plan out_of_place_plan;
 
  public:
   fftw_1d_wrapper(size_t n, size_t batch_size, sycl::queue& queue)
@@ -249,10 +250,10 @@ class fftw_1d_wrapper
     // fftw plan functions is not thread-safe
     std::lock_guard lock{srtb::fft::fftw_mutex};
 
-    constexpr auto flags =
-        FFTW_ESTIMATE |
-        ((srtb::fft_operate_in_place) ? (0) : (FFTW_DESTROY_INPUT));
-    plan = nullptr;
+    constexpr auto in_place_flags = FFTW_ESTIMATE;
+    constexpr auto out_of_place_flags = FFTW_ESTIMATE | FFTW_DESTROY_INPUT;
+    in_place_plan = nullptr;
+    out_of_place_plan = nullptr;
 
     if constexpr (fft_type == srtb::fft::type::R2C_1D ||
                   fft_type == srtb::fft::type::C2R_1D) {
@@ -262,13 +263,9 @@ class fftw_1d_wrapper
 
       std::shared_ptr<C> tmp_complex =
           srtb::device_allocator.allocate_shared<C>(total_size_complex);
+      std::shared_ptr<T> tmp_real =
+          srtb::device_allocator.allocate_shared<T>(total_size_real);
 
-      std::shared_ptr<T> tmp_real;
-      if constexpr (srtb::fft_operate_in_place) {
-        tmp_real = std::reinterpret_pointer_cast<T>(tmp_complex);
-      } else {
-        tmp_real = srtb::device_allocator.allocate_shared<T>(total_size_real);
-      }
       FFTW_iodim64 dims{.n = static_cast<ptrdiff_t>(n_real), .is = 1, .os = 1};
 
       if constexpr (fft_type == srtb::fft::type::R2C_1D) {
@@ -283,9 +280,13 @@ class fftw_1d_wrapper
         FFTW_iodim64 howmany_dims{.n = static_cast<ptrdiff_t>(batch_size),
                                   .is = static_cast<ptrdiff_t>(n_real),
                                   .os = static_cast<ptrdiff_t>(n_complex)};
-        plan = fftw_traits<T>::plan_guru64_dft_r2c(
+        in_place_plan = fftw_traits<T>::plan_guru64_dft_r2c(
             /* rank = */ 1, &dims,
-            /* howmany_rank = */ 1, &howmany_dims, in, out, flags);
+            /* howmany_rank = */ 1, &howmany_dims, reinterpret_cast<T*>(out),
+            out, in_place_flags);
+        out_of_place_plan = fftw_traits<T>::plan_guru64_dft_r2c(
+            /* rank = */ 1, &dims,
+            /* howmany_rank = */ 1, &howmany_dims, in, out, out_of_place_flags);
       } else {
         // fft_type == srtb::fft::type::C2R_1D
         FFTW_complex* in = reinterpret_cast<FFTW_complex*>(tmp_complex.get());
@@ -293,9 +294,13 @@ class fftw_1d_wrapper
         FFTW_iodim64 howmany_dims{.n = static_cast<ptrdiff_t>(batch_size),
                                   .is = static_cast<ptrdiff_t>(n_complex),
                                   .os = static_cast<ptrdiff_t>(n_real)};
-        plan = fftw_traits<T>::plan_guru64_dft_c2r(
+        in_place_plan = fftw_traits<T>::plan_guru64_dft_c2r(
             /* rank = */ 1, &dims,
-            /* howmany_rank = */ 1, &howmany_dims, in, out, flags);
+            /* howmany_rank = */ 1, &howmany_dims, in, reinterpret_cast<T*>(in),
+            in_place_flags);
+        out_of_place_plan = fftw_traits<T>::plan_guru64_dft_c2r(
+            /* rank = */ 1, &dims,
+            /* howmany_rank = */ 1, &howmany_dims, in, out, out_of_place_flags);
       }
     } else if constexpr (fft_type == srtb::fft::type::C2C_1D_FORWARD ||
                          fft_type == srtb::fft::type::C2C_1D_BACKWARD) {
@@ -306,12 +311,9 @@ class fftw_1d_wrapper
 
       std::shared_ptr<C> tmp_in =
           srtb::device_allocator.allocate_shared<C>(total_size);
-      std::shared_ptr<C> tmp_out;
-      if constexpr (srtb::fft_operate_in_place) {
-        tmp_out = tmp_in;
-      } else {
-        tmp_out = srtb::device_allocator.allocate_shared<C>(total_size);
-      }
+      std::shared_ptr<C> tmp_out =
+          srtb::device_allocator.allocate_shared<C>(total_size);
+
       // should be equivalent to this
       /*
       plan = fftw_traits<T>::plan_dft_1d(static_cast<int>(n), tmp_in.get(), tmp_out.get(),
@@ -323,32 +325,46 @@ class fftw_1d_wrapper
       FFTW_iodim64 howmany_dims{.n = static_cast<ptrdiff_t>(batch_size),
                                 .is = static_cast<ptrdiff_t>(n),
                                 .os = static_cast<ptrdiff_t>(n)};
-      plan = fftw_traits<T>::plan_guru64_dft(
+      in_place_plan = fftw_traits<T>::plan_guru64_dft(
           /* rank = */ 1, &dims,
-          /* howmany_rank = */ 1, &howmany_dims, in, out, sign, flags);
+          /* howmany_rank = */ 1, &howmany_dims, in, in, sign, in_place_flags);
+      out_of_place_plan = fftw_traits<T>::plan_guru64_dft(
+          /* rank = */ 1, &dims,
+          /* howmany_rank = */ 1, &howmany_dims, in, out, sign,
+          out_of_place_flags);
     } else {
       throw std::runtime_error("[fftw_wrapper] TODO");
     }
-    if (plan == nullptr) [[unlikely]] {
+    if (in_place_plan == nullptr || out_of_place_plan == nullptr) [[unlikely]] {
       throw std::runtime_error("[fftw_wrapper] fftw_plan create failed!");
     }
     set_queue_impl(queue);
   }
 
   void destroy_impl() {
-    fftw_traits<T>::destroy_plan(plan);
-    plan = nullptr;
+    std::lock_guard lock{srtb::fft::fftw_mutex};
+    fftw_traits<T>::destroy_plan(in_place_plan);
+    fftw_traits<T>::destroy_plan(out_of_place_plan);
+    in_place_plan = nullptr;
+    out_of_place_plan = nullptr;
   }
 
-  bool has_inited_impl() { return (plan != nullptr); }
+  bool has_inited_impl() {
+    return (in_place_plan != nullptr && out_of_place_plan != nullptr);
+  }
 
   // SFINAE ref: https://stackoverflow.com/a/50714150
   template <typename..., srtb::fft::type fft_type_ = fft_type,
             typename std::enable_if<(fft_type_ == srtb::fft::type::R2C_1D),
                                     int>::type = 0>
   void process_impl(T* in, C* out) {
-    fftw_traits<T>::execute_dft_r2c(plan, in,
-                                    reinterpret_cast<FFTW_complex*>(out));
+    if (reinterpret_cast<void*>(in) == reinterpret_cast<void*>(out)) {
+      fftw_traits<T>::execute_dft_r2c(in_place_plan, in,
+                                      reinterpret_cast<FFTW_complex*>(out));
+    } else {
+      fftw_traits<T>::execute_dft_r2c(out_of_place_plan, in,
+                                      reinterpret_cast<FFTW_complex*>(out));
+    }
   }
 
   template <
@@ -357,16 +373,28 @@ class fftw_1d_wrapper
                                fft_type_ == srtb::fft::type::C2C_1D_BACKWARD),
                               int>::type = 0>
   void process_impl(C* in, C* out) {
-    fftw_traits<T>::execute_dft(plan, reinterpret_cast<FFTW_complex*>(in),
-                                reinterpret_cast<FFTW_complex*>(out));
+    if (reinterpret_cast<void*>(in) == reinterpret_cast<void*>(out)) {
+      fftw_traits<T>::execute_dft(in_place_plan,
+                                  reinterpret_cast<FFTW_complex*>(in),
+                                  reinterpret_cast<FFTW_complex*>(out));
+    } else {
+      fftw_traits<T>::execute_dft(out_of_place_plan,
+                                  reinterpret_cast<FFTW_complex*>(in),
+                                  reinterpret_cast<FFTW_complex*>(out));
+    }
   }
 
   template <typename..., srtb::fft::type fft_type_ = fft_type,
             typename std::enable_if<(fft_type_ == srtb::fft::type::C2R_1D),
                                     int>::type = 0>
   void process_impl(C* in, T* out) {
-    fftw_traits<T>::execute_dft_c2r(plan, reinterpret_cast<FFTW_complex*>(in),
-                                    out);
+    if (reinterpret_cast<void*>(in) == reinterpret_cast<void*>(out)) {
+      fftw_traits<T>::execute_dft_c2r(in_place_plan,
+                                      reinterpret_cast<FFTW_complex*>(in), out);
+    } else {
+      fftw_traits<T>::execute_dft_c2r(out_of_place_plan,
+                                      reinterpret_cast<FFTW_complex*>(in), out);
+    }
   }
 
   void set_queue_impl(sycl::queue& queue) {
