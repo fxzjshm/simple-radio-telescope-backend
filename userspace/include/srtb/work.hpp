@@ -136,29 +136,27 @@ struct dedisperse_and_channelize_work
 /**
  * @brief contains @c batch_size * @c count of @c srtb::complex<srtb::real>
  *        to be inversed FFT-ed
- * @note @c count is not total size
  */
-struct ifft_1d_c2c_work
-    : public srtb::work::work<std::shared_ptr<srtb::complex<srtb::real> > > {
-  size_t batch_size;
-};
+using ifft_1d_c2c_work =
+    srtb::work::work<std::shared_ptr<srtb::complex<srtb::real> > >;
 
 /**
- * @brief contains complex FFT-ed (and dedispersed) data of total length @c count
- *        to be iFFT-ed and reFFT-ed with length @c refft_length to get much higher
- *        time resolution.
+ * @brief contains complex dedispersed baseband data of total length @c count
+ *        to be reFFT-ed with length @c refft_length to get spectrum with
+ *        much higher time resolution.
  */
-struct refft_1d_c2c_work
-    : public srtb::work::work<std::shared_ptr<srtb::complex<srtb::real> > > {
-  size_t refft_length;
-};
+using refft_1d_c2c_work =
+    srtb::work::work<std::shared_ptr<srtb::complex<srtb::real> > >;
 
 /**
  * @brief contains @c srtb::complex<srtb::real> to be simplified into
  *        ~10^3 @c srtb::real to be displayed on GUI.
  * @note temporary work, just do a software-defined-radio receiver job.
  */
-using simplify_spectrum_work = ifft_1d_c2c_work;
+struct simplify_spectrum_work
+    : public srtb::work::work<std::shared_ptr<srtb::complex<srtb::real> > > {
+  size_t batch_size;
+};
 
 /**
  * @brief contains ~10^3 * @c batch_size of @c srtb::real to be summed and drawn
@@ -175,7 +173,8 @@ struct draw_spectrum_work
  *        @c counter contains counter of first UDP packet.
  * TODO: put this in a pool or first-in-first-out queue, and write data only if signal is detected.
  */
-struct baseband_output_work : public srtb::work::work<std::shared_ptr<std::byte> > {
+struct baseband_output_work
+    : public srtb::work::work<std::shared_ptr<std::byte> > {
   /**
    * @brief time stamp these data
    */

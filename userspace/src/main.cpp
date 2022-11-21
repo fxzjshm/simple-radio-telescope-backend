@@ -69,6 +69,9 @@ int main(int argc, char** argv) {
   srtb::pipeline::dedisperse_pipe dedisperse_pipe;
   dedisperse_pipe.start();
 
+  srtb::pipeline::ifft_1d_c2c_pipe ifft_1d_c2c_pipe;
+  ifft_1d_c2c_pipe.start();
+
   srtb::pipeline::refft_1d_c2c_pipe refft_1d_c2c_pipe;
   refft_1d_c2c_pipe.start();
 

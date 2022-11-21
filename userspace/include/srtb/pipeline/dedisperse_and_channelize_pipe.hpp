@@ -26,7 +26,7 @@ namespace pipeline {
  *        this pipe applies coherent dedispertion and frequency domain filterbank
  *        to FFT-ed data.
  * @note the highest frequency channel is dropped
- * TODO: check this
+ * @deprecated not used now
  */
 class dedisperse_and_channelize_pipe
     : public pipe<dedisperse_and_channelize_pipe> {
@@ -62,12 +62,12 @@ class dedisperse_and_channelize_pipe
     d_in = nullptr;
     d_in_shared.reset();
 
-    srtb::work::refft_1d_c2c_work refft_1d_c2c_work;
-    refft_1d_c2c_work.ptr = d_out_shared;
-    refft_1d_c2c_work.count = n;
-    refft_1d_c2c_work.refft_length = std::min(N, srtb::config.refft_length);
-    SRTB_PUSH_WORK(" [dedisperse & channelize pipe] ", srtb::refft_1d_c2c_queue,
-                   refft_1d_c2c_work);
+    //srtb::work::refft_1d_c2c_work refft_1d_c2c_work;
+    //refft_1d_c2c_work.ptr = d_out_shared;
+    //refft_1d_c2c_work.count = n;
+    //refft_1d_c2c_work.refft_length = std::min(N, srtb::config.refft_length);
+    //SRTB_PUSH_WORK(" [dedisperse & channelize pipe] ", srtb::refft_1d_c2c_queue,
+    //               refft_1d_c2c_work);
   }
 };
 
@@ -76,7 +76,6 @@ class dedisperse_and_channelize_pipe
  *        this pipe applies coherent dedispertion and frequency domain filterbank
  *        to FFT-ed data.
  * @note the highest frequency channel is dropped
- * TODO: check this
  */
 class dedisperse_pipe : public pipe<dedisperse_pipe> {
   friend pipe<dedisperse_pipe>;
@@ -110,12 +109,11 @@ class dedisperse_pipe : public pipe<dedisperse_pipe> {
     //SRTB_PUSH_WORK(" [dedisperse pipe] ", srtb::simplify_spectrum_queue,
     //               simplify_spectrum_work);
 
-    srtb::work::refft_1d_c2c_work refft_1d_c2c_work;
-    refft_1d_c2c_work.ptr = d_in_shared;
-    refft_1d_c2c_work.count = N;
-    refft_1d_c2c_work.refft_length = std::min(N, srtb::config.refft_length);
-    SRTB_PUSH_WORK(" [dedisperse pipe] ", srtb::refft_1d_c2c_queue,
-                   refft_1d_c2c_work);
+    srtb::work::ifft_1d_c2c_work ifft_1d_c2c_work;
+    ifft_1d_c2c_work.ptr = d_in_shared;
+    ifft_1d_c2c_work.count = N;
+    SRTB_PUSH_WORK(" [dedisperse pipe] ", srtb::ifft_1d_c2c_queue,
+                   ifft_1d_c2c_work);
   }
 };
 
