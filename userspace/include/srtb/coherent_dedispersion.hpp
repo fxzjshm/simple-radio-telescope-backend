@@ -64,8 +64,9 @@ inline srtb::real max_delay_time() {
       srtb::config.baseband_freq_low, srtb::config.dm);
 }
 
-/** @brief count of samples to be reused in next round of baseband data submission,
-  *        as dedispersed signal at two edges is not accurate
+/** @brief count of real (not complex) time samples to be reused in next round
+  *         of baseband data submission, as dedispersed signal at two edges 
+  *         is not accurate
   * 
   * e.g. baseband_input_count = 20, max delayed samples = 5,
   *      x = not accurate signals after dedispersion
@@ -75,11 +76,22 @@ inline srtb::real max_delay_time() {
   *                   |---  round i+1 ---|
   *                   xxxxx..........xxxxx
   * hence nsamps_reserved = 2 * max delayed samples.
+  * @note Additional requirement: accurate time samples (i.e. not reserved for next round)
+  *       should be a multiple of 2 * refft_length , so that refft can be done in correct batch size.
   * TODO: check this
   */
-inline size_t nsamps_reserved() {
-  return 2 * std::round(srtb::coherent_dedispersion::max_delay_time() *
-                        srtb::config.baseband_sample_rate);
+inline auto nsamps_reserved() -> size_t {
+  // disable this if it doesn't work as expected.
+  //return 0;
+  const size_t minimal_reserve_count =
+      2 * std::round(srtb::coherent_dedispersion::max_delay_time() *
+                     srtb::config.baseband_sample_rate);
+  const size_t refft_length_real = srtb::config.refft_length * 2;
+  const size_t baseband_input_count = srtb::config.baseband_input_count;
+  const size_t refft_total_size =
+      (srtb::config.baseband_input_count - minimal_reserve_count) /
+      refft_length_real * refft_length_real;
+  return baseband_input_count - refft_total_size;
 }
 
 /**
