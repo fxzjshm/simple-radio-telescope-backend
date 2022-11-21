@@ -16,6 +16,13 @@
 
 #include "srtb/commons.hpp"
 
+#define SRTB_CHECK_TEST(tag, expr)                                    \
+  SRTB_CHECK(expr, true, {                                            \
+    throw std::runtime_error{tag #expr " at " __FILE__ ":" +          \
+                             std::to_string(__LINE__) + " returns " + \
+                             std::to_string(ret)};                    \
+  })
+
 template <typename Iterator1, typename Iterator2, typename T>
 inline bool check_absolute_error(Iterator1 first1, Iterator1 last1,
                                  Iterator2 first2, T threshold) {
