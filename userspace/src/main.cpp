@@ -71,8 +71,6 @@ int main(int argc, char** argv) {
 
   srtb::pipeline::refft_1d_c2c_pipe refft_1d_c2c_pipe;
   refft_1d_c2c_pipe.start();
-  //srtb::pipeline::refft_1d_c2r2c_pipe refft_1d_c2r2c_pipe;
-  //refft_1d_c2r2c_pipe.start();
 
   srtb::pipeline::simplify_spectrum_pipe simplify_spectrum_pipe;
   simplify_spectrum_pipe.start();
