@@ -17,7 +17,6 @@
 #include "srtb/commons.hpp"
 #include "srtb/fft/fft.hpp"
 #include "srtb/fft/fft_window.hpp"
-//#include "srtb/memory/sycl_ring_buffer.hpp"
 #include "srtb/pipeline/pipe.hpp"
 #include "srtb/spectrum/rfi_mitigation.hpp"
 
@@ -184,7 +183,6 @@ class ifft_1d_c2c_pipe : public pipe<ifft_1d_c2c_pipe> {
  * @brief This pipe reads coherently dedispersed time data from @c srtb::refft_1d_c2c_queue ,
  *                  performs shorter FFTs to get high time resolution,
  *             then push to @c srtb::simplify_spectrum_queue
- * TODO: ring_buffer approach is commented out, for further discussion.
  */
 class refft_1d_c2c_pipe : public pipe<refft_1d_c2c_pipe> {
   friend pipe<refft_1d_c2c_pipe>;
@@ -195,18 +193,9 @@ class refft_1d_c2c_pipe : public pipe<refft_1d_c2c_pipe> {
   std::optional<srtb::fft::fft_window_functor_manager<
       srtb::real, srtb::fft::default_window> >
       opt_refft_window_functor_manager;
-  //decltype(srtb::memory::sycl_ring_buffer{
-  //    srtb::device_allocator.allocate_unique<srtb::complex<srtb::real> >(0), 0,
-  //    srtb::queue}) ring_buffer;
 
  public:
-  // here unit is complex, so size is 2x so that ring buffer can work properly.
-  // TODO: better approach?
   refft_1d_c2c_pipe()
-      //      : ring_buffer{
-      //            srtb::device_allocator.allocate_unique<srtb::complex<srtb::real> >(
-      //                srtb::config.baseband_input_count),
-      //            srtb::config.baseband_input_count, q}
       = default;
 
  protected:
@@ -246,7 +235,6 @@ class refft_1d_c2c_pipe : public pipe<refft_1d_c2c_pipe> {
     srtb::work::refft_1d_c2c_work refft_1d_c2c_work;
     SRTB_POP_WORK(" [refft 1d c2c pipe] ", srtb::refft_1d_c2c_queue,
                   refft_1d_c2c_work);
-    //const size_t input_count = srtb::config.baseband_input_count / 2;
     const size_t input_count = refft_1d_c2c_work.count;
 
     auto& refft_dispatcher = opt_refft_dispatcher.value();
@@ -261,29 +249,6 @@ class refft_1d_c2c_pipe : public pipe<refft_1d_c2c_pipe> {
       opt_refft_window_functor_manager.emplace(srtb::fft::default_window{},
                                                /* n = */ refft_length, q);
     }
-
-    //// try to get data from ring_buffer
-    //srtb::complex<srtb::real>* d_in = ring_buffer.peek(input_count);
-    //while (d_in == nullptr) {
-    //  // not enough data in buffer.
-    //  srtb::work::refft_1d_c2c_work refft_1d_c2c_work;
-    //  if (srtb::refft_1d_c2c_queue.read_available() == 0) {
-    //    srtb::pipeline::notify();
-    //  }
-    //  SRTB_POP_WORK(" [refft 1d c2c pipe] ", srtb::refft_1d_c2c_queue,
-    //                refft_1d_c2c_work);
-    //  // samples related to coherent dedispersion is reserved in ifft_1d_c2c_pipe
-    //  bool ret = ring_buffer.push(refft_1d_c2c_work.ptr.get(),
-    //                              refft_1d_c2c_work.count);
-    //  if (!ret) [[unlikely]] {
-    //    SRTB_LOGW << " [refft 1d c2c pipe] "
-    //              << "cannot get data from or push data to ring_buffer. "
-    //              << "with input_count = " << input_count << ", "
-    //              << "ring_buffer available_length = "
-    //              << ring_buffer.available_length() << srtb::endl;
-    //  }
-    //  d_in = ring_buffer.peek(input_count);
-    //}
 
     auto d_in_shared = refft_1d_c2c_work.ptr;
     auto d_in = d_in_shared.get();
@@ -309,12 +274,6 @@ class refft_1d_c2c_pipe : public pipe<refft_1d_c2c_pipe> {
 
     auto d_out = d_out_shared.get();
     refft_dispatcher.process(d_in, d_out);
-
-    //bool ret = ring_buffer.pop(nullptr, input_count);
-    //if (!ret) [[unlikely]] {
-    //  SRTB_LOGW << " [refft 1d c2c pipe] "
-    //            << "can peek data but cannot pop it ?" << srtb::endl;
-    //}
 
     // temporary work: spectrum analyzer
     srtb::work::simplify_spectrum_work simplify_spectrum_work;
