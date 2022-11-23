@@ -15,6 +15,8 @@
 #define __SRTB_SIMPLIFY_SPECTRUM__
 
 #include "srtb/commons.hpp"
+// --- divide line for clang-format ---
+#include "srtb/algorithm/map_reduce.hpp"
 
 namespace srtb {
 namespace spectrum {
@@ -138,8 +140,8 @@ template <typename T = srtb::real, typename DeviceInputAccessor = T*>
 auto simplify_spectrum_normalize_with_average_value(
     DeviceInputAccessor d_in, size_t in_count, sycl::queue& q = srtb::queue)
     -> T {
-  auto d_avg_val_shared =
-      transform_and_average(d_in, in_count, std::identity(), q);
+  auto d_avg_val_shared = srtb::algorithm::map_average(
+      d_in, in_count, srtb::algorithm::map_identity(), q);
   auto d_avg_val = d_avg_val_shared.get();
   T h_avg_val;
   q.copy(d_avg_val, /* -> */ &h_avg_val, 1).wait();

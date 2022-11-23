@@ -20,6 +20,8 @@
 #include <type_traits>
 
 #include "srtb/commons.hpp"
+// -- divide line for clang-format --
+#include "srtb/algorithm/map_identity.hpp"
 
 namespace srtb {
 /**
@@ -188,20 +190,12 @@ inline void unpack(InputIterator d_in, OutputIterator d_out,
    }).wait();
 }
 
-struct identity : std::identity {
-  template <typename T>
-  [[nodiscard]] constexpr T&& operator()(size_t n, T&& x) const noexcept {
-    (void)n;
-    return std::identity::operator()<T>(std::move(x));
-  }
-};
-
 template <int IN_NBITS, bool handwritten = false, typename InputIterator,
           typename OutputIterator>
 inline void unpack(InputIterator d_in, OutputIterator d_out,
                    const size_t out_count, sycl::queue& q) {
   return unpack<IN_NBITS, handwritten>(d_in, d_out, out_count,
-                                       srtb::unpack::identity(), q);
+                                       srtb::algorithm::map_identity(), q);
 }
 
 /** @brief runtime dispatch version */
@@ -235,13 +229,13 @@ inline void unpack(int in_nbits, InputIterator d_in, OutputIterator d_out,
   }
 }
 
-/** @brief an overload that defaults functor to @c srtb::unpack::identity */
+/** @brief an overload that defaults functor to @c srtb::algorithm::map_identity */
 template <bool handwritten = false, typename InputIterator,
           typename OutputIterator>
 inline void unpack(int in_nbits, InputIterator d_in, OutputIterator d_out,
                    const size_t out_count, sycl::queue& q) {
   return unpack<handwritten>(in_nbits, d_in, d_out, out_count,
-                             srtb::unpack::identity(), q);
+                             srtb::algorithm::map_identity(), q);
 }
 
 }  // namespace unpack

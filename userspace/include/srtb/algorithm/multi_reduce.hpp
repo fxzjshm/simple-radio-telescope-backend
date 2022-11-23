@@ -38,6 +38,8 @@
 #define __SRTB_ALGORITHM_MULTI_REDUCE_HPP__
 
 #include "srtb/sycl.hpp"
+// -- divide line for clang-format --
+#include "srtb/algorithm/map_identity.hpp"
 
 namespace srtb {
 namespace algorithm {
@@ -148,10 +150,8 @@ template <typename InputIterator, typename OutputIterator, typename Reduce>
 void multi_reduce(InputIterator input, size_t count_per_batch,
                   size_t batch_size, OutputIterator output, Reduce reduce,
                   sycl::queue& q) {
-  using value_type = typename std::iterator_traits<OutputIterator>::value_type;
-  auto map = [=]([[maybe_unused]] size_t pos, value_type x) { return x; };
-  return multi_mapreduce(input, count_per_batch, batch_size, output, map,
-                         reduce, q);
+  return multi_mapreduce(input, count_per_batch, batch_size, output,
+                         srtb::algorithm::map_identity(), reduce, q);
 }
 
 }  // namespace algorithm
