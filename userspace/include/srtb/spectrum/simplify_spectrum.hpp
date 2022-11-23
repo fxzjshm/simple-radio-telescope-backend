@@ -100,7 +100,7 @@ void simplify_spectrum_normalize_with_max_value(DeviceInputAccessor d_in,
   auto d_max_val_shared =
       srtb::device_allocator.allocate_shared<srtb::real>(batch_size);
   auto d_max_val = d_max_val_shared.get();
-  q.fill(d_max_val, 0, batch_size).wait();
+  q.fill<srtb::real>(d_max_val, srtb::real{0}, batch_size).wait();
 
   // maybe log() the power?
   //q.parallel_for(sycl::range<1>{total_in_count}, [=](sycl::item<1> id) {
