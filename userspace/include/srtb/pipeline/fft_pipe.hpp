@@ -74,10 +74,12 @@ class fft_1d_r2c_pipe : public pipe<fft_1d_r2c_pipe> {
     // because std::reinterpret_pointer_cast() "share ownership with the initial value of r"
     d_in_shared.reset();
 
-    srtb::work::rfi_mitigation_work out_work;
-    out_work.ptr = d_out_shared;
-    out_work.count = out_count;
-    SRTB_PUSH_WORK(" [fft 1d r2c pipe] ", srtb::rfi_mitigation_queue, out_work);
+    srtb::work::rfi_mitigation_work rfi_mitigation_work;
+    rfi_mitigation_work.ptr = d_out_shared;
+    rfi_mitigation_work.count = out_count;
+    rfi_mitigation_work.timestamp = fft_1d_r2c_work.timestamp;
+    SRTB_PUSH_WORK(" [fft 1d r2c pipe] ", srtb::rfi_mitigation_queue,
+                   rfi_mitigation_work);
   }
 };
 
@@ -172,6 +174,7 @@ class ifft_1d_c2c_pipe : public pipe<ifft_1d_c2c_pipe> {
     srtb::work::refft_1d_c2c_work refft_1d_c2c_work;
     refft_1d_c2c_work.ptr = d_out_shared;
     refft_1d_c2c_work.count = output_count;
+    refft_1d_c2c_work.timestamp = ifft_1d_c2c_work.timestamp;
     SRTB_PUSH_WORK(" [ifft 1d c2c pipe] ", srtb::refft_1d_c2c_queue,
                    refft_1d_c2c_work);
   }
@@ -195,8 +198,7 @@ class refft_1d_c2c_pipe : public pipe<refft_1d_c2c_pipe> {
       opt_refft_window_functor_manager;
 
  public:
-  refft_1d_c2c_pipe()
-      = default;
+  refft_1d_c2c_pipe() = default;
 
  protected:
   void setup_impl() {
@@ -280,6 +282,7 @@ class refft_1d_c2c_pipe : public pipe<refft_1d_c2c_pipe> {
     simplify_spectrum_work.ptr = d_out_shared;
     simplify_spectrum_work.count = refft_length;
     simplify_spectrum_work.batch_size = refft_batch_size;
+    simplify_spectrum_work.timestamp = refft_1d_c2c_work.timestamp;
     SRTB_PUSH_WORK(" [refft 1d c2c pipe] ", srtb::simplify_spectrum_queue,
                    simplify_spectrum_work);
   }

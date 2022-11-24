@@ -65,6 +65,7 @@ class dedisperse_and_channelize_pipe
     //srtb::work::refft_1d_c2c_work refft_1d_c2c_work;
     //refft_1d_c2c_work.ptr = d_out_shared;
     //refft_1d_c2c_work.count = n;
+    //refft_1d_c2c_work.timestamp = work.timestamp;
     //refft_1d_c2c_work.refft_length = std::min(N, srtb::config.refft_length);
     //SRTB_PUSH_WORK(" [dedisperse & channelize pipe] ", srtb::refft_1d_c2c_queue,
     //               refft_1d_c2c_work);
@@ -112,6 +113,7 @@ class dedisperse_pipe : public pipe<dedisperse_pipe> {
     srtb::work::ifft_1d_c2c_work ifft_1d_c2c_work;
     ifft_1d_c2c_work.ptr = d_in_shared;
     ifft_1d_c2c_work.count = N;
+    ifft_1d_c2c_work.timestamp = work.timestamp;
     SRTB_PUSH_WORK(" [dedisperse pipe] ", srtb::ifft_1d_c2c_queue,
                    ifft_1d_c2c_work);
   }

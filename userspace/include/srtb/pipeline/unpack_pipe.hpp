@@ -88,6 +88,7 @@ class unpack_pipe : public pipe<unpack_pipe> {
     srtb::work::fft_1d_r2c_work fft_1d_r2c_work;
     fft_1d_r2c_work.ptr = d_out_shared;
     fft_1d_r2c_work.count = out_count;
+    fft_1d_r2c_work.timestamp = unpack_work.timestamp;
     SRTB_PUSH_WORK(" [unpack pipe] ", srtb::fft_1d_r2c_queue, fft_1d_r2c_work);
   }
 };

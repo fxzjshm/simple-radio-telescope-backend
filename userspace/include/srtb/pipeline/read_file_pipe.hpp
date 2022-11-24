@@ -81,9 +81,13 @@ class read_file_pipe : public pipe<read_file_pipe> {
       char* d_in = d_in_shared.get();
       q.copy(h_in, /* -> */ d_in, time_sample_bytes).wait();
 
+      uint64_t timestamp =
+          std::chrono::system_clock::now().time_since_epoch().count();
+
       srtb::work::unpack_work unpack_work;
       unpack_work.ptr = std::reinterpret_pointer_cast<std::byte>(d_in_shared);
       unpack_work.count = time_sample_bytes;
+      unpack_work.timestamp = timestamp;
       unpack_work.baseband_input_bits = baseband_input_bits;
       SRTB_PUSH_WORK(" [read_file] ", srtb::unpack_queue, unpack_work);
 

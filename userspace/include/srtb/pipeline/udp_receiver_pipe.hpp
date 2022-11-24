@@ -72,11 +72,15 @@ class udp_receiver_pipe : public pipe<udp_receiver_pipe> {
     std::memcpy(reinterpret_cast<void*>(h_ptr.get()), /* <- */ buffer.data(),
                 baseband_input_bytes * sizeof(std::byte));
     event.wait();
+
+    uint64_t timestamp =
+        std::chrono::system_clock::now().time_since_epoch().count();
     {
       srtb::work::unpack_work unpack_work;
       unpack_work.ptr = d_ptr;
       unpack_work.count = baseband_input_bytes;
       unpack_work.baseband_input_bits = baseband_input_bits;
+      unpack_work.timestamp = timestamp;
       SRTB_PUSH_WORK(" [udp receiver pipe] ", srtb::unpack_queue, unpack_work);
     }
     /*
@@ -84,8 +88,7 @@ class udp_receiver_pipe : public pipe<udp_receiver_pipe> {
       srtb::work::baseband_output_work baseband_output_work;
       baseband_output_work.ptr = h_ptr;
       baseband_output_work.count = baseband_input_bytes;
-      baseband_output_work.timestamp =
-          std::chrono::system_clock::now().time_since_epoch().count();
+      baseband_output_work.timestamp = timestamp;
       SRTB_PUSH_WORK(" [udp receiver pipe] ", srtb::baseband_output_queue,
                      baseband_output_work);
     }

@@ -17,6 +17,8 @@
 #include <boost/lockfree/spsc_queue.hpp>
 #include <thread>
 
+#include "srtb/config.hpp"
+
 #define SRTB_PUSH_WORK(tag, work_queue, work)                                \
   {                                                                          \
     bool ret = work_queue.push(work);                                        \
@@ -86,16 +88,25 @@ namespace work {
  * @brief This represents a work to be done and should be the same as `std::pair<T, size_t>`,
  *        created just because `std::pair` doesn't satisfy `boost::has_trivial_assign`,
  *        which is required for lockfree queue.
- * @tparam T Type of the pointer of the work, e.g. std::shared_ptr<std::byte> for unpack and std::shared_ptr<srtb::real> for FFT.
+ * @tparam T Type of the pointer of the work, e.g. std::shared_ptr<std::byte> for unpack and std::shared_ptr<srtb::real> for r2c FFT.
  *         TODO: Maybe T = sycl::buffer<std::byte> if pointer isn't suitable for some backend in the future.
  */
 template <typename T>
 struct work {
+  /**
+   * @brief Pointer / Some pointer wrapper / sycl::buffer of data to be processed,
+   *        currently @c std::shared_ptr is used to reduce memory error.
+   */
   T ptr;
   /**
    * @brief count of data in @c ptr
    */
   size_t count;
+  /**
+   * @brief time stamp of these data, currectly 64-bit unix timestamp.
+   */
+  uint64_t timestamp;
+  // TODO: udp_packet_counter_type counter;
 };
 
 /**
