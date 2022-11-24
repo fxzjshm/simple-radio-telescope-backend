@@ -72,8 +72,14 @@ void multi_mapreduce(InputIterator input, size_t count_per_batch,
   const size_t sizeofB = sizeof(B);
   auto device = q.get_device();
 
-  const sycl::id<1> max_work_item_sizes =
-      device.get_info<sycl::info::device::max_work_item_sizes<1> >();
+  const sycl::id<3> max_work_item_sizes = device.get_info<
+#ifdef __HIPSYCL__
+      // hipSYCL hasn't updated this
+      sycl::info::device::max_work_item_sizes
+#else
+      sycl::info::device::max_work_item_sizes<3>
+#endif
+      >();
   const auto max_work_item =
       std::min(device.get_info<sycl::info::device::max_work_group_size>(),
                max_work_item_sizes[0]);
@@ -133,6 +139,8 @@ void multi_mapreduce(InputIterator input, size_t count_per_batch,
 
            nd_item.barrier(sycl::access::fence_space::local_space);
 
+           // reduce_over_group, but SYCL 2020 doesn't support custom operations
+           // so custom one is used
            if (local_id == 0) {
              B acc = sum[0];
              for (size_t local_id = 1;
