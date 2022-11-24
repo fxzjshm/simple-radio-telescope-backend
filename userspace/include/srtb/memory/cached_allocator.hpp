@@ -42,6 +42,13 @@ class cached_allocator {
   using size_type = typename std::allocator_traits<RealAllocator>::size_type;
   using pointer = typename std::allocator_traits<RealAllocator>::pointer;
 
+  /**
+   * @brief if required size > cache_threshold * actual pointer size, cache this allocation;
+   *        otherwise, allocate a new one.
+   *        This is intended for more efficient utilization of VRAM.
+   */
+  static constexpr double cache_threshold = 0.5;
+
  protected:
   std::multimap<size_type, pointer> free_ptrs;
   std::map<pointer, size_type> used_ptrs;
@@ -73,8 +80,8 @@ class cached_allocator {
     pointer ptr = nullptr;
     size_type ptr_size = 0;
 
-    if (iter == free_ptrs.end()) {
-      // not found, allocate a new one
+    if (iter == free_ptrs.end() || (n < (*iter).first * cache_threshold)) {
+      // not found or that ptr is too large, allocate a new one
       // pay attention to alignment
       if constexpr (srtb::MEMORY_ALIGNMENT != 0) {
         if (n > 0) [[likely]] {
