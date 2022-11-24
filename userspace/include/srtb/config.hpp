@@ -53,7 +53,7 @@ using complex = std::complex<T>;
 inline constexpr size_t work_queue_capacity = 4;
 
 // option to use fix the max size of work_queue or not
-//#define SRTB_WORK_QUEUE_FIXED_SIZE
+inline constexpr bool work_queue_fixed_size = false;
 
 using udp_packet_counter_type = uint64_t;
 

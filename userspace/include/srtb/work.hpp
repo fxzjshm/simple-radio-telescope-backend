@@ -57,18 +57,24 @@ namespace srtb {
 
 // definition of work queue, a container of works to be processed.
 // TODO: check should use spsc_queue or shared queue with mutex here
-#ifdef SRTB_WORK_QUEUE_FIXED_SIZE
-template <typename T>
-using work_queue = boost::lockfree::spsc_queue<
-    T, boost::lockfree::capacity<srtb::work_queue_capacity> >;
-#else
-template <typename T>
-class work_queue : public boost::lockfree::spsc_queue<T> {
+template <typename T, bool fixed_size = srtb::work_queue_fixed_size,
+          size_t capacity = srtb::work_queue_capacity>
+class work_queue;
+
+template <typename T, size_t capacity>
+class work_queue<T, true, capacity>
+    : public boost::lockfree::spsc_queue<T,
+                                         boost::lockfree::capacity<capacity> > {
+};
+
+template <typename T, size_t initial_capacity>
+class work_queue<T, false, initial_capacity>
+    : public boost::lockfree::spsc_queue<T> {
  public:
   using super_class = boost::lockfree::spsc_queue<T>;
-  work_queue() : super_class{work_queue_capacity} {}
+  work_queue(size_t initial_capacity_ = initial_capacity)
+      : super_class{initial_capacity_} {}
 };
-#endif
 
 /**
  * @brief This namespace contains work types that defines the input of a pipe.
