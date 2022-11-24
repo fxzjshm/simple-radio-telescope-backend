@@ -43,7 +43,7 @@ class read_file_pipe : public pipe<read_file_pipe> {
    * 
    * @param file_path path of the file to read
    * @param q a sycl queue to use
-   * @note TODO: share some part of the code with unpack pipe
+   * @note TODO: read file header to get correct timestamp (if exists)
    */
   void read_file(const std::string& file_path,
                  const size_t baseband_input_count,
@@ -56,10 +56,6 @@ class read_file_pipe : public pipe<read_file_pipe> {
 
     input_file_stream.ignore(input_file_offset_bytes);
 
-    std::shared_ptr<char> h_in_shared =
-        srtb::host_allocator.allocate_shared<char>(time_sample_bytes);
-    char* h_in = h_in_shared.get();
-
     // counting bytes read manually because position of file may stop at end of
     // file when reading to that, but that calculating position when reserving
     // sample needs continuous bytes counting, i.e.
@@ -71,6 +67,9 @@ class read_file_pipe : public pipe<read_file_pipe> {
     std::streampos logical_file_pos = input_file_offset_bytes;
 
     while (input_file_stream) {
+      std::shared_ptr<char> h_in_shared =
+          srtb::host_allocator.allocate_shared<char>(time_sample_bytes);
+      char* h_in = h_in_shared.get();
       // parallel memset ?
       std::memset(h_in, 0, time_sample_bytes);
       input_file_stream.read(reinterpret_cast<char*>(h_in), time_sample_bytes);
@@ -83,13 +82,24 @@ class read_file_pipe : public pipe<read_file_pipe> {
 
       uint64_t timestamp =
           std::chrono::system_clock::now().time_since_epoch().count();
+      {
+        srtb::work::unpack_work unpack_work;
+        unpack_work.ptr = std::reinterpret_pointer_cast<std::byte>(d_in_shared);
+        unpack_work.count = time_sample_bytes;
+        unpack_work.timestamp = timestamp;
+        unpack_work.baseband_input_bits = baseband_input_bits;
+        SRTB_PUSH_WORK(" [read_file] ", srtb::unpack_queue, unpack_work);
+      }
 
-      srtb::work::unpack_work unpack_work;
-      unpack_work.ptr = std::reinterpret_pointer_cast<std::byte>(d_in_shared);
-      unpack_work.count = time_sample_bytes;
-      unpack_work.timestamp = timestamp;
-      unpack_work.baseband_input_bits = baseband_input_bits;
-      SRTB_PUSH_WORK(" [read_file] ", srtb::unpack_queue, unpack_work);
+      {
+        srtb::work::baseband_output_work baseband_output_work;
+        baseband_output_work.ptr =
+            std::reinterpret_pointer_cast<std::byte>(h_in_shared);
+        baseband_output_work.count = time_sample_bytes;
+        baseband_output_work.timestamp = timestamp;
+        SRTB_PUSH_WORK(" [udp receiver pipe] ", srtb::baseband_output_queue,
+                       baseband_output_work);
+      }
 
       // reserved some samples for next round
       const size_t nsamps_reserved = srtb::codd::nsamps_reserved();

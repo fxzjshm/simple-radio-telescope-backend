@@ -20,10 +20,12 @@
 #include "srtb/frequency_domain_filterbank.hpp"
 #include "srtb/gui/gui.hpp"
 #include "srtb/io/udp_receiver.hpp"
+#include "srtb/pipeline/baseband_output_pipe.hpp"
 #include "srtb/pipeline/dedisperse_and_channelize_pipe.hpp"
 #include "srtb/pipeline/fft_pipe.hpp"
 #include "srtb/pipeline/read_file_pipe.hpp"
 #include "srtb/pipeline/rfi_mitigation_pipe.hpp"
+#include "srtb/pipeline/signal_detect_pipe.hpp"
 #include "srtb/pipeline/spectrum_pipe.hpp"
 #include "srtb/pipeline/udp_receiver_pipe.hpp"
 #include "srtb/pipeline/unpack_pipe.hpp"
@@ -74,6 +76,12 @@ int main(int argc, char** argv) {
 
   srtb::pipeline::refft_1d_c2c_pipe refft_1d_c2c_pipe;
   refft_1d_c2c_pipe.start();
+
+  srtb::pipeline::signal_detect_pipe signal_detect_pipe;
+  signal_detect_pipe.start();
+
+  srtb::pipeline::baseband_output_pipe baseband_output_pipe;
+  baseband_output_pipe.start();
 
   srtb::pipeline::simplify_spectrum_pipe simplify_spectrum_pipe;
   simplify_spectrum_pipe.start();

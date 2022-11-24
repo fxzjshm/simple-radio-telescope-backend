@@ -83,7 +83,7 @@ class udp_receiver_pipe : public pipe<udp_receiver_pipe> {
       unpack_work.timestamp = timestamp;
       SRTB_PUSH_WORK(" [udp receiver pipe] ", srtb::unpack_queue, unpack_work);
     }
-    /*
+
     {
       srtb::work::baseband_output_work baseband_output_work;
       baseband_output_work.ptr = h_ptr;
@@ -92,7 +92,6 @@ class udp_receiver_pipe : public pipe<udp_receiver_pipe> {
       SRTB_PUSH_WORK(" [udp receiver pipe] ", srtb::baseband_output_queue,
                      baseband_output_work);
     }
-    */
 
     // reserved some samples for next round
     const size_t nsamps_reserved = srtb::codd::nsamps_reserved();

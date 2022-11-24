@@ -61,6 +61,8 @@ using udp_packet_counter_type = uint64_t;
 inline constexpr bool fft_window_precompute = false;
 inline constexpr bool fft_operate_in_place = true;
 
+inline constexpr bool write_all_baseband = false;
+
 // TODO: is this necessary or too large?
 inline constexpr size_t MEMORY_ALIGNMENT = 64ul;
 
@@ -186,6 +188,16 @@ struct configs {
    *        of complex numbers, so <= baseband_input_count / 2
    */
   size_t refft_length = 1 << 15;
+
+  /**
+   * @brief threshold for signal detect.
+   *        If $ \exist x_i $ s.t. $$ x_i > \mu + k * \sigma $$,
+   *        where $ x_i $ is a value of time series,
+   *              $ \mu $ is its mean value, $ \sigma $ is variance,
+   *              $ k $ is this threshold
+   *        then it is thought a signal.
+   */
+  srtb::real signal_detect_threshold = 6;
 
   /**
    * @brief Wait time in naneseconds for a thread to sleep if it fails to get work now.

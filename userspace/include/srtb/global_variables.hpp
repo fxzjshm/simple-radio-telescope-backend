@@ -20,15 +20,14 @@
  */
 
 #include <condition_variable>
+#include <map>
 #include <mutex>
 #include <thread>
-#include <map>
 
 #include "srtb/config.hpp"
 #include "srtb/sycl.hpp"
 
 namespace srtb {
-
 
 // configs
 
@@ -40,7 +39,6 @@ inline srtb::configs config;
 
 /** @brief names and expressions of changed items of @c srtb::config */
 inline std::map<std::string, std::string> changed_configs;
-
 
 /** @brief default queue for all operations if no queue is specified */
 inline sycl::queue queue;
@@ -84,11 +82,22 @@ inline srtb::work_queue<srtb::work::refft_1d_c2c_work> refft_1d_c2c_queue;
 inline srtb::work_queue<srtb::work::simplify_spectrum_work>
     simplify_spectrum_queue;
 inline srtb::work_queue<srtb::work::draw_spectrum_work> draw_spectrum_queue;
-inline srtb::work_queue<srtb::work::baseband_output_work> baseband_output_queue;
+inline srtb::work_queue<srtb::work::signal_detect_work> signal_detect_queue;
+
+// data of this queue are on host memory, so resource is not very restricted.
+// it also acts as a buffer, that is, only when signal_detect_pipe has result
+// can baseband_output_pipe write or drop it,
+// so capacity must be LARGE
+inline srtb::work_queue<srtb::work::baseband_output_work,
+                        /* fixed_size = */ false>
+    baseband_output_queue{1024 * srtb::work_queue_capacity};
+inline srtb::work_queue<srtb::work::signal_detect_result>
+    signal_detect_result_queue;
 
 namespace pipeline {
 
-// currently used for end of pipeline to send a signal to start of the pipeline.
+// used for end of pipeline to send a signal to start of the pipeline,
+// currently enabled only when input source is a file
 inline std::mutex pipeline_mutex;
 inline std::condition_variable pipeline_cv;
 inline bool need_more_work = false;

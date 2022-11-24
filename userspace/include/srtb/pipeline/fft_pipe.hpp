@@ -285,6 +285,14 @@ class refft_1d_c2c_pipe : public pipe<refft_1d_c2c_pipe> {
     simplify_spectrum_work.timestamp = refft_1d_c2c_work.timestamp;
     SRTB_PUSH_WORK(" [refft 1d c2c pipe] ", srtb::simplify_spectrum_queue,
                    simplify_spectrum_work);
+
+    srtb::work::signal_detect_work signal_detect_work;
+    signal_detect_work.ptr = d_out_shared;
+    signal_detect_work.count = refft_length;
+    signal_detect_work.batch_size = refft_batch_size;
+    signal_detect_work.timestamp = refft_1d_c2c_work.timestamp;
+    SRTB_PUSH_WORK(" [refft 1d c2c pipe] ", srtb::signal_detect_queue,
+                   signal_detect_work);
   }
 };
 
