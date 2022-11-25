@@ -82,11 +82,21 @@ class signal_detect_pipe : public pipe<signal_detect_pipe> {
 
     // trivial signal detect
     {
-      auto d_variance_shared = srtb::algorithm::map_average(
+      auto d_variance_squared_shared = srtb::algorithm::map_average(
           d_out, batch_size,
-          []([[maybe_unused]] size_t pos, srtb::real x) { return x * x; }, q);
+          []([[maybe_unused]] size_t pos, srtb::real x) -> double {
+            const double y = static_cast<double>(x);
+            return y * y;
+          },
+          q);
+      auto d_variance_squared = d_variance_squared_shared.get();
+      auto d_variance_shared =
+          srtb::device_allocator.allocate_shared<srtb::real>(1);
       auto d_variance = d_variance_shared.get();
-      q.single_task([=]() { (*d_variance) = sycl::sqrt(*d_variance); }).wait();
+      q.single_task([=]() {
+         (*d_variance) =
+             static_cast<srtb::real>(sycl::sqrt(*d_variance_squared));
+       }).wait();
 
       auto d_signal_count_shared = srtb::algorithm::map_sum(
           d_out, batch_size, /* map = */
@@ -101,7 +111,7 @@ class signal_detect_pipe : public pipe<signal_detect_pipe> {
           q);
       size_t* d_signal_count = d_signal_count_shared.get();
       size_t h_signal_count;
-      q.copy(d_signal_count, /* -> */ &h_signal_count, /* size = */ 1);
+      q.copy(d_signal_count, /* -> */ &h_signal_count, /* size = */ 1).wait();
 
       const bool has_signal = (h_signal_count > 0);
       srtb::work::signal_detect_result signal_detect_result{
