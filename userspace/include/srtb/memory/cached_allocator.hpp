@@ -80,7 +80,8 @@ class cached_allocator {
     pointer ptr = nullptr;
     size_type ptr_size = 0;
 
-    if (iter == free_ptrs.end() || (n < (*iter).first * cache_threshold)) {
+    if (iter == free_ptrs.end() ||
+        (n > srtb::MEMORY_ALIGNMENT && n < (*iter).first * cache_threshold)) {
       // not found or that ptr is too large, allocate a new one
       // pay attention to alignment
       if constexpr (srtb::MEMORY_ALIGNMENT != 0) {
