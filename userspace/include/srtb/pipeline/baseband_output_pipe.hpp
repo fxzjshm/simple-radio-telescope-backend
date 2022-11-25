@@ -14,6 +14,17 @@
 #ifndef __SRTB_PIPELINE_FILE_PIPE__
 #define __SRTB_PIPELINE_FILE_PIPE__
 
+// https://stackoverflow.com/questions/11350878/how-can-i-determine-if-the-operating-system-is-posix-in-c/67627964#67627964
+#if __has_include(<unistd.h>)
+// System is posix-compliant
+#include <unistd.h>
+#else
+// System is not posix-compliant
+#endif
+
+// https://stackoverflow.com/questions/676787/how-to-do-fsync-on-an-ofstream
+#include <boost/iostreams/device/file_descriptor.hpp>
+#include <boost/iostreams/stream.hpp>
 #include <fstream>
 
 #include "srtb/commons.hpp"
@@ -97,7 +108,7 @@ class baseband_output_pipe<false> : public pipe<baseband_output_pipe<false> > {
     while (baseband_output_work.timestamp != signal_detect_result.timestamp)
       [[unlikely]] {
         if (baseband_output_work.timestamp < signal_detect_result.timestamp) {
-          SRTB_LOGW << "[baseband_output_pipe] "
+          SRTB_LOGW << " [baseband_output_pipe] "
                     << "baseband_output_work.timestamp = "
                     << baseband_output_work.timestamp << " < "
                     << "signal_detect_result.timestamp = "
@@ -107,7 +118,7 @@ class baseband_output_pipe<false> : public pipe<baseband_output_pipe<false> > {
         } else if (baseband_output_work.timestamp >
                    signal_detect_result.timestamp) {
           // baseband_output_work.timestamp > signal_detect_result.timestamp
-          SRTB_LOGW << "[baseband_output_pipe] "
+          SRTB_LOGW << " [baseband_output_pipe] "
                     << "baseband_output_work.timestamp = "
                     << baseband_output_work.timestamp << " > "
                     << "signal_detect_result.timestamp = "
@@ -115,31 +126,40 @@ class baseband_output_pipe<false> : public pipe<baseband_output_pipe<false> > {
           SRTB_POP_WORK(" [baseband_output_pipe] ",
                         srtb::signal_detect_result_queue, signal_detect_result);
         } else {
-          SRTB_LOGE << "[baseband_output_pipe] "
+          SRTB_LOGE << " [baseband_output_pipe] "
                     << "Logic error. Something must be wrong." << srtb::endl;
         }
       }
 
     if (signal_detect_result.has_signal) {
       auto timestamp = baseband_output_work.timestamp;
-      SRTB_LOGI << "[baseband_output_pipe] "
+      SRTB_LOGI << " [baseband_output_pipe] "
                 << "Begin writing baseband data, timestamp = " << timestamp
                 << srtb::endl;
       std::string file_path = srtb::config.baseband_output_file_prefix +
                               std::to_string(timestamp) + ".bin";
-      std::ofstream file_output_stream{file_path.c_str(), std::ios::binary};
+      boost::iostreams::stream<boost::iostreams::file_descriptor_sink>
+          file_output_stream{file_path, BOOST_IOS::binary | BOOST_IOS::out};
 
       const char* ptr = reinterpret_cast<char*>(baseband_output_work.ptr.get());
-      const size_t baseband_input_count = baseband_output_work.count;
-      const size_t write_count = baseband_input_count;
+      const size_t write_count = baseband_output_work.count;
 
       file_output_stream.write(
           ptr, write_count *
                    sizeof(decltype(baseband_output_work.ptr)::element_type));
-      file_output_stream.close();
-      SRTB_LOGI << "[baseband_output_pipe] "
-                << "Finished writing baseband data, timestamp = " << timestamp
-                << srtb::endl;
+      file_output_stream.flush();
+      if (file_output_stream) [[likely]] {
+#ifdef _POSIX_VERSION
+        ::fdatasync(file_output_stream->handle());
+#endif
+        SRTB_LOGI << " [baseband_output_pipe] "
+                  << "Finished writing baseband data, timestamp = " << timestamp
+                  << srtb::endl;
+      } else {
+        SRTB_LOGW << " [baseband_output_pipe] "
+                  << "Failed to write baseband data! timestamp = " << timestamp
+                  << srtb::endl;
+      }
     }
   }
 };

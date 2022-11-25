@@ -101,7 +101,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native ")
 # dependency
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
-find_package(Boost COMPONENTS program_options REQUIRED)
+find_package(Boost COMPONENTS program_options iostreams REQUIRED)
 include_directories(${Boost_INCLUDE_DIRS})
 if(SRTB_ENABLE_ROCM)
     link_directories("/opt/rocm/lib")
@@ -120,6 +120,7 @@ function(srtb_add_dependency target_name)
 
     # add dependency
     target_link_libraries(${target_name} PUBLIC fftw3_threads fftw3 fftw3f_threads fftw3f Threads::Threads) # TODO maybe findFFTW
+    target_link_libraries(${target_name} PUBLIC Boost::program_options Boost::iostreams)
     target_link_libraries(${target_name} PUBLIC stdc++ m)  # TODO: this shouldn't be needed
     target_link_libraries(${target_name} PUBLIC dl)
     if(SRTB_ENABLE_CUDA)
