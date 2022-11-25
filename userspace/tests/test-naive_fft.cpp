@@ -49,7 +49,7 @@ void fft(Complex* arr,
 int main(int argc, char** argv) {
   sycl::queue q;
 
-  const int manual_thereshold = 10;
+  const int manual_threshold = 10;
 
   bit = 20;
   if (argc > 1) {
@@ -81,7 +81,7 @@ int main(int argc, char** argv) {
                                  FFTW_FORWARD, FFTW_ESTIMATE);
   auto fftw_plan_end = std::chrono::system_clock::now();
 
-  if (siz < manual_thereshold) {
+  if (siz < manual_threshold) {
     for (int i = 0; i < siz; i++) {
       int x;
       std::cin >> x;
@@ -133,7 +133,7 @@ int main(int argc, char** argv) {
             << "fftw execute " << fftw_execute_time.count() << "ns. "
             << std::endl;
 
-  if (siz < manual_thereshold) {
+  if (siz < manual_threshold) {
     for (int i = 0; i < siz; i++) {
       std::cout << f[i] << ' ';
     }

@@ -77,7 +77,7 @@ call_fftw_1d(size_t n, size_t batch_size, float* in, C* out) {
 int main(int argc, char** argv) {
   int bit = 2;
   size_t batch_size = 2, test_count = 3;
-  const int print_result_thereshold = 32;
+  const int print_result_threshold = 32;
   if (argc > 1) {
     try {
       bit = std::stoi(argv[1]);
@@ -177,7 +177,7 @@ int main(int argc, char** argv) {
                   << "time = " << run_time.count() << "ns" << srtb::endl;
         srtb::queue.copy(d_out, &h_out[0], total_size_complex).wait();
         // print result if n is small enough, for debug only
-        if (n < print_result_thereshold) {
+        if (n < print_result_threshold) {
           std::cout << "Input: ";
           for (size_t k = 0; k < total_size_real; k++) {
             std::cout << h_in[k] << ' ';

@@ -96,9 +96,9 @@ namespace program_options {
        "Target dispersion measurement for coherent dedispersion.")
       ("fft_fftw_wisdom_path", boost::program_options::value<std::string>(),
        "Location to save fftw wisdom.")
-      ("mitigate_rfi_thereshold", boost::program_options::value<std::string>(),
-       "Temporary thereshold for RFI mitigation. Channels with signal stronger "
-       "than this thereshold * average strength will be set to 0 .")
+      ("mitigate_rfi_threshold", boost::program_options::value<std::string>(),
+       "Temporary threshold for RFI mitigation. Channels with signal stronger "
+       "than this threshold * average strength will be set to 0 .")
       ("refft_length", boost::program_options::value<std::string>(),
        "Length of FFT for re-constructing signals after coherent dedispersion, "
        "of complex numbers, so refft_length <= baseband_input_count / 2")
@@ -195,7 +195,7 @@ inline void evaluate_and_apply_changed_config(const std::string& name,
   SRTB_ASSIGN(baseband_output_file_prefix)
   SRTB_PARSE(log_level)
   SRTB_ASSIGN(fft_fftw_wisdom_path)
-  SRTB_PARSE(mitigate_rfi_thereshold)
+  SRTB_PARSE(mitigate_rfi_threshold)
   SRTB_PARSE(refft_length)
   SRTB_PARSE(thread_query_work_wait_time)
   /* else */ {

@@ -30,7 +30,7 @@ template <typename T = srtb::real, typename C = srtb::complex<srtb::real>,
           typename DeviceComplexInputAccessor = C*>
 void mitigate_rfi(DeviceComplexInputAccessor d_in, size_t in_count,
                   sycl::queue& q = srtb::queue) {
-  const srtb::real thereshold = srtb::config.mitigate_rfi_thereshold;
+  const srtb::real threshold = srtb::config.mitigate_rfi_threshold;
   auto d_norm_avg_shared = srtb::algorithm::map_average(
       d_in, in_count,
       []([[maybe_unused]] size_t pos, C c) { return srtb::norm(c); }, q);
@@ -39,7 +39,7 @@ void mitigate_rfi(DeviceComplexInputAccessor d_in, size_t in_count,
      const size_t i = id.get_id(0);
      const srtb::real norm_avg = (*d_norm_avg);
      const srtb::real val = srtb::norm(d_in[i]);
-     if (val > thereshold * norm_avg) {
+     if (val > threshold * norm_avg) {
        d_in[i] = C(T(0), T(0));
      }
    }).wait();

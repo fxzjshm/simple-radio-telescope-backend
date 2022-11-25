@@ -166,10 +166,10 @@ struct configs {
   std::string fft_fftw_wisdom_path = "srtb_fftw_wisdom.txt";
 
   /**
-   * @brief Temporary thereshold for RFI mitigation. Channels with signal stronger
-   *        than this thereshold * average strength will be set to 0
+   * @brief Temporary threshold for RFI mitigation. Channels with signal stronger
+   *        than this threshold * average strength will be set to 0
    */
-  srtb::real mitigate_rfi_thereshold = 10;
+  srtb::real mitigate_rfi_threshold = 10;
 
   /**
    * @brief sum some spectrum before drawing, to reduce CPU side pressure
