@@ -102,6 +102,8 @@ namespace program_options {
       ("refft_length", boost::program_options::value<std::string>(),
        "Length of FFT for re-constructing signals after coherent dedispersion, "
        "of complex numbers, so refft_length <= baseband_input_count / 2")
+      ("signal_detect_threshold", boost::program_options::value<std::string>(),
+       "threshold for signal detect, target signal / noise ratio")
     ;
   /* clang-format on */
   data_io_option.add(udp_receiver_options).add(file_io_options);
@@ -197,6 +199,7 @@ inline void evaluate_and_apply_changed_config(const std::string& name,
   SRTB_ASSIGN(fft_fftw_wisdom_path)
   SRTB_PARSE(mitigate_rfi_threshold)
   SRTB_PARSE(refft_length)
+  SRTB_PARSE(signal_detect_threshold)
   SRTB_PARSE(thread_query_work_wait_time)
   /* else */ {
     SRTB_LOGW << " [program_options] "
@@ -204,6 +207,7 @@ inline void evaluate_and_apply_changed_config(const std::string& name,
               << "value = " << '\"' << value << '\"' << srtb::endl;
   }
 #undef SRTB_PARSE
+#undef SRTB_ASSIGN
 }
 
 inline void apply_changed_configs(
