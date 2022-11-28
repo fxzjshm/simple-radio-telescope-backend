@@ -14,6 +14,8 @@
 #ifndef __SRTB_TERMINATION_HANDLER__
 #define __SRTB_TERMINATION_HANDLER__
 
+// these variables and functions handle terminations and signals
+// when the program will be abnormally closed.
 // ref: https://www.boost.org/doc/libs/1_80_0/doc/html/stacktrace/getting_started.html
 //      https://stackoverflow.com/a/77336
 
@@ -38,6 +40,7 @@ class termination_handler_t {
   sighandler_t original_SIGFPE_handler;
   sighandler_t original_SIGSEGV_handler;
 
+  // this constructor registers handlers to runtime
   termination_handler_t() {
     original_terminate_handler = std::set_terminate(&srtb::termination_handler);
     // remember to set the behaviour in signal_handler
