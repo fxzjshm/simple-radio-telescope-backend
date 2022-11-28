@@ -46,45 +46,66 @@ int main(int argc, char** argv) {
 
   srtb::pipeline::udp_receiver_pipe udp_receiver_pipe;
   srtb::pipeline::read_file_pipe read_file_pipe;
-
+  std::jthread input_thread;
   if (std::filesystem::exists(srtb::config.input_file_path)) {
     SRTB_LOGI << " [main] "
               << "Reading file " << srtb::config.input_file_path << srtb::endl;
-    read_file_pipe.start();
+    input_thread = read_file_pipe.start();
   } else {
     SRTB_LOGI << " [main] "
               << "Receiving UDP packets" << srtb::endl;
-    udp_receiver_pipe.start();
+    input_thread = udp_receiver_pipe.start();
   }
 
   srtb::pipeline::unpack_pipe unpack_pipe;
-  unpack_pipe.start();
+  std::jthread unpack_thread;
+  unpack_thread = unpack_pipe.start();
 
   srtb::pipeline::fft_1d_r2c_pipe fft_1d_r2c_pipe;
-  fft_1d_r2c_pipe.start();
+  std::jthread fft_1d_r2c_thread;
+  fft_1d_r2c_thread = fft_1d_r2c_pipe.start();
 
   srtb::pipeline::rfi_mitigation_pipe rfi_mitigation_pipe;
-  rfi_mitigation_pipe.start();
+  std::jthread rfi_mitigation_thread;
+  rfi_mitigation_thread = rfi_mitigation_pipe.start();
 
   //srtb::pipeline::dedisperse_and_channelize_pipe dedisperse_and_channelize_pipe;
   //dedisperse_and_channelize_pipe.start();
   srtb::pipeline::dedisperse_pipe dedisperse_pipe;
-  dedisperse_pipe.start();
+  std::jthread dedisperse_thread;
+  dedisperse_thread = dedisperse_pipe.start();
 
   srtb::pipeline::ifft_1d_c2c_pipe ifft_1d_c2c_pipe;
-  ifft_1d_c2c_pipe.start();
+  std::jthread ifft_1d_c2c_thread;
+  ifft_1d_c2c_thread = ifft_1d_c2c_pipe.start();
 
   srtb::pipeline::refft_1d_c2c_pipe refft_1d_c2c_pipe;
-  refft_1d_c2c_pipe.start();
+  std::jthread refft_1d_c2c_thread;
+  refft_1d_c2c_thread = refft_1d_c2c_pipe.start();
 
   srtb::pipeline::signal_detect_pipe signal_detect_pipe;
-  signal_detect_pipe.start();
+  std::jthread signal_detect_thread;
+  signal_detect_thread = signal_detect_pipe.start();
 
   srtb::pipeline::baseband_output_pipe baseband_output_pipe;
-  baseband_output_pipe.start();
+  std::jthread baseband_output_thread;
+  baseband_output_thread = baseband_output_pipe.start();
 
   srtb::pipeline::simplify_spectrum_pipe simplify_spectrum_pipe;
-  simplify_spectrum_pipe.start();
+  std::jthread simplify_spectrum_thread;
+  simplify_spectrum_thread = simplify_spectrum_pipe.start();
 
-  return srtb::gui::show_gui(argc, argv);
+  std::vector<std::jthread> threads;
+  threads.push_back(std::move(input_thread));
+  threads.push_back(std::move(unpack_thread));
+  threads.push_back(std::move(fft_1d_r2c_thread));
+  threads.push_back(std::move(rfi_mitigation_thread));
+  threads.push_back(std::move(dedisperse_thread));
+  threads.push_back(std::move(ifft_1d_c2c_thread));
+  threads.push_back(std::move(refft_1d_c2c_thread));
+  threads.push_back(std::move(signal_detect_thread));
+  threads.push_back(std::move(baseband_output_thread));
+  threads.push_back(std::move(simplify_spectrum_thread));
+
+  return srtb::gui::show_gui(argc, argv, std::move(threads));
 }

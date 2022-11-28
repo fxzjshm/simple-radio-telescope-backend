@@ -17,6 +17,7 @@
 #include "srtb/commons.hpp"
 // --- divide line for clang-format ---
 #include "srtb/algorithm/map_reduce.hpp"
+#include "srtb/algorithm/map_identity.hpp"
 
 namespace srtb {
 namespace spectrum {

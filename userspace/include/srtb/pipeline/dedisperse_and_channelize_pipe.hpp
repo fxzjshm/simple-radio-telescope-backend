@@ -36,10 +36,11 @@ class dedisperse_and_channelize_pipe
   dedisperse_and_channelize_pipe() {}
 
  protected:
-  void run_once_impl() {
+  void run_once_impl(std::stop_token stop_token) {
     srtb::work::dedisperse_and_channelize_work work;
-    SRTB_POP_WORK(" [dedisperse & channelize pipe] ",
-                  srtb::dedisperse_and_channelize_queue, work);
+    SRTB_POP_WORK_OR_RETURN(" [dedisperse & channelize pipe] ",
+                            srtb::dedisperse_and_channelize_queue, work,
+                            stop_token);
     // drop the highest frequency point
     const size_t N = work.count - 1;
     const size_t M = work.channel_count;
@@ -67,8 +68,8 @@ class dedisperse_and_channelize_pipe
     //refft_1d_c2c_work.count = n;
     //refft_1d_c2c_work.timestamp = work.timestamp;
     //refft_1d_c2c_work.refft_length = std::min(N, srtb::config.refft_length);
-    //SRTB_PUSH_WORK(" [dedisperse & channelize pipe] ", srtb::refft_1d_c2c_queue,
-    //               refft_1d_c2c_work);
+    //SRTB_PUSH_WORK_OR_RETURN(" [dedisperse & channelize pipe] ", srtb::refft_1d_c2c_queue,
+    //               refft_1d_c2c_work, stop_token);
   }
 };
 
@@ -85,10 +86,11 @@ class dedisperse_pipe : public pipe<dedisperse_pipe> {
   dedisperse_pipe() {}
 
  protected:
-  void run_once_impl() {
+  void run_once_impl(std::stop_token stop_token) {
     srtb::work::dedisperse_and_channelize_work work;
-    SRTB_POP_WORK(" [dedisperse pipe] ",
-                  srtb::dedisperse_and_channelize_queue, work);
+    SRTB_POP_WORK_OR_RETURN(" [dedisperse pipe] ",
+                            srtb::dedisperse_and_channelize_queue, work,
+                            stop_token);
     // drop the highest frequency point
     // *Drop*  -- LinusTechTips
     const size_t N = work.count - 1;
@@ -107,15 +109,15 @@ class dedisperse_pipe : public pipe<dedisperse_pipe> {
     //simplify_spectrum_work.ptr = d_in_shared;
     //simplify_spectrum_work.count = N;
     //simplify_spectrum_work.batch_size = 1;
-    //SRTB_PUSH_WORK(" [dedisperse pipe] ", srtb::simplify_spectrum_queue,
-    //               simplify_spectrum_work);
+    //SRTB_PUSH_WORK_OR_RETURN(" [dedisperse pipe] ", srtb::simplify_spectrum_queue,
+    //               simplify_spectrum_work, stop_token);
 
     srtb::work::ifft_1d_c2c_work ifft_1d_c2c_work;
     ifft_1d_c2c_work.ptr = d_in_shared;
     ifft_1d_c2c_work.count = N;
     ifft_1d_c2c_work.timestamp = work.timestamp;
-    SRTB_PUSH_WORK(" [dedisperse pipe] ", srtb::ifft_1d_c2c_queue,
-                   ifft_1d_c2c_work);
+    SRTB_PUSH_WORK_OR_RETURN(" [dedisperse pipe] ", srtb::ifft_1d_c2c_queue,
+                             ifft_1d_c2c_work, stop_token);
   }
 };
 

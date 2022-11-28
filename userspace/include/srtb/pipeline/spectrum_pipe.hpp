@@ -31,10 +31,11 @@ class simplify_spectrum_pipe : public pipe<simplify_spectrum_pipe> {
   simplify_spectrum_pipe() = default;
 
  protected:
-  void run_once_impl() {
+  void run_once_impl(std::stop_token stop_token) {
     srtb::work::simplify_spectrum_work simplify_spectrum_work;
-    SRTB_POP_WORK(" [simplify spectrum pipe] ", srtb::simplify_spectrum_queue,
-                  simplify_spectrum_work);
+    SRTB_POP_WORK_OR_RETURN(" [simplify spectrum pipe] ",
+                            srtb::simplify_spectrum_queue,
+                            simplify_spectrum_work, stop_token);
 
     const size_t in_count = simplify_spectrum_work.count;
     const size_t out_count = srtb::gui::spectrum::width;
@@ -74,8 +75,9 @@ class simplify_spectrum_pipe : public pipe<simplify_spectrum_pipe> {
     draw_spectrum_work.count = out_count;
     draw_spectrum_work.batch_size = batch_size;
     draw_spectrum_work.timestamp = simplify_spectrum_work.timestamp;
-    SRTB_PUSH_WORK(" [simplify spectrum pipe] ", srtb::draw_spectrum_queue,
-                   draw_spectrum_work);
+    SRTB_PUSH_WORK_OR_RETURN(" [simplify spectrum pipe] ",
+                             srtb::draw_spectrum_queue, draw_spectrum_work,
+                             stop_token);
 
     srtb::pipeline::notify();
   }

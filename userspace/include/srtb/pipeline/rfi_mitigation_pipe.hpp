@@ -24,10 +24,11 @@ class rfi_mitigation_pipe : public pipe<rfi_mitigation_pipe> {
   friend pipe<rfi_mitigation_pipe>;
 
  protected:
-  void run_once_impl() {
+  void run_once_impl(std::stop_token stop_token) {
     srtb::work::rfi_mitigation_work rfi_mitigation_work;
-    SRTB_POP_WORK(" [rfi mitigation pipe] ", srtb::rfi_mitigation_queue,
-                  rfi_mitigation_work);
+    SRTB_POP_WORK_OR_RETURN(" [rfi mitigation pipe] ",
+                            srtb::rfi_mitigation_queue, rfi_mitigation_work,
+                            stop_token);
 
     auto d_in_shared = rfi_mitigation_work.ptr;
     auto d_in = d_in_shared.get();
@@ -41,7 +42,7 @@ class rfi_mitigation_pipe : public pipe<rfi_mitigation_pipe> {
     //simplify_spectrum_work.count = in_count;
     //simplify_spectrum_work.timestamp = rfi_mitigation_work.timestamp;
     //simplify_spectrum_work.batch_size = 1;
-    //SRTB_PUSH_WORK(" [rfi mitigation pipe] ", srtb::simplify_spectrum_queue,
+    //SRTB_PUSH_WORK_OR_RETURN(" [rfi mitigation pipe] ", srtb::simplify_spectrum_queue,
     //               simplify_spectrum_work);
 
     srtb::work::dedisperse_and_channelize_work out_work;
@@ -52,8 +53,9 @@ class rfi_mitigation_pipe : public pipe<rfi_mitigation_pipe> {
     out_work.baseband_sample_rate = srtb::config.baseband_sample_rate;
     out_work.channel_count = srtb::config.ifft_channel_count;
     out_work.dm = srtb::config.dm;
-    SRTB_PUSH_WORK(" [rfi mitigation pipe] ",
-                   srtb::dedisperse_and_channelize_queue, out_work);
+    SRTB_PUSH_WORK_OR_RETURN(" [rfi mitigation pipe] ",
+                             srtb::dedisperse_and_channelize_queue, out_work,
+                             stop_token);
   }
 };
 

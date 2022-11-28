@@ -66,15 +66,17 @@ class pipe {
     constexpr bool has_setup = requires() { sub().setup_impl(); };
     constexpr bool has_teardown = requires() { sub().teardown_impl(); };
 
+    srtb::pipeline::running_pipe_count++;
     if constexpr (has_setup) {
       sub().setup_impl();
     }
     while ((!stop_token.stop_possible()) ||
            (stop_token.stop_possible() && !stop_token.stop_requested()))
-      [[likely]] { sub().run_once_impl(); }
+      [[likely]] { sub().run_once_impl(stop_token); }
     if constexpr (has_teardown) {
       sub().teardown_impl();
     }
+    srtb::pipeline::running_pipe_count--;
   }
 
   // setup() -> setup_impl(), if constructor doesn't apply here.
@@ -94,11 +96,14 @@ class pipe {
   Derived& sub() { return static_cast<Derived&>(*this); }
 };
 
-inline void wait_for_notify() {
+inline void wait_for_notify(std::stop_token stop_token) {
   std::unique_lock lock{srtb::pipeline::pipeline_mutex};
-  srtb::pipeline::pipeline_cv.wait(
-      lock, [] { return srtb::pipeline::need_more_work; });
+  srtb::pipeline::pipeline_cv.wait(lock, [&] {
+    return (srtb::pipeline::need_more_work || stop_token.stop_requested());
+  });
   need_more_work = false;
+  SRTB_LOGD << " [pipeline] "
+            << "received notify." << srtb::endl;
 }
 
 inline void notify() {
@@ -106,6 +111,8 @@ inline void notify() {
   need_more_work = true;
   lock.unlock();
   srtb::pipeline::pipeline_cv.notify_one();
+  SRTB_LOGD << " [pipeline] "
+            << "notified pipeline source for more work." << srtb::endl;
 }
 
 }  // namespace pipeline

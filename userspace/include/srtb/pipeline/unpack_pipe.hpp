@@ -39,9 +39,10 @@ class unpack_pipe : public pipe<unpack_pipe> {
   }
 
  protected:
-  void run_once_impl() {
+  void run_once_impl(std::stop_token stop_token) {
     srtb::work::unpack_work unpack_work;
-    SRTB_POP_WORK(" [unpack pipe] ", srtb::unpack_queue, unpack_work);
+    SRTB_POP_WORK_OR_RETURN(" [unpack pipe] ", srtb::unpack_queue, unpack_work,
+                            stop_token);
     // data length after unpack
     const auto baseband_input_bits = unpack_work.baseband_input_bits;
     const size_t out_count =
@@ -89,7 +90,8 @@ class unpack_pipe : public pipe<unpack_pipe> {
     fft_1d_r2c_work.ptr = d_out_shared;
     fft_1d_r2c_work.count = out_count;
     fft_1d_r2c_work.timestamp = unpack_work.timestamp;
-    SRTB_PUSH_WORK(" [unpack pipe] ", srtb::fft_1d_r2c_queue, fft_1d_r2c_work);
+    SRTB_PUSH_WORK_OR_RETURN(" [unpack pipe] ", srtb::fft_1d_r2c_queue,
+                             fft_1d_r2c_work, stop_token);
   }
 };
 

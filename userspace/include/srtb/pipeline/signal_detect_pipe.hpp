@@ -34,14 +34,11 @@ namespace pipeline {
 class signal_detect_pipe : public pipe<signal_detect_pipe> {
   friend pipe<signal_detect_pipe>;
 
- public:
  protected:
-  void setup_impl() {}
-
-  void run_once_impl() {
+  void run_once_impl(std::stop_token stop_token) {
     srtb::work::signal_detect_work signal_detect_work;
-    SRTB_POP_WORK(" [signal_detect_pipe] ", srtb::signal_detect_queue,
-                  signal_detect_work);
+    SRTB_POP_WORK_OR_RETURN(" [signal_detect_pipe] ", srtb::signal_detect_queue,
+                            signal_detect_work, stop_token);
 
     auto& d_in_shared = signal_detect_work.ptr;
     auto d_in = d_in_shared.get();
@@ -116,8 +113,9 @@ class signal_detect_pipe : public pipe<signal_detect_pipe> {
       const bool has_signal = (h_signal_count > 0);
       srtb::work::signal_detect_result signal_detect_result{
           .timestamp = signal_detect_work.timestamp, .has_signal = has_signal};
-      SRTB_PUSH_WORK(" [signal_detect_pipe] ", srtb::signal_detect_result_queue,
-                     signal_detect_result);
+      SRTB_PUSH_WORK_OR_RETURN(" [signal_detect_pipe] ",
+                               srtb::signal_detect_result_queue,
+                               signal_detect_result, stop_token);
       if (has_signal) {
         SRTB_LOGI << " [signal_detect_pipe] " << h_signal_count
                   << " signal(s) detected!" << srtb::endl;

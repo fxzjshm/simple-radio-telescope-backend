@@ -45,7 +45,7 @@ class udp_receiver_pipe : public pipe<udp_receiver_pipe> {
     opt_worker.emplace(sender_address, sender_port, udp_receiver_buffer_size);
   }
 
-  void run_once_impl() {
+  void run_once_impl(std::stop_token stop_token) {
     auto& worker = opt_worker.value();
 
     // this config should persist during one work push
@@ -81,7 +81,8 @@ class udp_receiver_pipe : public pipe<udp_receiver_pipe> {
       unpack_work.count = baseband_input_bytes;
       unpack_work.baseband_input_bits = baseband_input_bits;
       unpack_work.timestamp = timestamp;
-      SRTB_PUSH_WORK(" [udp receiver pipe] ", srtb::unpack_queue, unpack_work);
+      SRTB_PUSH_WORK_OR_RETURN(" [udp receiver pipe] ", srtb::unpack_queue,
+                               unpack_work, stop_token);
     }
 
     {
@@ -89,8 +90,9 @@ class udp_receiver_pipe : public pipe<udp_receiver_pipe> {
       baseband_output_work.ptr = h_ptr;
       baseband_output_work.count = baseband_input_bytes;
       baseband_output_work.timestamp = timestamp;
-      SRTB_PUSH_WORK(" [udp receiver pipe] ", srtb::baseband_output_queue,
-                     baseband_output_work);
+      SRTB_PUSH_WORK_OR_RETURN(" [udp receiver pipe] ",
+                               srtb::baseband_output_queue,
+                               baseband_output_work, stop_token);
     }
 
     // reserved some samples for next round

@@ -19,6 +19,7 @@
  * Some global variables need extra dependency, so not written here.
  */
 
+#include <atomic>
 #include <condition_variable>
 #include <map>
 #include <mutex>
@@ -95,6 +96,8 @@ inline srtb::work_queue<srtb::work::signal_detect_result>
     signal_detect_result_queue;
 
 namespace pipeline {
+
+inline std::atomic<size_t> running_pipe_count = 0;
 
 // used for end of pipeline to send a signal to start of the pipeline,
 // currently enabled only when input source is a file

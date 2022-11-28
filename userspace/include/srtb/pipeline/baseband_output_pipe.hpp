@@ -50,10 +50,11 @@ class baseband_output_pipe<true> : public pipe<baseband_output_pipe<true> > {
   baseband_output_pipe() {}
 
  protected:
-  void run_once_impl() {
+  void run_once_impl(std::stop_token stop_token) {
     srtb::work::baseband_output_work baseband_output_work;
-    SRTB_POP_WORK(" [baseband_output_pipe] ", srtb::baseband_output_queue,
-                  baseband_output_work);
+    SRTB_POP_WORK_OR_RETURN(" [baseband_output_pipe] ",
+                            srtb::baseband_output_queue, baseband_output_work,
+                            stop_token);
 
     // since writing all baseband, ignore signal detect result
     while (!srtb::signal_detect_result_queue.empty()) {
@@ -98,13 +99,15 @@ class baseband_output_pipe<false> : public pipe<baseband_output_pipe<false> > {
   baseband_output_pipe() {}
 
  protected:
-  void run_once_impl() {
+  void run_once_impl(std::stop_token stop_token) {
     srtb::work::baseband_output_work baseband_output_work;
     srtb::work::signal_detect_result signal_detect_result;
-    SRTB_POP_WORK(" [baseband_output_pipe] ", srtb::baseband_output_queue,
-                  baseband_output_work);
-    SRTB_POP_WORK(" [baseband_output_pipe] ", srtb::signal_detect_result_queue,
-                  signal_detect_result);
+    SRTB_POP_WORK_OR_RETURN(" [baseband_output_pipe] ",
+                            srtb::baseband_output_queue, baseband_output_work,
+                            stop_token);
+    SRTB_POP_WORK_OR_RETURN(" [baseband_output_pipe] ",
+                            srtb::signal_detect_result_queue,
+                            signal_detect_result, stop_token);
     while (baseband_output_work.timestamp != signal_detect_result.timestamp)
       [[unlikely]] {
         if (baseband_output_work.timestamp < signal_detect_result.timestamp) {
@@ -113,8 +116,9 @@ class baseband_output_pipe<false> : public pipe<baseband_output_pipe<false> > {
                     << baseband_output_work.timestamp << " < "
                     << "signal_detect_result.timestamp = "
                     << signal_detect_result.timestamp << srtb::endl;
-          SRTB_POP_WORK(" [baseband_output_pipe] ", srtb::baseband_output_queue,
-                        baseband_output_work);
+          SRTB_POP_WORK_OR_RETURN(" [baseband_output_pipe] ",
+                                  srtb::baseband_output_queue,
+                                  baseband_output_work, stop_token);
         } else if (baseband_output_work.timestamp >
                    signal_detect_result.timestamp) {
           // baseband_output_work.timestamp > signal_detect_result.timestamp
@@ -123,8 +127,9 @@ class baseband_output_pipe<false> : public pipe<baseband_output_pipe<false> > {
                     << baseband_output_work.timestamp << " > "
                     << "signal_detect_result.timestamp = "
                     << signal_detect_result.timestamp << srtb::endl;
-          SRTB_POP_WORK(" [baseband_output_pipe] ",
-                        srtb::signal_detect_result_queue, signal_detect_result);
+          SRTB_POP_WORK_OR_RETURN(" [baseband_output_pipe] ",
+                                  srtb::signal_detect_result_queue,
+                                  signal_detect_result, stop_token);
         } else {
           SRTB_LOGE << " [baseband_output_pipe] "
                     << "Logic error. Something must be wrong." << srtb::endl;

@@ -30,14 +30,10 @@ namespace pipeline {
 class read_file_pipe : public pipe<read_file_pipe> {
   friend pipe<read_file_pipe>;
 
- public:
  protected:
-  void setup_impl() {
-    read_file(srtb::config.input_file_path, srtb::config.baseband_input_count,
-              srtb::config.baseband_input_bits,
-              srtb::config.input_file_offset_bytes, q);
-  }
+  bool has_read = false;
 
+ protected:
   /**
    * @brief reads binary file of give type T and unpack it and send it into the pipe.
    * 
@@ -48,7 +44,8 @@ class read_file_pipe : public pipe<read_file_pipe> {
   void read_file(const std::string& file_path,
                  const size_t baseband_input_count,
                  const size_t baseband_input_bits,
-                 const size_t input_file_offset_bytes, sycl::queue& q) {
+                 const size_t input_file_offset_bytes, sycl::queue& q,
+                 std::stop_token stop_token) {
     std::ifstream input_file_stream{file_path,
                                     std::ifstream::in | std::ifstream::binary};
     const size_t time_sample_bytes =
@@ -88,7 +85,8 @@ class read_file_pipe : public pipe<read_file_pipe> {
         unpack_work.count = time_sample_bytes;
         unpack_work.timestamp = timestamp;
         unpack_work.baseband_input_bits = baseband_input_bits;
-        SRTB_PUSH_WORK(" [read_file] ", srtb::unpack_queue, unpack_work);
+        SRTB_PUSH_WORK_OR_RETURN(" [read_file] ", srtb::unpack_queue,
+                                 unpack_work, stop_token);
       }
 
       {
@@ -97,8 +95,9 @@ class read_file_pipe : public pipe<read_file_pipe> {
             std::reinterpret_pointer_cast<std::byte>(h_in_shared);
         baseband_output_work.count = time_sample_bytes;
         baseband_output_work.timestamp = timestamp;
-        SRTB_PUSH_WORK(" [udp receiver pipe] ", srtb::baseband_output_queue,
-                       baseband_output_work);
+        SRTB_PUSH_WORK_OR_RETURN(" [udp receiver pipe] ",
+                                 srtb::baseband_output_queue,
+                                 baseband_output_work, stop_token);
       }
 
       // reserved some samples for next round
@@ -116,15 +115,25 @@ class read_file_pipe : public pipe<read_file_pipe> {
                   << " >= reserved_bytes = " << reserved_bytes << srtb::endl;
       }
 
-      srtb::pipeline::wait_for_notify();
+      srtb::pipeline::wait_for_notify(stop_token);
     }
+
+    SRTB_LOGI << " [read_file] " << file_path << " has been read"
+              << srtb::endl;
   }
 
-  void run_once_impl() {
-    // nothing to do ...
-    // NOTE: here is 1000x sleep time, because thread_query_work_wait_time is of nanosecond
-    std::this_thread::sleep_for(
-        std::chrono::microseconds(srtb::config.thread_query_work_wait_time));
+  void run_once_impl(std::stop_token stop_token) {
+    if (!has_read) {
+      read_file(srtb::config.input_file_path, srtb::config.baseband_input_count,
+                srtb::config.baseband_input_bits,
+                srtb::config.input_file_offset_bytes, q, stop_token);
+      has_read = true;
+    } else {
+      // nothing to do ...
+      // NOTE: here is 1000x sleep time, because thread_query_work_wait_time is of nanosecond
+      std::this_thread::sleep_for(
+          std::chrono::microseconds(srtb::config.thread_query_work_wait_time));
+    }
   }
 };
 

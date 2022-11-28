@@ -43,12 +43,12 @@ class fft_1d_r2c_pipe : public pipe<fft_1d_r2c_pipe> {
                            /* batch_size = */ 1, q);
   }
 
-  void run_once_impl() {
+  void run_once_impl(std::stop_token stop_token) {
     // assume opt_dispatcher has value
     auto& dispatcher = opt_dispatcher.value();
     srtb::work::fft_1d_r2c_work fft_1d_r2c_work;
-    SRTB_POP_WORK(" [fft 1d r2c pipe] ", srtb::fft_1d_r2c_queue,
-                  fft_1d_r2c_work);
+    SRTB_POP_WORK_OR_RETURN(" [fft 1d r2c pipe] ", srtb::fft_1d_r2c_queue,
+                            fft_1d_r2c_work, stop_token);
     const size_t in_count = fft_1d_r2c_work.count;
     const size_t out_count = in_count / 2 + 1;
     // reset FFT plan if mismatch
@@ -78,8 +78,8 @@ class fft_1d_r2c_pipe : public pipe<fft_1d_r2c_pipe> {
     rfi_mitigation_work.ptr = d_out_shared;
     rfi_mitigation_work.count = out_count;
     rfi_mitigation_work.timestamp = fft_1d_r2c_work.timestamp;
-    SRTB_PUSH_WORK(" [fft 1d r2c pipe] ", srtb::rfi_mitigation_queue,
-                   rfi_mitigation_work);
+    SRTB_PUSH_WORK_OR_RETURN(" [fft 1d r2c pipe] ", srtb::rfi_mitigation_queue,
+                             rfi_mitigation_work, stop_token);
   }
 };
 
@@ -111,12 +111,12 @@ class ifft_1d_c2c_pipe : public pipe<ifft_1d_c2c_pipe> {
                                             /* n = */ input_count, q);
   }
 
-  void run_once_impl() {
+  void run_once_impl(std::stop_token stop_token) {
     auto& ifft_dispatcher = opt_ifft_dispatcher.value();
 
     srtb::work::ifft_1d_c2c_work ifft_1d_c2c_work;
-    SRTB_POP_WORK(" [ifft 1d c2c pipe] ", srtb::ifft_1d_c2c_queue,
-                  ifft_1d_c2c_work);
+    SRTB_POP_WORK_OR_RETURN(" [ifft 1d c2c pipe] ", srtb::ifft_1d_c2c_queue,
+                            ifft_1d_c2c_work, stop_token);
     const size_t input_count = ifft_1d_c2c_work.count;
 
     // reset FFT plan if mismatch
@@ -175,8 +175,8 @@ class ifft_1d_c2c_pipe : public pipe<ifft_1d_c2c_pipe> {
     refft_1d_c2c_work.ptr = d_out_shared;
     refft_1d_c2c_work.count = output_count;
     refft_1d_c2c_work.timestamp = ifft_1d_c2c_work.timestamp;
-    SRTB_PUSH_WORK(" [ifft 1d c2c pipe] ", srtb::refft_1d_c2c_queue,
-                   refft_1d_c2c_work);
+    SRTB_PUSH_WORK_OR_RETURN(" [ifft 1d c2c pipe] ", srtb::refft_1d_c2c_queue,
+                             refft_1d_c2c_work, stop_token);
   }
 };
 
@@ -233,10 +233,10 @@ class refft_1d_c2c_pipe : public pipe<refft_1d_c2c_pipe> {
                                              /* n = */ refft_length, q);
   }
 
-  void run_once_impl() {
+  void run_once_impl(std::stop_token stop_token) {
     srtb::work::refft_1d_c2c_work refft_1d_c2c_work;
-    SRTB_POP_WORK(" [refft 1d c2c pipe] ", srtb::refft_1d_c2c_queue,
-                  refft_1d_c2c_work);
+    SRTB_POP_WORK_OR_RETURN(" [refft 1d c2c pipe] ", srtb::refft_1d_c2c_queue,
+                            refft_1d_c2c_work, stop_token);
     const size_t input_count = refft_1d_c2c_work.count;
 
     auto& refft_dispatcher = opt_refft_dispatcher.value();
@@ -283,16 +283,17 @@ class refft_1d_c2c_pipe : public pipe<refft_1d_c2c_pipe> {
     simplify_spectrum_work.count = refft_length;
     simplify_spectrum_work.batch_size = refft_batch_size;
     simplify_spectrum_work.timestamp = refft_1d_c2c_work.timestamp;
-    SRTB_PUSH_WORK(" [refft 1d c2c pipe] ", srtb::simplify_spectrum_queue,
-                   simplify_spectrum_work);
+    SRTB_PUSH_WORK_OR_RETURN(" [refft 1d c2c pipe] ",
+                             srtb::simplify_spectrum_queue,
+                             simplify_spectrum_work, stop_token);
 
     srtb::work::signal_detect_work signal_detect_work;
     signal_detect_work.ptr = d_out_shared;
     signal_detect_work.count = refft_length;
     signal_detect_work.batch_size = refft_batch_size;
     signal_detect_work.timestamp = refft_1d_c2c_work.timestamp;
-    SRTB_PUSH_WORK(" [refft 1d c2c pipe] ", srtb::signal_detect_queue,
-                   signal_detect_work);
+    SRTB_PUSH_WORK_OR_RETURN(" [refft 1d c2c pipe] ", srtb::signal_detect_queue,
+                             signal_detect_work, stop_token);
   }
 };
 

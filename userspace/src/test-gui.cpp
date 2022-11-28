@@ -19,8 +19,8 @@
 #include "srtb/spectrum/simplify_spectrum.hpp"
 
 // TODO: move to tests and auto skip if "headless"
-void start_gui_test() {
-  std::jthread{[]() {
+auto start_gui_test() {
+  return std::jthread{[](std::stop_token stop_token) {
     while (true) {
       const auto in_size = srtb::gui::spectrum::width;
       auto h_in_shared =
@@ -31,18 +31,23 @@ void start_gui_test() {
         return static_cast<srtb::real>(std::rand()) /
                static_cast<srtb::real>(INT_MAX);
       });
-      srtb::work::draw_spectrum_work draw_spectrum_work{{h_in_shared, in_size},
-                                                        1};
-      SRTB_PUSH_WORK(" [gui_test] ", srtb::draw_spectrum_queue,
-                     draw_spectrum_work);
+      srtb::work::draw_spectrum_work draw_spectrum_work;
+      draw_spectrum_work.ptr = h_in_shared;
+      draw_spectrum_work.count = in_size;
+      draw_spectrum_work.batch_size = 1;
+      draw_spectrum_work.timestamp = 0;
+      SRTB_PUSH_WORK_OR_RETURN(" [gui_test] ", srtb::draw_spectrum_queue,
+                               draw_spectrum_work, stop_token);
       using namespace std::chrono_literals;
       std::this_thread::sleep_for(10ms);
       std::this_thread::yield();
     }
-  }}.detach();
+  }};
 }
 
 int main(int argc, char **argv) {
-  start_gui_test();
-  return srtb::gui::show_gui(argc, argv);
+  std::jthread test_thread = start_gui_test();
+  std::vector<std::jthread> threads;
+  threads.push_back(std::move(test_thread));
+  return srtb::gui::show_gui(argc, argv, std::move(threads));
 }
