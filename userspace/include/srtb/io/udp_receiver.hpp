@@ -43,6 +43,8 @@ inline constexpr size_t counter_bytes_count =
  * TODO: maybe use lock free ring buffer, see https://ferrous-systems.com/blog/lock-free-ring-buffer/
  *       or move ring buffer to GPU side, when RDMA method is considered.
  * 
+ * TODO: simultaneously receive 2 polars (i.e. 2 addresses) and *sync*
+ * 
  * @see @c srtb::pipeline::udp_receiver_pipe
  * 
  * ref: https://www.cnblogs.com/lidabo/p/8317296.html ,
@@ -52,7 +54,7 @@ class udp_receiver_worker {
  protected:
   boost::asio::ip::udp::endpoint sender_endpoint, ep2;
   boost::asio::io_service io_service;
-  boost::asio::ip::udp::socket socket{io_service, sender_endpoint};
+  boost::asio::ip::udp::socket socket;
   /**
    * @brief buffer for receiving one UDP packet
    */
