@@ -16,6 +16,7 @@
 #include <source_location>
 #include <vector>
 
+#include "srtb/algorithm/map_identity.hpp"
 #include "srtb/unpack.hpp"
 #include "test-common.hpp"
 
@@ -65,10 +66,10 @@ int main(int argc, char** argv) {
       std::array<srtb::real, srtb::BITS_PER_BYTE / bits> out1, out2;
       std::array expected = {0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 1.0};
       SRTB_CHECK_TEST_UNPACK(expected.size() == out1.size());
-      unpack_item<bits, /* handwritten = */ false>(&in, &out1[0], 0,
-                                                   srtb::unpack::identity());
-      unpack_item<bits, /* handwritten = */ true>(&in, &out2[0], 0,
-                                                  srtb::unpack::identity());
+      unpack_item<bits, /* handwritten = */ false>(
+          &in, &out1[0], 0, srtb::algorithm::map_identity());
+      unpack_item<bits, /* handwritten = */ true>(
+          &in, &out2[0], 0, srtb::algorithm::map_identity());
       for (auto i : out1) {
         std::cout << i << ' ';
       }
@@ -84,11 +85,11 @@ int main(int argc, char** argv) {
       std::array<srtb::real, srtb::BITS_PER_BYTE / bits> out1, out2;
       std::array expected = {2.0, 3.0, 1.0, 2.0};
       SRTB_CHECK_TEST_UNPACK(expected.size() == out1.size());
-      unpack_item<bits, /* handwritten = */ false>(&in, &out1[0], 0,
-                                                   srtb::unpack::identity());
-      unpack_item<bits, /* handwritten = */ true>(&in, &out2[0], 0,
-                                                  srtb::unpack::identity()),
-          srtb::unpack::identity();
+      unpack_item<bits, /* handwritten = */ false>(
+          &in, &out1[0], 0, srtb::algorithm::map_identity());
+      unpack_item<bits, /* handwritten = */ true>(
+          &in, &out2[0], 0, srtb::algorithm::map_identity()),
+          srtb::algorithm::map_identity();
       for (auto i : out1) {
         std::cout << i << ' ';
       }
@@ -104,10 +105,10 @@ int main(int argc, char** argv) {
       std::array<srtb::real, srtb::BITS_PER_BYTE / bits> out1, out2;
       std::array expected = {0.0, 8.0};
       SRTB_CHECK_TEST_UNPACK(expected.size() == out1.size());
-      unpack_item<bits, /* handwritten = */ false>(&in, &out1[0], 0,
-                                                   srtb::unpack::identity());
-      unpack_item<bits, /* handwritten = */ true>(&in, &out2[0], 0,
-                                                  srtb::unpack::identity());
+      unpack_item<bits, /* handwritten = */ false>(
+          &in, &out1[0], 0, srtb::algorithm::map_identity());
+      unpack_item<bits, /* handwritten = */ true>(
+          &in, &out2[0], 0, srtb::algorithm::map_identity());
       for (auto i : out1) {
         std::cout << i << ' ';
       }
@@ -123,10 +124,10 @@ int main(int argc, char** argv) {
       std::array<srtb::real, srtb::BITS_PER_BYTE / bits> out1, out2;
       std::array expected = {157.0};
       SRTB_CHECK_TEST_UNPACK(expected.size() == out1.size());
-      unpack_item<bits, /* handwritten = */ false>(&in, &out1[0], 0,
-                                                   srtb::unpack::identity());
-      unpack_item<bits, /* handwritten = */ true>(&in, &out2[0], 0,
-                                                  srtb::unpack::identity());
+      unpack_item<bits, /* handwritten = */ false>(
+          &in, &out1[0], 0, srtb::algorithm::map_identity());
+      unpack_item<bits, /* handwritten = */ true>(
+          &in, &out2[0], 0, srtb::algorithm::map_identity());
       for (auto i : out1) {
         std::cout << i << ' ';
       }
