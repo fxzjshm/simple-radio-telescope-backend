@@ -128,6 +128,12 @@ struct unpack_work : public srtb::work::work<std::shared_ptr<std::byte> > {
    *        others will result in ... undefined behaviour.
    */
   size_t baseband_input_bits;
+  /**
+   * @brief let unpack_pipe to wait for host to device copy, so that
+   *        udp receiver pipe may lose less packet.
+   *        May be empty for other data sources that is not real-time.
+   */
+  sycl::event host_to_device_copy_event;
 };
 
 /**

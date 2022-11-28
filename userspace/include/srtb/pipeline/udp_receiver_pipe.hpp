@@ -63,15 +63,13 @@ class udp_receiver_pipe : public pipe<udp_receiver_pipe> {
 
     // flush input of baseband_input_bytes
     std::shared_ptr<std::byte> d_ptr =
-        srtb::device_allocator.allocate_shared(baseband_input_bytes);
+        srtb::device_allocator.allocate_shared<std::byte>(baseband_input_bytes);
     std::shared_ptr<std::byte> h_ptr =
-        srtb::host_allocator.allocate_shared(baseband_input_bytes);
-    auto event =
-        q.memcpy(reinterpret_cast<void*>(d_ptr.get()), /* <- */ buffer.data(),
-                 baseband_input_bytes * sizeof(std::byte));
-    std::memcpy(reinterpret_cast<void*>(h_ptr.get()), /* <- */ buffer.data(),
-                baseband_input_bytes * sizeof(std::byte));
-    event.wait();
+        srtb::host_allocator.allocate_shared<std::byte>(baseband_input_bytes);
+    std::copy_n(reinterpret_cast<const std::byte*>(buffer.data()),
+                baseband_input_bytes, h_ptr.get());
+    sycl::event host_to_devive_copy_event =
+        q.copy(h_ptr.get(), /* -> */ d_ptr.get(), baseband_input_bytes);
 
     uint64_t timestamp =
         std::chrono::system_clock::now().time_since_epoch().count();
@@ -81,6 +79,7 @@ class udp_receiver_pipe : public pipe<udp_receiver_pipe> {
       unpack_work.count = baseband_input_bytes;
       unpack_work.baseband_input_bits = baseband_input_bits;
       unpack_work.timestamp = timestamp;
+      unpack_work.host_to_device_copy_event = host_to_devive_copy_event;
       SRTB_PUSH_WORK_OR_RETURN(" [udp receiver pipe] ", srtb::unpack_queue,
                                unpack_work, stop_token);
     }
