@@ -26,6 +26,7 @@
 #ifdef SRTB_ENABLE_ROCM_INTEROP
 #include "srtb/fft/hipfft_wrapper.hpp"
 #endif  // SRTB_ENABLE_ROCM_INTEROP
+#include "srtb/fft/naive_fft_wrapper.hpp"
 
 #define SRTB_CHECK_FFT(expr)                                          \
   SRTB_CHECK(expr, true, {                                            \

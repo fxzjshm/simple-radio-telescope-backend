@@ -94,6 +94,9 @@ class ifft_1d_c2c_pipe : public pipe<ifft_1d_c2c_pipe> {
 
  protected:
   std::optional<srtb::fft::fft_1d_dispatcher<srtb::fft::type::C2C_1D_BACKWARD> >
+      //std::optional<
+      //    srtb::fft::naive_fft_1d_wrapper<srtb::fft::type::C2C_1D_BACKWARD,
+      //                                    srtb::real, srtb::complex<srtb::real> > >
       opt_ifft_dispatcher;
   std::optional<srtb::fft::fft_window_functor_manager<
       srtb::real, srtb::fft::default_window> >
@@ -192,6 +195,9 @@ class refft_1d_c2c_pipe : public pipe<refft_1d_c2c_pipe> {
 
  protected:
   std::optional<srtb::fft::fft_1d_dispatcher<srtb::fft::type::C2C_1D_FORWARD> >
+      //std::optional<
+      //    srtb::fft::naive_fft_1d_wrapper<srtb::fft::type::C2C_1D_FORWARD,
+      //                                    srtb::real, srtb::complex<srtb::real> > >
       opt_refft_dispatcher;
   std::optional<srtb::fft::fft_window_functor_manager<
       srtb::real, srtb::fft::default_window> >

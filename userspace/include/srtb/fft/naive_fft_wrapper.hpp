@@ -21,7 +21,7 @@ namespace fft {
 
 template <srtb::fft::type fft_type, std::floating_point T, typename C>
 class naive_fft_1d_wrapper
-    : public fft_wrapper<naive_fft_1d_wrapper, fft_type, T, C> {
+    : public fft_wrapper<naive_fft_1d_wrapper<fft_type, T, C>, fft_type, T, C> {
  public:
   using super_class = fft_wrapper<naive_fft_1d_wrapper, fft_type, T, C>;
   friend super_class;
