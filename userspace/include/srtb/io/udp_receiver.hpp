@@ -14,6 +14,7 @@
 #ifndef __SRTB_IO_UDP_RECEIVER__
 #define __SRTB_IO_UDP_RECEIVER__
 
+#include <algorithm>
 #include <array>
 #include <boost/asio.hpp>
 #include <chrono>
@@ -94,7 +95,8 @@ class udp_receiver_worker {
     // TODO: unpack UDP data, check counter
     while (data_buffer.size() < required_length) {
       auto receive_buffer = boost::asio::buffer(udp_packet_buffer);
-      size_t received_len = socket.receive_from(receive_buffer, ep2);
+      const size_t received_len = socket.receive_from(receive_buffer, ep2);
+      const size_t data_len = received_len - counter_bytes_count;
 
       // check counter
       udp_packet_counter_type received_counter = 0;
@@ -105,15 +107,19 @@ class udp_receiver_worker {
             (static_cast<udp_packet_counter_type>(udp_packet_buffer[i])
              << (srtb::BITS_PER_BYTE * i));
       }
-      if (received_counter != last_counter + 1) {
+      const auto lost_packets_count = received_counter - last_counter - 1;
+      if (lost_packets_count != 0) {
         SRTB_LOGW << " [udp receiver worker] "
-                  << "data loss detected: skipping "
-                  << (received_counter - last_counter - 1) << " packets."
-                  << srtb::endl;
+                  << "data loss detected: " << lost_packets_count
+                  << " packets. Filling these with zero. " << srtb::endl;
+        const auto fill_count = data_len * lost_packets_count;
+        auto dest_buffer = data_buffer.prepare(fill_count);
+        auto ptr = reinterpret_cast<std::byte*>(dest_buffer.data());
+        std::fill(ptr, ptr + fill_count, std::byte{0});
+        data_buffer.commit(fill_count);
       }
       last_counter = received_counter;
 
-      size_t data_len = received_len - counter_bytes_count;
       auto dest_buffer = data_buffer.prepare(data_len);
       std::memcpy(dest_buffer.data(),
                   reinterpret_cast<std::byte*>(receive_buffer.data()) +
