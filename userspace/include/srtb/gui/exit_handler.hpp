@@ -17,10 +17,12 @@
 #include <thread>
 #include <vector>
 
-// Qt related things
-#include <QObject>
-
 #include "srtb/commons.hpp"
+
+// Qt related things
+// some macro defined in Qt may conflict with some STL class, especially C++11 or newer ones
+// so put these last
+#include <QObject>
 
 namespace srtb {
 namespace gui {
