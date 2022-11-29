@@ -95,8 +95,7 @@ class read_file_pipe : public pipe<read_file_pipe> {
             std::reinterpret_pointer_cast<std::byte>(h_in_shared);
         baseband_output_work.count = time_sample_bytes;
         baseband_output_work.timestamp = timestamp;
-        SRTB_PUSH_WORK_OR_RETURN(" [udp receiver pipe] ",
-                                 srtb::baseband_output_queue,
+        SRTB_PUSH_WORK_OR_RETURN(" [read_file] ", srtb::baseband_output_queue,
                                  baseband_output_work, stop_token);
       }
 
@@ -118,8 +117,7 @@ class read_file_pipe : public pipe<read_file_pipe> {
       srtb::pipeline::wait_for_notify(stop_token);
     }
 
-    SRTB_LOGI << " [read_file] " << file_path << " has been read"
-              << srtb::endl;
+    SRTB_LOGI << " [read_file] " << file_path << " has been read" << srtb::endl;
   }
 
   void run_once_impl(std::stop_token stop_token) {
