@@ -64,11 +64,12 @@ class udp_receiver_worker {
    * @brief buffer for data storage, i.e. without counter 
    */
   boost::asio::streambuf data_buffer;
+  static constexpr udp_packet_counter_type last_counter_initial_value =
+      static_cast<udp_packet_counter_type>(-1);
   /** 
    * @brief counter received from last packet
    */
-  udp_packet_counter_type last_counter =
-      static_cast<udp_packet_counter_type>(-1);
+  udp_packet_counter_type last_counter = last_counter_initial_value;
 
  public:
   udp_receiver_worker(const std::string& sender_address,
@@ -90,6 +91,7 @@ class udp_receiver_worker {
    */
   auto receive(size_t required_length) {
     auto time_before_receive = std::chrono::system_clock::now();
+    size_t total_lost_packets_count = 0;
 
     // wait until work size reached
     // TODO: unpack UDP data, check counter
@@ -108,10 +110,10 @@ class udp_receiver_worker {
              << (srtb::BITS_PER_BYTE * i));
       }
       const auto lost_packets_count = received_counter - last_counter - 1;
-      if (lost_packets_count != 0) {
-        SRTB_LOGW << " [udp receiver worker] "
-                  << "data loss detected: " << lost_packets_count
-                  << " packets. Filling these with zero. " << srtb::endl;
+      if (lost_packets_count != 0 &&
+          last_counter !=
+              last_counter_initial_value /* first counter may not be 0 */) {
+        total_lost_packets_count += lost_packets_count;
         const auto fill_count = data_len * lost_packets_count;
         auto dest_buffer = data_buffer.prepare(fill_count);
         auto ptr = reinterpret_cast<std::byte*>(dest_buffer.data());
@@ -126,10 +128,11 @@ class udp_receiver_worker {
                       counter_bytes_count,
                   data_len);
       data_buffer.commit(data_len);
-
-      SRTB_LOGD << " [udp receiver worker] "
-                << "received data length = " << data_len << ", "
-                << " counter = " << received_counter << srtb::endl;
+    }
+    if (total_lost_packets_count > 0) {
+      SRTB_LOGW << " [udp receiver worker] "
+                << "data loss detected: " << total_lost_packets_count
+                << " packets in total. Filling these with zero. " << srtb::endl;
     }
 
     auto time_after_receive = std::chrono::system_clock::now();
