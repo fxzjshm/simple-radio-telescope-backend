@@ -82,6 +82,8 @@ namespace program_options {
        "Address to receive baseband UDP packets")
       ("udp_receiver_sender_port", boost::program_options::value<std::string>(),
        "Port to receive baseband UDP packets")
+      ("udp_receiver_cpu_preferred", boost::program_options::value<std::string>(),
+       "CPU core that UDP receiver should be bound to.")
     ;
     file_io_options.add_options()
       ("input_file_path", boost::program_options::value<std::string>(),
@@ -192,6 +194,7 @@ inline void evaluate_and_apply_changed_config(const std::string& name,
   SRTB_PARSE(udp_receiver_buffer_size)
   SRTB_ASSIGN(udp_receiver_sender_address)
   SRTB_PARSE(udp_receiver_sender_port)
+  SRTB_PARSE(udp_receiver_cpu_preferred)
   SRTB_ASSIGN(input_file_path)
   SRTB_PARSE(input_file_offset_bytes)
   SRTB_ASSIGN(baseband_output_file_prefix)

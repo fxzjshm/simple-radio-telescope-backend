@@ -18,6 +18,7 @@
 
 #include "srtb/io/udp_receiver.hpp"
 #include "srtb/pipeline/pipe.hpp"
+#include "srtb/thread_affinity.hpp"
 
 namespace srtb {
 namespace pipeline {
@@ -43,6 +44,9 @@ class udp_receiver_pipe : public pipe<udp_receiver_pipe> {
     const unsigned short sender_port = srtb::config.udp_receiver_sender_port;
     const int udp_receiver_buffer_size = srtb::config.udp_receiver_buffer_size;
     opt_worker.emplace(sender_address, sender_port, udp_receiver_buffer_size);
+
+    srtb::thread_affinity::set_thread_affinity(
+        srtb::config.udp_receiver_cpu_preferred);
   }
 
   void run_once_impl(std::stop_token stop_token) {
@@ -73,6 +77,8 @@ class udp_receiver_pipe : public pipe<udp_receiver_pipe> {
 
     uint64_t timestamp =
         std::chrono::system_clock::now().time_since_epoch().count();
+    // here don't worry about that h_ptr may be deallocated before host to device copy is finished
+    // because h_ptr is pushed into baseband_output_pipe, and will not be deallocated until signal_detect_pipe gives result.
     {
       srtb::work::unpack_work unpack_work;
       unpack_work.ptr = d_ptr;

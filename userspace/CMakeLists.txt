@@ -121,6 +121,7 @@ function(srtb_add_dependency target_name)
     # add dependency
     target_link_libraries(${target_name} PUBLIC fftw3_threads fftw3 fftw3f_threads fftw3f Threads::Threads) # TODO maybe findFFTW
     target_link_libraries(${target_name} PUBLIC Boost::program_options Boost::iostreams)
+    target_link_libraries(${target_name} PUBLIC hwloc)
     target_link_libraries(${target_name} PUBLIC stdc++ m)  # TODO: this shouldn't be needed
     target_link_libraries(${target_name} PUBLIC dl)
     if(SRTB_ENABLE_CUDA)

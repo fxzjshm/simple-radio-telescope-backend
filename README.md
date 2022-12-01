@@ -17,6 +17,7 @@ Although say so, currently only CPU (OpenMP, on amd64), ROCm and CUDA backends a
   * if use intel/llvm, version newer than `998fd91` (2022.11.07) is needed. Refer to [this guide](https://github.com/intel/llvm/blob/sycl/sycl/doc/GetStartedGuide.md) for installation.
 * Boost libraries
 * FFTW 3
+* hwloc
 * Qt 5
 
 if ROCm backend enabled, additional dependencies:

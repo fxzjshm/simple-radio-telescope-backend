@@ -139,6 +139,11 @@ struct configs {
   unsigned short udp_receiver_sender_port = 12004;
 
   /**
+   * @brief CPU core that UDP receiver should be bound to.
+   */
+  unsigned int udp_receiver_cpu_preferred = 0;
+
+  /**
    * @brief Path to the binary file to be read as baseband input.
    */
   std::string input_file_path = "";
