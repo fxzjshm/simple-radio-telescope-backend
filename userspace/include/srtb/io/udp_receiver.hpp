@@ -92,6 +92,8 @@ class udp_receiver_worker {
   auto receive(size_t required_length) {
     auto time_before_receive = std::chrono::system_clock::now();
     size_t total_lost_packets_count = 0;
+    udp_packet_counter_type first_counter = 0;
+    bool first_counter_set = false;
 
     // wait until work size reached
     // TODO: unpack UDP data, check counter
@@ -108,6 +110,10 @@ class udp_receiver_worker {
         received_counter |=
             (static_cast<udp_packet_counter_type>(udp_packet_buffer[i])
              << (srtb::BITS_PER_BYTE * i));
+      }
+      if (!first_counter_set) {
+        first_counter = received_counter;
+        first_counter_set = true;
       }
       const auto lost_packets_count = received_counter - last_counter - 1;
       if (lost_packets_count != 0 &&
@@ -142,7 +148,7 @@ class udp_receiver_worker {
     SRTB_LOGD << " [udp receiver worker] "
               << "recevice time = " << receive_time << " us." << srtb::endl;
 
-    return data_buffer.data();
+    return std::make_pair(data_buffer.data(), first_counter);
   }
 
   void consume(std::size_t n) { data_buffer.consume(n); }

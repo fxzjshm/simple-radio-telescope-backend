@@ -59,7 +59,8 @@ class udp_receiver_pipe : public pipe<udp_receiver_pipe> {
         baseband_input_count * baseband_input_bits / srtb::BITS_PER_BYTE;
     SRTB_LOGD << " [udp receiver pipe] "
               << "start receiving" << srtb::endl;
-    auto buffer = worker.receive(/* required_length = */ baseband_input_bytes);
+    auto [buffer, first_counter] =
+        worker.receive(/* required_length = */ baseband_input_bytes);
     SRTB_LOGD << " [udp receiver pipe] "
               << "receive finished" << srtb::endl;
 
@@ -75,8 +76,7 @@ class udp_receiver_pipe : public pipe<udp_receiver_pipe> {
     sycl::event host_to_devive_copy_event =
         q.copy(h_ptr.get(), /* -> */ d_ptr.get(), baseband_input_bytes);
 
-    uint64_t timestamp =
-        std::chrono::system_clock::now().time_since_epoch().count();
+    uint64_t timestamp = first_counter;
     // here don't worry about that h_ptr may be deallocated before host to device copy is finished
     // because h_ptr is pushed into baseband_output_pipe, and will not be deallocated until signal_detect_pipe gives result.
     {
