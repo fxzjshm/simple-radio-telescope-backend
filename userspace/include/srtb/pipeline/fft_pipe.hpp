@@ -275,10 +275,14 @@ class refft_1d_c2c_pipe : public pipe<refft_1d_c2c_pipe> {
        }).wait();
     }
 
-    // this cannot operate in place
-    std::shared_ptr<srtb::complex<srtb::real> > d_out_shared =
-        srtb::device_allocator.allocate_shared<srtb::complex<srtb::real> >(
-            input_count);
+    std::shared_ptr<srtb::complex<srtb::real> > d_out_shared;
+    if constexpr (srtb::fft_operate_in_place) {
+      d_out_shared = d_in_shared;
+    } else {
+      d_out_shared =
+          srtb::device_allocator.allocate_shared<srtb::complex<srtb::real> >(
+              input_count);
+    }
 
     auto d_out = d_out_shared.get();
     refft_dispatcher.process(d_in, d_out);
