@@ -37,13 +37,13 @@ int set_thread_affinity(unsigned int target_cpu) {
     /* create a topology */
     err = hwloc_topology_init(&topology);
     if (err < 0) {
-      SRTB_LOGW << "[thread_affinity] "
+      SRTB_LOGW << " [thread_affinity] "
                 << "failed to initialize the topology" << srtb::endl;
       break;
     }
     err = hwloc_topology_load(topology);
     if (err < 0) {
-      SRTB_LOGW << "[thread_affinity] "
+      SRTB_LOGW << " [thread_affinity] "
                 << "failed to load the topology" << srtb::endl;
       break;
     }
@@ -51,13 +51,13 @@ int set_thread_affinity(unsigned int target_cpu) {
     /* retrieve the single PU where the current thread actually runs within this process binding */
     set2 = hwloc_bitmap_alloc();
     if (!set2) {
-      SRTB_LOGW << "[thread_affinity] "
+      SRTB_LOGW << " [thread_affinity] "
                 << "failed to allocate a bitmap" << srtb::endl;
       break;
     }
     err = hwloc_get_last_cpu_location(topology, set2, HWLOC_CPUBIND_THREAD);
     if (err < 0) {
-      SRTB_LOGW << "[thread_affinity] "
+      SRTB_LOGW << " [thread_affinity] "
                 << "failed to get last cpu location" << srtb::endl;
       break;
     }
@@ -67,7 +67,7 @@ int set_thread_affinity(unsigned int target_cpu) {
     /* extract the PU OS index from the bitmap */
     i = hwloc_bitmap_first(set2);
     obj = hwloc_get_pu_obj_by_os_index(topology, i);
-    SRTB_LOGI << "[thread_affinity] "
+    SRTB_LOGI << " [thread_affinity] "
               << "thread is now running on PU logical index "
               << obj->logical_index << " (OS/physical index " << i << ")"
               << srtb::endl;
@@ -77,14 +77,14 @@ int set_thread_affinity(unsigned int target_cpu) {
     hwloc_bitmap_singlify(set2);
     err = hwloc_set_cpubind(topology, set2, HWLOC_CPUBIND_THREAD);
     if (err < 0) {
-      SRTB_LOGW << "[thread_affinity] "
+      SRTB_LOGW << " [thread_affinity] "
                 << "failed to set thread binding" << srtb::endl;
       break;
     }
     /* reprint the PU where that thread runs */
     err = hwloc_get_last_cpu_location(topology, set2, HWLOC_CPUBIND_THREAD);
     if (err < 0) {
-      SRTB_LOGW << "[thread_affinity] "
+      SRTB_LOGW << " [thread_affinity] "
                 << "failed to get last cpu location" << srtb::endl;
       break;
     }
@@ -92,7 +92,7 @@ int set_thread_affinity(unsigned int target_cpu) {
     /* extract the PU OS index from the bitmap */
     i = hwloc_bitmap_first(set2);
     obj = hwloc_get_pu_obj_by_os_index(topology, i);
-    SRTB_LOGI << "[thread_affinity] "
+    SRTB_LOGI << " [thread_affinity] "
               << "thread is running on PU logical index " << obj->logical_index
               << " (OS/physical index " << i << ")" << srtb::endl;
   } while (0);
