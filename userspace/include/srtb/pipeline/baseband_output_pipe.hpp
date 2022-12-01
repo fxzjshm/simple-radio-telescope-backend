@@ -179,7 +179,7 @@ class baseband_output_pipe<false> : public pipe<baseband_output_pipe<false> > {
       time_series_output_stream.flush();
 
       // draw time series using matplotlib cpp
-      {
+      try {
         namespace plt = matplotlibcpp;
         time_series_buffer.resize(signal_detect_result.time_series_length);
         std::copy(time_series_ptr, time_series_ptr + time_series_length,
@@ -187,6 +187,10 @@ class baseband_output_pipe<false> : public pipe<baseband_output_pipe<false> > {
         plt::named_plot(time_series_file_path, time_series_buffer);
         plt::save(time_series_picture_file_path);
         plt::cla();
+      } catch ([[maybe_unused]] const std::runtime_error& error) {
+        SRTB_LOGW << " [baseband_output_pipe] "
+                  << "Failed to plot  time series: " << error.what()
+                  << srtb::endl;
       }
 
       // sometimes file is not fully written, so force syncing it
@@ -196,7 +200,7 @@ class baseband_output_pipe<false> : public pipe<baseband_output_pipe<false> > {
         const int err2 = ::fdatasync(time_series_output_stream->handle());
         if (err1 != 0 || err2 != 0) [[unlikely]] {
           SRTB_LOGW << " [baseband_output_pipe] "
-                    << "Failed to call ::fdatasync " << srtb::endl;
+                    << "Failed to call ::fdatasync" << srtb::endl;
         }
 #endif
         SRTB_LOGI << " [baseband_output_pipe] "
