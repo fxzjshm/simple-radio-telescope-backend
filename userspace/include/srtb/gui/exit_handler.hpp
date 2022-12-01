@@ -43,7 +43,7 @@ class ExitHandler : public QObject {
   explicit ExitHandler(std::vector<std::jthread> threads_)
       : threads{std::move(threads_)} {}
 
- public slots:
+ public Q_SLOTS:
   void onExit() {
     for (size_t i = 0; i < threads.size(); i++) {
       threads.at(i).request_stop();

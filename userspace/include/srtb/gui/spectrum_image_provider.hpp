@@ -190,7 +190,7 @@ class SpectrumImageProvider : public QObject, public QQuickImageProvider {
     //pixmap.fill(color);
   }
 
- public slots:
+ public Q_SLOTS:
   void update_pixmap() {
     const size_t requested_lines_count =
         request_size_scheduler.get_next_request_size();

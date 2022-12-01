@@ -10,6 +10,11 @@
  * See the Mulan PubL v2 for more details.
  ******************************************************************************/
 
+// Qt's keywords like signals and slots are annoying
+#ifndef QT_NO_KEYWORDS
+#define QT_NO_KEYWORDS
+#endif
+
 #include <chrono>
 #include <filesystem>
 #include <iostream>

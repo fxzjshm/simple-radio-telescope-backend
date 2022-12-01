@@ -133,6 +133,9 @@ function(srtb_add_dependency target_name)
         target_link_libraries(${target_name} PUBLIC hip::hipfft roc::rocfft)
         target_link_libraries(${target_name} PUBLIC amdhip64)
     endif()
+
+    # Qt's keywords like signals and slots are annoying
+    target_compile_definitions(${target_name} PRIVATE QT_NO_KEYWORDS)
 endfunction()
 
 include_directories("include")
