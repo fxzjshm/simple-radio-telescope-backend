@@ -189,10 +189,15 @@ class baseband_output_pipe<false> : public pipe<baseband_output_pipe<false> > {
         plt::cla();
       }
 
+      // sometimes file is not fully written, so force syncing it
       if (baseband_output_stream && time_series_output_stream) [[likely]] {
 #ifdef _POSIX_VERSION
-        ::fdatasync(baseband_output_stream->handle());
-        ::fdatasync(time_series_output_stream->handle());
+        const int err1 = ::fdatasync(baseband_output_stream->handle());
+        const int err2 = ::fdatasync(time_series_output_stream->handle());
+        if (err1 != 0 || err2 != 0) [[unlikely]] {
+          SRTB_LOGW << " [baseband_output_pipe] "
+                    << "Failed to call ::fdatasync " << srtb::endl;
+        }
 #endif
         SRTB_LOGI << " [baseband_output_pipe] "
                   << "Finished writing baseband data, timestamp = " << timestamp
