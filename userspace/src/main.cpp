@@ -42,6 +42,12 @@ int main(int argc, char** argv) {
       argc, argv, std::string(srtb::config.config_file_name));
   srtb::program_options::apply_changed_configs(srtb::changed_configs,
                                                srtb::config);
+
+// why always have to do something special for CUDA ???
+#ifdef SRTB_ENABLE_CUDA_INTEROP
+  cudaSetDeviceFlags(cudaDeviceScheduleYield);
+#endif
+
   // TODO std::thread for other pipelines
 
   SRTB_LOGI << " [main] "
