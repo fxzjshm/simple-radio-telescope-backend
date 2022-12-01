@@ -121,7 +121,6 @@ class baseband_output_pipe<false> : public pipe<baseband_output_pipe<false> > {
                                   baseband_output_work, stop_token);
         } else if (baseband_output_work.timestamp >
                    signal_detect_result.timestamp) {
-          // baseband_output_work.timestamp > signal_detect_result.timestamp
           SRTB_LOGW << " [baseband_output_pipe] "
                     << "baseband_output_work.timestamp = "
                     << baseband_output_work.timestamp << " > "
@@ -141,21 +140,41 @@ class baseband_output_pipe<false> : public pipe<baseband_output_pipe<false> > {
       SRTB_LOGI << " [baseband_output_pipe] "
                 << "Begin writing baseband data, timestamp = " << timestamp
                 << srtb::endl;
-      std::string file_path = srtb::config.baseband_output_file_prefix +
-                              std::to_string(timestamp) + ".bin";
+      std::string file_name_no_extension =
+          srtb::config.baseband_output_file_prefix + std::to_string(timestamp);
+      std::string baseband_file_path = file_name_no_extension + ".bin";
+      std::string time_series_file_path = file_name_no_extension + ".tim";
       boost::iostreams::stream<boost::iostreams::file_descriptor_sink>
-          file_output_stream{file_path, BOOST_IOS::binary | BOOST_IOS::out};
+          baseband_output_stream{baseband_file_path,
+                                 BOOST_IOS::binary | BOOST_IOS::out};
+      boost::iostreams::stream<boost::iostreams::file_descriptor_sink>
+          time_series_output_stream{time_series_file_path,
+                                    BOOST_IOS::binary | BOOST_IOS::out};
 
-      const char* ptr = reinterpret_cast<char*>(baseband_output_work.ptr.get());
-      const size_t write_count = baseband_output_work.count;
+      const char* baseband_ptr =
+          reinterpret_cast<char*>(baseband_output_work.ptr.get());
+      const size_t baseband_write_count = baseband_output_work.count;
+      baseband_output_stream.write(
+          baseband_ptr,
+          baseband_write_count *
+              sizeof(decltype(baseband_output_work.ptr)::element_type));
+      baseband_output_stream.flush();
 
-      file_output_stream.write(
-          ptr, write_count *
-                   sizeof(decltype(baseband_output_work.ptr)::element_type));
-      file_output_stream.flush();
-      if (file_output_stream) [[likely]] {
+      const char* time_series_ptr =
+          reinterpret_cast<char*>(signal_detect_result.time_series_ptr.get());
+      const size_t time_series_write_count =
+          signal_detect_result.time_series_length;
+      time_series_output_stream.write(
+          time_series_ptr,
+          time_series_write_count *
+              sizeof(decltype(signal_detect_result
+                                  .time_series_ptr)::element_type));
+      time_series_output_stream.flush();
+
+      if (baseband_output_stream && time_series_output_stream) [[likely]] {
 #ifdef _POSIX_VERSION
-        ::fdatasync(file_output_stream->handle());
+        ::fdatasync(baseband_output_stream->handle());
+        ::fdatasync(time_series_output_stream->handle());
 #endif
         SRTB_LOGI << " [baseband_output_pipe] "
                   << "Finished writing baseband data, timestamp = " << timestamp

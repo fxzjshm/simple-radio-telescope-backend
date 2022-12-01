@@ -44,8 +44,9 @@ class signal_detect_pipe : public pipe<signal_detect_pipe> {
     auto d_in = d_in_shared.get();
     const size_t count_per_batch = signal_detect_work.count;
     const size_t batch_size = signal_detect_work.batch_size;
+    const size_t out_count = batch_size;
     auto d_out_shared =
-        srtb::device_allocator.allocate_shared<srtb::real>(batch_size);
+        srtb::device_allocator.allocate_shared<srtb::real>(out_count);
     auto d_out = d_out_shared.get();
 
     constexpr auto map = []([[maybe_unused]] size_t pos,
@@ -67,9 +68,9 @@ class signal_detect_pipe : public pipe<signal_detect_pipe> {
     // TODO: does baseline changes a lot in this time scale ? Is a linear approximation needed ?
     {
       auto d_average_shared = srtb::algorithm::map_average(
-          d_out, batch_size, srtb::algorithm::map_identity(), q);
+          d_out, out_count, srtb::algorithm::map_identity(), q);
       auto d_average = d_average_shared.get();
-      q.parallel_for(sycl::range<1>{batch_size}, [=](sycl::item<1> item) {
+      q.parallel_for(sycl::range<1>{out_count}, [=](sycl::item<1> item) {
          const auto i = item.get_id(0);
          d_out[i] -= (*d_average);
        }).wait();
@@ -80,7 +81,7 @@ class signal_detect_pipe : public pipe<signal_detect_pipe> {
     // trivial signal detect
     {
       auto d_variance_squared_shared = srtb::algorithm::map_average(
-          d_out, batch_size,
+          d_out, out_count,
           []([[maybe_unused]] size_t pos, srtb::real x) -> double {
             const double y = static_cast<double>(x);
             return y * y;
@@ -96,7 +97,7 @@ class signal_detect_pipe : public pipe<signal_detect_pipe> {
        }).wait();
 
       auto d_signal_count_shared = srtb::algorithm::map_sum(
-          d_out, batch_size, /* map = */
+          d_out, out_count, /* map = */
           [=]([[maybe_unused]] size_t pos, srtb::real x) -> size_t {
             // also known as count_if
             if (srtb::abs(x) > threshold * (*d_variance)) {
@@ -112,17 +113,22 @@ class signal_detect_pipe : public pipe<signal_detect_pipe> {
 
       const bool has_signal = (h_signal_count > 0);
       srtb::work::signal_detect_result signal_detect_result{
-          .timestamp = signal_detect_work.timestamp, .has_signal = has_signal};
-      SRTB_PUSH_WORK_OR_RETURN(" [signal_detect_pipe] ",
-                               srtb::signal_detect_result_queue,
-                               signal_detect_result, stop_token);
+          .timestamp = signal_detect_work.timestamp,
+          .has_signal = has_signal,
+          .time_series_ptr = std::shared_ptr<srtb::real>{},
+          .time_series_length = 0};
       if (has_signal) {
+        signal_detect_result.time_series_ptr = d_out_shared;
+        signal_detect_result.time_series_length = out_count;
         SRTB_LOGI << " [signal_detect_pipe] " << h_signal_count
                   << " signal(s) detected!" << srtb::endl;
       } else {
         SRTB_LOGD << " [signal_detect_pipe] "
                   << "no signal detected." << srtb::endl;
       }
+      SRTB_PUSH_WORK_OR_RETURN(" [signal_detect_pipe] ",
+                               srtb::signal_detect_result_queue,
+                               signal_detect_result, stop_token);
     }
   }
 };
