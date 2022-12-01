@@ -106,6 +106,10 @@ include_directories(${Boost_INCLUDE_DIRS})
 if(SRTB_ENABLE_ROCM)
     link_directories("/opt/rocm/lib")
 endif()
+## ref: https://github.com/lava/matplotlib-cpp/blob/master/CMakeLists.txt
+find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
+find_package(Python3 COMPONENTS NumPy)
+include_directories("3rdparty/matplotlib-cpp/")
 find_package(Qt5 COMPONENTS Quick Gui REQUIRED)
 
 function(srtb_add_dependency target_name)

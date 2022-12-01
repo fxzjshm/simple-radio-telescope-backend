@@ -26,7 +26,9 @@
 #include <boost/iostreams/device/file_descriptor.hpp>
 #include <boost/iostreams/stream.hpp>
 #include <fstream>
+#include <vector>
 
+#include "matplotlibcpp.h"
 #include "srtb/commons.hpp"
 #include "srtb/pipeline/pipe.hpp"
 
@@ -94,6 +96,7 @@ class baseband_output_pipe<true> : public pipe<baseband_output_pipe<true> > {
 template <>
 class baseband_output_pipe<false> : public pipe<baseband_output_pipe<false> > {
   friend pipe<baseband_output_pipe<false> >;
+  std::vector<srtb::real> time_series_buffer;
 
  public:
   baseband_output_pipe() {}
@@ -140,10 +143,14 @@ class baseband_output_pipe<false> : public pipe<baseband_output_pipe<false> > {
       SRTB_LOGI << " [baseband_output_pipe] "
                 << "Begin writing baseband data, timestamp = " << timestamp
                 << srtb::endl;
+
       std::string file_name_no_extension =
           srtb::config.baseband_output_file_prefix + std::to_string(timestamp);
       std::string baseband_file_path = file_name_no_extension + ".bin";
       std::string time_series_file_path = file_name_no_extension + ".tim";
+      std::string time_series_picture_file_path =
+          file_name_no_extension + ".tim.pdf";
+
       boost::iostreams::stream<boost::iostreams::file_descriptor_sink>
           baseband_output_stream{baseband_file_path,
                                  BOOST_IOS::binary | BOOST_IOS::out};
@@ -151,6 +158,7 @@ class baseband_output_pipe<false> : public pipe<baseband_output_pipe<false> > {
           time_series_output_stream{time_series_file_path,
                                     BOOST_IOS::binary | BOOST_IOS::out};
 
+      // write original baseband data
       const char* baseband_ptr =
           reinterpret_cast<char*>(baseband_output_work.ptr.get());
       const size_t baseband_write_count = baseband_output_work.count;
@@ -160,16 +168,26 @@ class baseband_output_pipe<false> : public pipe<baseband_output_pipe<false> > {
               sizeof(decltype(baseband_output_work.ptr)::element_type));
       baseband_output_stream.flush();
 
-      const char* time_series_ptr =
-          reinterpret_cast<char*>(signal_detect_result.time_series_ptr.get());
-      const size_t time_series_write_count =
-          signal_detect_result.time_series_length;
+      // write time series
+      const auto time_series_ptr = signal_detect_result.time_series_ptr.get();
+      const size_t time_series_length = signal_detect_result.time_series_length;
       time_series_output_stream.write(
-          time_series_ptr,
-          time_series_write_count *
+          reinterpret_cast<const char*>(time_series_ptr),
+          time_series_length *
               sizeof(decltype(signal_detect_result
                                   .time_series_ptr)::element_type));
       time_series_output_stream.flush();
+
+      // draw time series using matplotlib cpp
+      {
+        namespace plt = matplotlibcpp;
+        time_series_buffer.resize(signal_detect_result.time_series_length);
+        std::copy(time_series_ptr, time_series_ptr + time_series_length,
+                  time_series_buffer.begin());
+        plt::named_plot(time_series_file_path, time_series_buffer);
+        plt::save(time_series_picture_file_path);
+        plt::cla();
+      }
 
       if (baseband_output_stream && time_series_output_stream) [[likely]] {
 #ifdef _POSIX_VERSION

@@ -7,6 +7,17 @@ add_executable(simple-radio-telescope-backend
 )
 srtb_add_dependency(simple-radio-telescope-backend)
 target_link_libraries(simple-radio-telescope-backend PRIVATE Qt5::Gui Qt5::Quick)
+target_link_libraries(simple-radio-telescope-backend PUBLIC
+  Python3::Python
+  Python3::Module
+)
+if(Python3_NumPy_FOUND)
+  target_link_libraries(simple-radio-telescope-backend PUBLIC
+    Python3::NumPy
+  )
+else()
+    target_compile_definitions(simple-radio-telescope-backend INTERFACE WITHOUT_NUMPY)
+endif()
 #target_precompile_headers(simple-radio-telescope-backend
 #  PRIVATE
 #    [["srtb/sycl.hpp"]]
