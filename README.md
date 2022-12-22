@@ -1,69 +1,61 @@
 # Simple radio telescope backend
 Everything working in progress...
 
-This is a simple backend (maybe terminal) of radio telescope. 
+## About this project
+This is a simple backend of radio telescope. 
 It reads raw "baseband" data and should be capable of coherent dedispersion, maybe in real-time.
 Future plans include Fast Radio Burst (FRB) detection and maybe pulsar folding.
 
 Due to vendor neutrality and current status of some heterogeneous computing APIs (I mean OpenCL, IMHO),
 **[SYCL 2020](https://www.khronos.org/sycl/)** from Khronos Group is chosen as target API.
 
-Although say so, currently only CPU (OpenMP, on amd64), ROCm and CUDA backends are tested, due to limited device type available.
-
-## Dependency
-* a C++ compiler that supports at least C++20
-* SYCL 2020 implementation, such as [illuhad/hipSYCL](https://github.com/illuhad/hipSYCL/) and [intel/llvm](https://github.com/intel/llvm/)
-  * if use hipSYCL, refer to [this guide](https://github.com/illuhad/hipSYCL/blob/develop/doc/installing.md)
-  * if use intel/llvm, version newer than `998fd91` (2022.11.07) is needed. Refer to [this guide](https://github.com/intel/llvm/blob/sycl/sycl/doc/GetStartedGuide.md) for installation.
-* Boost libraries
-* FFTW 3
-* hwloc
-* Qt 5
-
-if ROCm backend enabled, additional dependencies:
-* ROCm
-* hipfft
-* rocfft
-
-if CUDA backend enabled, additional dependencies:
-* CUDA toolkit
-* cufft
+Although say so, currently only CPU (OpenMP, on amd64), ROCm and CUDA backends are tested, due to limited device types available.
 
 ## Building
-This project uses CMake 3. 
-Configure options:
-* `SRTB_SYCL_IMPLEMENTATION`: switches SYCL implementation used. Default to `hipSYCL`.
-  * set to `hipSYCL` to use hipSYCL
-  * set to `intel-llvm` to use intel/llvm
-    * additionally, `CMAKE_C_COMPILER` & `CMAKE_CXX_COMPILER` should be set to intel/llvm installation
-* `SRTB_ENABLE_ROCM`: `ON` or `OFF`
-* `SRTB_ROCM_ARCH`:
-  * if `SRTB_ENABLE_ROCM` is set `ON`, for both hipSYCL and intel/llvm, `SRTB_ROCM_ARCH` is required, which is the arch of target GPU, e.g. `gfx906` or `gfx1030`.
-* `SRTB_ENABLE_CUDA`: `ON` or `OFF`
-* `SRTB_CUDA_ARCH`:
-  * if `SRTB_ENABLE_CUDA` is set `ON` and using hipSYCL, `SRTB_CUDA_ARCH` is required, which is the arch of target GPU, e.g. `sm_86`
-  * if using intel/llvm, `SRTB_CUDA_ARCH` is optional
-
-Example configure command:  
-
-* using hipSYCL:
+Note that this repository has submodule for dependency manegement, don't forget to add `--recursive` when clonning this git repo, or use
 ```bash
-cmake -DSRTB_SYCL_IMPLEMENTATION=hipSYCL \
--DSRTB_ENABLE_CUDA=OFF -DSRTB_ENABLE_ROCM=ON -DSRTB_CUDA_ARCH=sm_86 -DSRTB_ROCM_ARCH=gfx906 \
--DBOOST_ROOT=/opt/boost \
-~/workspace/simple-radio-telescope-backend
+git submodule update --init
 ```
+if you have clonned this repo.
 
-* using intel/llvm:
-```bash
-cmake -DSRTB_SYCL_IMPLEMENTATION=intel-llvm \
--DCMAKE_C_COMPILER=/opt/intel-llvm/bin/clang -DCMAKE_CXX_COMPILER=/opt/intel-llvm/bin/clang++ \
--DSRTB_ENABLE_CUDA=OFF -DSRTB_ENABLE_ROCM=ON -DSRTB_CUDA_ARCH=sm_86 -DSRTB_ROCM_ARCH=gfx906 \
--DBOOST_ROOT=/opt/boost \
-~/workspace/simple-radio-telescope-backend
-```
+Then please refer to BUILDING.md
 
 ## Code structure
+### Pipeline Structure
+```mermaid
+graph LR;
+  UDP_packets[UDP <br/> packets];
+  recorded_baseband_file[recorded <br/> baseband <br/> file];
+  udp_receiver_pipe(udp <br/> receiver <br/> pipe);
+  read_file_pipe(read <br/> file <br/> pipe);
+  host_buffer{host <br/> buffer};
+  unpack_pipe(unpack <br/> pipe);
+  fft_1d_r2c_pipe(fft <br/> 1d r2c <br/> pipe);
+  rfi_mitigation_pipe(rfi <br/> mitigation <br/> pipe);
+  dedisperse_pipe(dedisperse <br/> pipe);
+  ifft_1d_c2c_pipe(ifft <br/> 1d c2c <br/> pipe);
+  refft_1d_c2c_pipe(refft <br/> 1d c2c <br/> pipe);
+  signal_detect_pipe(signal <br/> detect <br/> pipe);
+  baseband_output_pipe(baseband <br/> output <br/> pipe);
+  simplify_spectrum_pipe(simplify <br/> spectrum <br/> pipe);
+  SpectrumImageProvider(Spectrum <br/> Image <br/> Provider);
+  baseband_file_with_signal_candidate[baseband <br/> file <br/> with <br/> signal <br/> candidate]
+  spectrum_ui[Spectrum <br/> UI]
+
+  UDP_packets --> udp_receiver_pipe --> unpack_pipe;
+  recorded_baseband_file --> read_file_pipe --> unpack_pipe;
+  udp_receiver_pipe --> host_buffer;
+  read_file_pipe --> host_buffer;
+  host_buffer --> baseband_output_pipe
+  unpack_pipe --> fft_1d_r2c_pipe --> rfi_mitigation_pipe --> dedisperse_pipe --> ifft_1d_c2c_pipe --> refft_1d_c2c_pipe;
+  refft_1d_c2c_pipe --> signal_detect_pipe;
+  refft_1d_c2c_pipe --> simplify_spectrum_pipe;
+  signal_detect_pipe --> baseband_output_pipe;
+  baseband_output_pipe --> baseband_file_with_signal_candidate
+  simplify_spectrum_pipe --> SpectrumImageProvider --> spectrum_ui
+```
+
+### FIles
 * `userspace/include/srtb/`
   * `config`: compile-time and runtime configurations
   * `work`: defines input of each pipe
@@ -75,45 +67,19 @@ cmake -DSRTB_SYCL_IMPLEMENTATION=intel-llvm \
   * `io/`: read raw "baseband" data
     * `udp_receiver`: from UDP packets using Boost.Asio
     * `file`: from file
-    * `rdma`: (TODO, is this needed?) maybe operate a custom driver to read data from network device, then directly transfer to GPU using Direct Memory Access or PCIe Peer to Peer or something likel this.
+    * `rdma`: (TODO, is this needed?) maybe operate a custom driver to read data from network device, then directly transfer to GPU using Direct Memory Access or PCIe Peer to Peer or something like this.
   * others function as their name indicates
 * `userspace/src/`: `main` starts pipes required.
 * `userspace/tests/`: test component shown above.
-    
-
-## Workarounds
-#### 1. BOOST_INLINE and HIP conflicts
-See [Boost.Config issue 392](https://github.com/boostorg/config/issues/392) , which means if compile for ROCm, Boost 1.80+ may be needed.
-
-You may use CMake configure option `BOOST_ROOT` to set the Boost library used, see example configure command above.
-
-#### 2. configure error: "clangrt builtins lib not found"
-If compile with intel/llvm, HIP may search 'clang_rt.builtins' in intel/llvm, but this module isn't built by default. 
-
-A patch to `buildbot/configure.py` is
-```diff
-diff --git a/buildbot/configure.py b/buildbot/configure.py
-index f3a43857b7..08cb75e5e3 100644
---- a/buildbot/configure.py
-+++ b/buildbot/configure.py
-@@ -13,7 +13,7 @@ def do_configure(args):
-     if not os.path.isdir(abs_obj_dir):
-       os.makedirs(abs_obj_dir)
- 
--    llvm_external_projects = 'sycl;llvm-spirv;opencl;xpti;xptifw'
-+    llvm_external_projects = 'sycl;llvm-spirv;opencl;xpti;xptifw;compiler-rt'
- 
-     # libdevice build requires a working SYCL toolchain, which is not the case
-     # with macOS target right now.
-```
-Also add `openmp` if needed, e.g. use intel/llvm as a compiler for hipSYCL
+* kernel modules was planned for performance but... needs futher discussion.
 
 ## License
 Main part of this program is licensed under [Mulan Public License, Version 2](http://license.coscl.org.cn/MulanPubL-2.0/index.html) .  
 
-Please notice that Mulan Public License (MulanPubL) is different from Mulan Permissive License (MulanPSL). The former, which this program uses, is more of GPL-like.
+Please notice that Mulan Public License (MulanPubL) is different from Mulan Permissive License (MulanPSL). The former, which this project uses, is more of GPL-like.
 
 ## Credits
 This repo also contains some 3rd-party code:
-* `exprgrammar.hpp` from [Suzerain](https://bitbucket.org/RhysU/suzerain) by RhysU, licensed under [Mozilla Public License, v. 2.0](https://mozilla.org/MPL/2.0/) .
-
+* `exprgrammar.hpp` from [Suzerain](https://bitbucket.org/RhysU/suzerain) by RhysU, licensed under [Mozilla Public License, v. 2.0](https://mozilla.org/MPL/2.0/) . 
+  * Tiny modification is made to update path of header included.
+* [matplotlib-cpp](https://github.com/lava/matplotlib-cpp) by Benno Evers ("lava"), licensed under the MIT License
