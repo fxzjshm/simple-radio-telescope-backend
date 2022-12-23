@@ -19,6 +19,13 @@
  * declaration if needed.
  */
 
+#if defined(__clang__) || defined(__GNUC__) || defined(_MSC_VER)
+#define SRTB_HAS_CONSTEXPR_UNMANGLED_TYPE_NAME
+#include "unmangled_type_name.hpp"
+#else
+#include <boost/core/demangle.hpp>
+#endif
+
 #include "srtb/sycl.hpp"
 
 // ------ dividing line for clang-format ------
@@ -61,6 +68,18 @@ inline constexpr auto abs(const T x) noexcept {
     return sycl::fabs(x);
   }
 }
+
+#ifdef SRTB_HAS_CONSTEXPR_UNMANGLED_TYPE_NAME
+template <typename T>
+static inline constexpr auto type_name() {
+  return unmangled_type_name::type_name<T>();
+}
+#else
+template <typename T>
+static inline auto type_name() {
+  return boost::core::demangle(typeid(T).name());
+}
+#endif  // SRTB_HAS_CONSTEXPR_UNMANGLED_TYPE_NAME
 
 }  // namespace srtb
 

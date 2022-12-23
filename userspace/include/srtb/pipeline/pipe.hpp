@@ -55,6 +55,12 @@ class pipe {
   std::jthread start() {
     std::jthread jthread{
         [this](std::stop_token stop_token) { run(stop_token); }};
+#if __has_include(<pthread.h>)
+    const std::string thread_name = generate_thread_name();
+    pthread_setname_np(jthread.native_handle(), thread_name.c_str());
+#else
+#warning not setting thread name of pipe (TODO)
+#endif
     jthread.detach();
     return jthread;
   }
@@ -94,6 +100,43 @@ class pipe {
    * @brief Shortcut for CRTP.
    */
   Derived& sub() { return static_cast<Derived&>(*this); }
+
+  /**
+   * @brief thread name of a pipe is type name of the pipe, for debugging
+   * 
+   * @return std::string 
+   */
+  static inline auto generate_thread_name() -> std::string {
+    const auto full_type_name = srtb::type_name<Derived>();
+    // example full type name:
+    //   1) srtb::pipeline::xxx_pipe
+    //   2) srtb::pipeline::xxx_pipe<some_template_parameter>
+    //   3) xxx_pipe
+    // need to deal with all of these
+    constexpr std::string_view template_mark{"<"};
+    constexpr std::string_view namespace_mark{"::"};
+    const size_t template_mark_position = full_type_name.find(template_mark);
+    const auto end = full_type_name.size();
+    size_t start;
+    if (template_mark_position != std::string::npos) {
+      start = full_type_name.rfind(namespace_mark, template_mark_position);
+    } else {
+      start = full_type_name.rfind(namespace_mark, end);
+    }
+    start += namespace_mark.size();
+    auto name = full_type_name;
+    if (start != std::string::npos && start < end) {
+      name = full_type_name.substr(start, (end - start));
+    }
+
+    // pthread restrict thread name length < 16 characters (not including \0 ?),
+    // otherwise pthread_setname_np has no effect
+    constexpr size_t thread_name_length_limit = 15;
+    if (name.size() > thread_name_length_limit) {
+      name = name.substr(0, thread_name_length_limit);
+    }
+    return std::string{name};
+  }
 };
 
 inline void wait_for_notify(std::stop_token stop_token) {
