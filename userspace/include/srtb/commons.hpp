@@ -61,7 +61,7 @@ inline constexpr auto abs(const srtb::complex<T> c) noexcept -> T {
 }
 
 template <typename T>
-inline constexpr auto abs(const T x) noexcept {
+inline constexpr T abs(const T x) noexcept {
   if constexpr (std::is_integral_v<T>) {
     return sycl::abs(x);
   } else if constexpr (std::is_floating_point_v<T>) {

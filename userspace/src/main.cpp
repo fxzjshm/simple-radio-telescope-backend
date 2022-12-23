@@ -58,11 +58,17 @@ int main(int argc, char** argv) {
   srtb::pipeline::udp_receiver_pipe udp_receiver_pipe;
   srtb::pipeline::read_file_pipe read_file_pipe;
   std::jthread input_thread;
-  if (std::filesystem::exists(srtb::config.input_file_path)) {
+  auto input_file_path = srtb::config.input_file_path;
+  if (std::filesystem::exists(input_file_path)) {
     SRTB_LOGI << " [main] "
-              << "Reading file " << srtb::config.input_file_path << srtb::endl;
+              << "Reading file " << input_file_path << srtb::endl;
     input_thread = read_file_pipe.start();
   } else {
+    if (input_file_path != "") {
+      SRTB_LOGE << " [main] "
+                << "Cannot read file " << input_file_path << srtb::endl;
+      return EXIT_FAILURE;
+    }
     SRTB_LOGI << " [main] "
               << "Receiving UDP packets" << srtb::endl;
     input_thread = udp_receiver_pipe.start();
