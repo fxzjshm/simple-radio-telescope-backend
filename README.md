@@ -55,7 +55,7 @@ graph LR;
   simplify_spectrum_pipe --> SpectrumImageProvider --> spectrum_ui
 ```
 
-### FIles
+### Files
 * `userspace/include/srtb/`
   * `config`: compile-time and runtime configurations
   * `work`: defines input of each pipe
@@ -80,7 +80,7 @@ Please notice that Mulan Public License (MulanPubL) is different from Mulan Perm
 
 ## Credits
 This repo also contains some 3rd-party code:
-* `exprgrammar.hpp` from [Suzerain](https://bitbucket.org/RhysU/suzerain) by RhysU, licensed under [Mozilla Public License, v. 2.0](https://mozilla.org/MPL/2.0/) . 
+* `exprgrammar.hpp` from [Suzerain](https://bitbucket.org/RhysU/suzerain) (and [this blog](https://agentzlerich.blogspot.com/2011/06/using-boost-spirit-21-to-evaluate.html)) by RhysU, licensed under [Mozilla Public License, v. 2.0](https://mozilla.org/MPL/2.0/) . 
   * Tiny modification is made to update path of header included.
 * [matplotlib-cpp](https://github.com/lava/matplotlib-cpp) by Benno Evers ("lava"), licensed under the MIT License
 * [code snippet to get unmangled type name](https://bitwizeshift.github.io/posts/2021/03/09/getting-an-unmangled-type-name-at-compile-time/) by bitwizeshift, licensed under the [MIT License](https://github.com/bitwizeshift/bitwizeshift.github.io/blob/source/LICENSE)
