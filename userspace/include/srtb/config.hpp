@@ -177,6 +177,13 @@ struct configs {
   srtb::real mitigate_rfi_threshold = 10;
 
   /**
+   * @brief list of frequency pairs to zap/remove,
+   *        format: 11-12, 15-90, 233-235, 1176-1177
+   *                (arbitary values)
+   */
+  std::string mitigate_rfi_freq_list = "";
+
+  /**
    * @brief sum some spectrum before drawing, to reduce CPU side pressure
    * TODO: re-implement
    */

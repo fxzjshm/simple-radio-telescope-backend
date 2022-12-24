@@ -101,6 +101,9 @@ namespace program_options {
       ("mitigate_rfi_threshold", boost::program_options::value<std::string>(),
        "Temporary threshold for RFI mitigation. Channels with signal stronger "
        "than this threshold * average strength will be set to 0 .")
+      ("mitigate_rfi_freq_list", boost::program_options::value<std::string>(),
+       "list of frequency pairs to zap/remove, "
+       "format: 11-12, 15-90, 233-235, 1176-1177 (arbitary values)")
       ("refft_length", boost::program_options::value<std::string>(),
        "Length of FFT for re-constructing signals after coherent dedispersion, "
        "of complex numbers, so refft_length <= baseband_input_count / 2")
@@ -204,6 +207,7 @@ inline void evaluate_and_apply_changed_config(const std::string& name,
   SRTB_PARSE(log_level)
   SRTB_ASSIGN(fft_fftw_wisdom_path)
   SRTB_PARSE(mitigate_rfi_threshold)
+  SRTB_ASSIGN(mitigate_rfi_freq_list)
   SRTB_PARSE(refft_length)
   SRTB_PARSE(signal_detect_threshold)
   SRTB_PARSE(thread_query_work_wait_time)

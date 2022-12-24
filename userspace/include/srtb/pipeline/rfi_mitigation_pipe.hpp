@@ -14,6 +14,10 @@
 #ifndef __SRTB_PIPELINE_RFI_MITIGATION_PIPE__
 #define __SRTB_PIPELINE_RFI_MITIGATION_PIPE__
 
+#include <string>
+#include <utility>
+#include <vector>
+
 #include "srtb/pipeline/pipe.hpp"
 #include "srtb/spectrum/rfi_mitigation.hpp"
 
@@ -22,6 +26,10 @@ namespace pipeline {
 
 class rfi_mitigation_pipe : public pipe<rfi_mitigation_pipe> {
   friend pipe<rfi_mitigation_pipe>;
+
+ protected:
+  std::string mitigate_rfi_freq_list;
+  std::vector<srtb::spectrum::rfi_range_type> rfi_ranges;
 
  protected:
   void run_once_impl(std::stop_token stop_token) {
@@ -34,7 +42,18 @@ class rfi_mitigation_pipe : public pipe<rfi_mitigation_pipe> {
     auto d_in = d_in_shared.get();
     const size_t in_count = rfi_mitigation_work.count;
 
-    srtb::spectrum::mitigate_rfi(d_in, in_count, q);
+    const srtb::real threshold = srtb::config.mitigate_rfi_threshold;
+    srtb::spectrum::mitigate_rfi_average_method(d_in, in_count, threshold, q);
+
+    if (srtb::config.mitigate_rfi_freq_list != mitigate_rfi_freq_list)
+        [[unlikely]] {
+      mitigate_rfi_freq_list = srtb::config.mitigate_rfi_freq_list;
+      rfi_ranges = srtb::spectrum::eval_rfi_ranges(mitigate_rfi_freq_list);
+    }
+    const auto baseband_freq_low = srtb::config.baseband_freq_low;
+    const auto baseband_bandwidth = srtb::config.baseband_bandwidth;
+    srtb::spectrum::mitigate_rfi_manual(d_in, in_count, baseband_freq_low,
+                                        baseband_bandwidth, rfi_ranges, q);
 
     // shortcut
     //srtb::work::simplify_spectrum_work simplify_spectrum_work;
