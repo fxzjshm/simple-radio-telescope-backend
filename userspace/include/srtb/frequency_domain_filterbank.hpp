@@ -60,8 +60,8 @@ inline void frequency_domain_filterbank(T* input, T* output, size_t N, size_t M,
 // TODO: RFI
 template <typename T, typename C, typename Iterator>
 inline void coherent_dedispersion_and_frequency_domain_filterbank_item(
-    Iterator input, Iterator output, const T f_min, const T delta_f, const T dm,
-    const size_t M, const sycl::item<1>& id) {
+    Iterator input, Iterator output, const T f_min, const T f_c, const T df,
+    const T dm, const size_t M, const sycl::item<1>& id) {
   // frequency domain filterbank
   // calculating index, assuming N % (2*M) == 0.
   // some definitions should be found in the paper metioned above
@@ -83,8 +83,8 @@ inline void coherent_dedispersion_and_frequency_domain_filterbank_item(
 
   // coherent dedispersion
   // TODO: does pre-computing delta_phi saves time?
-  const T f = f_min + delta_f * i;
-  const auto factor = srtb::codd::coherent_dedispersion_factor(f, f_min, dm);
+  const T f = f_min + df * i;
+  const auto factor = srtb::codd::coherent_dedispersion_factor(f, f_c, dm);
   const decltype(factor) in = input[i], out = in * factor;
   output[j] = out;
 }
@@ -98,7 +98,7 @@ inline void coherent_dedispersion_and_frequency_domain_filterbank_item(
  * @param input input FFT data
  * @param output output dedispersed and channelized FFT data
  * @param f_min the frequency of the first channel of input data
- * @param delta_f delta frequency between nearest two channels (input[i] and input[i-1])
+ * @param df delta frequency between nearest two channels (input[i] and input[i-1])
  * @param dm disperse measurement
  * @param M segment count of output data, also the batch size of inverse FFT
  * @param N size of input, should be a power of 2
@@ -106,11 +106,11 @@ inline void coherent_dedispersion_and_frequency_domain_filterbank_item(
  */
 template <typename T, typename C = srtb::complex<T>, typename Iterator = C*>
 inline void coherent_dedispersion_and_frequency_domain_filterbank(
-    Iterator input, Iterator output, const T f_min, const T delta_f, const T dm,
-    const size_t M, const size_t N, sycl::queue& q) {
+    Iterator input, Iterator output, const T f_min, const T f_c, const T df,
+    const T dm, const size_t M, const size_t N, sycl::queue& q) {
   q.parallel_for(sycl::range<1>{N}, [=](sycl::item<1> id) {
      coherent_dedispersion_and_frequency_domain_filterbank_item<T, C, Iterator>(
-         input, output, f_min, delta_f, dm, M, id);
+         input, output, f_min, f_c, df, dm, M, id);
    }).wait();
 }
 

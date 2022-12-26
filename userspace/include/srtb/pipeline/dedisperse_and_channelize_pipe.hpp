@@ -50,15 +50,17 @@ class dedisperse_and_channelize_pipe
     // TODO: check this
     // baseband_sample_rate is samples/second, delta_freq is in MHz
     // assume Nyquist sample rate here
-    const srtb::real delta_f =
+    const srtb::real df =
         static_cast<srtb::real>(work.baseband_sample_rate) / 2 / N / 1e6;
     auto& d_in_shared = work.ptr;
     auto d_out_shared =
         srtb::device_allocator.allocate_shared<srtb::complex<srtb::real> >(N);
     auto d_in = d_in_shared.get();
     auto d_out = d_out_shared.get();
+    const srtb::real f_min = work.baseband_freq_low,
+                     f_c = f_min + srtb::config.baseband_bandwidth;
     srtb::coherent_dedispersion_and_frequency_domain_filterbank(
-        d_in, d_out, work.baseband_freq_low, delta_f, work.dm, M, N, q);
+        d_in, d_out, f_min, f_c, df, work.dm, M, N, q);
 
     d_in = nullptr;
     d_in_shared.reset();
@@ -97,12 +99,14 @@ class dedisperse_pipe : public pipe<dedisperse_pipe> {
     // TODO: check this
     // baseband_sample_rate is samples/second, delta_freq is in MHz
     // assume Nyquist sastatic_cast<srtb::real>mple rate here
-    const srtb::real delta_f =
+    const srtb::real df =
         static_cast<srtb::real>(work.baseband_sample_rate) / 2 / N / 1e6;
     auto& d_in_shared = work.ptr;
     auto d_in = d_in_shared.get();
-    srtb::coherent_dedispersion::coherent_dedispertion(
-        d_in, N, work.baseband_freq_low, delta_f, work.dm, q);
+    const srtb::real f_min = work.baseband_freq_low,
+                     f_c = f_min + srtb::config.baseband_bandwidth;
+    srtb::coherent_dedispersion::coherent_dedispertion(d_in, N, f_min, f_c, df,
+                                                       work.dm, q);
 
     // shortcut
     //srtb::work::simplify_spectrum_work simplify_spectrum_work;

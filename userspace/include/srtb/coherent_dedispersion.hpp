@@ -42,7 +42,7 @@ using dedisp_complex_t = srtb::complex<dedisp_real_t>;
  * @note due to historical reason, in some software (tempo2, dspsr, etc.)
  *       $D = 1 / 2.41 \times 10^{-4} \mathrm{MHz^2 pc^{-1} cm^3 s}
  *          = 4.149378 \times 10^3 \mathrm{MHz^2 pc^{-1} cm^3 s}$
- *       (Jiang, 2022)
+ *       (J.C. Jiang, 2022)
  */
 inline constexpr dedisp_real_t D = 4.148808e3;
 
@@ -108,7 +108,7 @@ inline auto nsamps_reserved() -> size_t {
  * ref: C.G. Bassa et al, Enabling pulsar and fast transient searches using coherent dedispersion
  *      (arXiv:1607.00909), https://github.com/cbassa/cdmt/blob/master/cdmt.cu
  */
-template <typename C = dedisp_complex_t>
+template <typename T = srtb::real, typename C = srtb::complex<T> >
 inline C coherent_dedispersion_factor(const dedisp_real_t f,
                                       const dedisp_real_t f_c,
                                       const dedisp_real_t dm) noexcept {
@@ -117,13 +117,23 @@ inline C coherent_dedispersion_factor(const dedisp_real_t f,
   // phase delay
   // coefficient 1e6 is here because the unit of f is MHz, not Hz.
   // NOTE: this delta_phi may be up to 10^9, so the precision of float may not be sufficient here.
-  const dedisp_real_t delta_phi =
-      -2 * M_PI * D * 1e6 * dm *
-      (dedisp_real_t(1.0) / (f * f) - dedisp_real_t(1.0) / (f_c * f_c)) * f;
-  // another formula
-  //const dedisp_real_t diff_f = f - f_c;
+
+  //// 1) original formula
   //const dedisp_real_t delta_phi =
-  //    -2 * M_PI * D * 1e6 * dm * ((diff_f * diff_f) / (f * f_c * f_c));
+  //    -2 * M_PI * D * 1e6 * dm *
+  //    (dedisp_real_t(1.0) / (f * f) - dedisp_real_t(1.0) / (f_c * f_c)) * f;
+
+  //// 2) J.C. Jiang (2022)  ->  Lorimer et al. (2004)
+  //const dedisp_real_t delta_f = f - f_c;
+  //const dedisp_real_t delta_phi =
+  //    -2 * M_PI * D * 1e6 * dm * ((delta_f * delta_f) / (f * f_c * f_c));
+
+  //// 3)
+  const dedisp_real_t delta_f = f - dedisp_real_t{f_c};
+  const dedisp_real_t k =
+      D * dm * 1e6 / f * ((delta_f / f_c) * (delta_f / f_c));
+  const T k_modded = sycl::fmod(k, dedisp_real_t{1});
+  const T delta_phi = -2 * M_PI * k_modded;
   const C factor = C(sycl::cos(delta_phi), sycl::sin(delta_phi));
   return factor;
 }
@@ -131,20 +141,17 @@ inline C coherent_dedispersion_factor(const dedisp_real_t f,
 /**
  * @brief coherent dedispersion of one frequency channel
  * @param i operate on input[i]
- * @param delta_f frequency difference between one channel and the next
+ * @param df frequency difference between one channel and the next
  * @see srtb::codd::D
  * @see crtb::codd::coherent_dedispertion
  */
-template <typename C = dedisp_complex_t, typename Accessor>
+template <typename T = srtb::real, typename C = srtb::complex<T>,
+          typename Accessor>
 inline void coherent_dedispertion_item(Accessor input, Accessor output,
-                                       const dedisp_real_t f_min,
-                                       const dedisp_real_t delta_f,
-                                       const dedisp_real_t dm,
-                                       const sycl::item<1> id) {
-  const size_t i = id.get_id(0);
-  const size_t n = id.get_range(0);
-  const dedisp_real_t freq = f_min + delta_f * i, f_c = f_min + delta_f * n;
-  const C factor = coherent_dedispersion_factor(freq, f_c, dm);
+                                       const T f_min, const T f_c, const T df,
+                                       const T dm, const size_t i) {
+  const dedisp_real_t f = dedisp_real_t{f_min} + dedisp_real_t{df} * i;
+  const C factor = coherent_dedispersion_factor(f, f_c, dm);
   const C in = input[i];
   const C out = in * factor;
   output[i] = out;
@@ -152,19 +159,27 @@ inline void coherent_dedispertion_item(Accessor input, Accessor output,
 
 /**
  * @brief coherent dedispersion of frequency channels
+ * 
+ *       |----------------------------|
+ *    f_min      ||         ^       f_max
+ *               df        f_c
+ * 
  * @param input input buffer accessor, should be FFT-ed baseband signal
  * @param output output buffer accessor
  * @param f_min actual frequency of input[0]
- * @param delta_f delta frequency between nearest two channels (input[i] and input[i-1])
+ * @param f_c reference frequency
+ * @param df delta frequency between nearest two channels (input[i] and input[i-1])
  * @param dm disperse measurement, note: use "accurate" value
  * @see srtb::codd::D
  */
 template <typename T, typename C = srtb::complex<T>, typename Accessor>
 inline void coherent_dedispertion(Accessor input, Accessor output,
                                   const size_t length, const T f_min,
-                                  const T delta_f, const T dm, sycl::queue& q) {
+                                  const T f_c, const T df, const T dm,
+                                  sycl::queue& q) {
   q.parallel_for(sycl::range<1>(length), [=](sycl::item<1> id) {
-     coherent_dedispertion_item(input, output, f_min, delta_f, dm, id);
+     coherent_dedispertion_item(input, output, f_min, f_c, df, dm,
+                                id.get_id(0));
    }).wait();
 }
 
@@ -173,9 +188,9 @@ inline void coherent_dedispertion(Accessor input, Accessor output,
  */
 template <typename T, typename C = srtb::complex<T>, typename Accessor>
 inline void coherent_dedispertion(Accessor input, const size_t length,
-                                  const T f_min, const T delta_f, const T dm,
-                                  sycl::queue& q) {
-  return coherent_dedispertion<T, C, Accessor>(input, input, length, f_min,
+                                  const T f_min, const T f_c, const T delta_f,
+                                  const T dm, sycl::queue& q) {
+  return coherent_dedispertion<T, C, Accessor>(input, input, length, f_min, f_c,
                                                delta_f, dm, q);
 }
 
