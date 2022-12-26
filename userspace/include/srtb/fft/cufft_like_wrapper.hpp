@@ -81,10 +81,6 @@ class cufft_like_1d_wrapper
     SRTB_CHECK_CUFFT_LIKE(trait::fftCreate(&plan));
     constexpr auto native_fft_type = trait::get_native_fft_type(fft_type);
 
-    // 32-bit version
-    //SRTB_CHECK_CUFFT_LIKE(trait::fftMakePlan1d(plan, static_cast<int>(n), fft_type,
-    //                                   batch_size, &workSize));
-
     // 64-bit version
     long long int n_ = static_cast<long long int>(n);
     long long int idist, odist;
@@ -107,18 +103,28 @@ class cufft_like_1d_wrapper
       throw std::runtime_error("[cufft_like_wrapper] create_impl: TODO");
     }
 
-    SRTB_CHECK_CUFFT_LIKE(trait::fftMakePlanMany64(/* plan = */ plan,
-                                                   /* rank = */ 1,
-                                                   /* n = */ &n_,
-                                                   /* inembed = */ inembed,
-                                                   /* istride = */ 1,
-                                                   /* idist = */ idist,
-                                                   /* onembed = */ onembed,
-                                                   /* ostride = */ 1,
-                                                   /* odist = */ odist,
-                                                   /* type = */ native_fft_type,
-                                                   /* batch = */ batch_size,
-                                                   /* worksize = */ &workSize));
+    auto ret_val = trait::fftMakePlanMany64(/* plan = */ plan,
+                                            /* rank = */ 1,
+                                            /* n = */ &n_,
+                                            /* inembed = */ inembed,
+                                            /* istride = */ 1,
+                                            /* idist = */ idist,
+                                            /* onembed = */ onembed,
+                                            /* ostride = */ 1,
+                                            /* odist = */ odist,
+                                            /* type = */ native_fft_type,
+                                            /* batch = */ batch_size,
+                                            /* worksize = */ &workSize);
+    if (ret_val != trait::FFT_SUCCESS && n < std::numeric_limits<int>::max()) {
+      trait::fftDestroy(plan);
+      // 32-bit version
+      SRTB_CHECK_CUFFT_LIKE(trait::fftCreate(&plan));
+      SRTB_CHECK_CUFFT_LIKE(trait::fftMakePlan1d(
+          plan, static_cast<int>(n), native_fft_type, batch_size, &workSize));
+    } else {
+      SRTB_CHECK_CUFFT_LIKE(ret_val);
+    }
+
     SRTB_LOGI << " [cufft_like_wrapper] "
               << "plan finished. workSize = " << workSize << srtb::endl;
     set_queue_impl(q);
