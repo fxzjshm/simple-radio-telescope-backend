@@ -38,7 +38,7 @@ namespace pipeline {
 /**
  * @brief this pipe reads from baseband output pipe and write it to file.
  */
-template <bool continuous_write = srtb::write_all_baseband>
+template <bool continuous_write = false>
 class baseband_output_pipe;
 
 template <>
@@ -193,9 +193,9 @@ class baseband_output_pipe<false> : public pipe<baseband_output_pipe<false> > {
                   << srtb::endl;
       }
 
-      // sometimes file is not fully written, so force syncing it
       if (baseband_output_stream && time_series_output_stream) [[likely]] {
 #ifdef _POSIX_VERSION
+      // sometimes file is not fully written, so force syncing it
         const int err1 = ::fdatasync(baseband_output_stream->handle());
         const int err2 = ::fdatasync(time_series_output_stream->handle());
         if (err1 != 0 || err2 != 0) [[unlikely]] {

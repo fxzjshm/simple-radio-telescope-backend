@@ -92,6 +92,9 @@ namespace program_options {
        "Skip some data before reading in, usually avoids header")
       ("baseband_output_file_prefix", boost::program_options::value<std::string>(),
        "Prefix of saved baseband data. Full name will be ${prefix}_${counter}.bin")
+      ("baseband_write_all", boost::program_options::value<std::string>(),
+       "if true, record all baseband into one file per polarization; "
+       "if false, write only those with signal detected.")
     ;
     operation_option.add_options()
       ("dm,dedisperse_measurement", boost::program_options::value<std::string>(),
@@ -204,6 +207,7 @@ inline void evaluate_and_apply_changed_config(const std::string& name,
   SRTB_ASSIGN(input_file_path)
   SRTB_PARSE(input_file_offset_bytes)
   SRTB_ASSIGN(baseband_output_file_prefix)
+  SRTB_PARSE(baseband_write_all)
   SRTB_PARSE(log_level)
   SRTB_ASSIGN(fft_fftw_wisdom_path)
   SRTB_PARSE(mitigate_rfi_threshold)

@@ -104,9 +104,16 @@ int main(int argc, char** argv) {
   std::jthread signal_detect_thread;
   signal_detect_thread = signal_detect_pipe.start();
 
-  srtb::pipeline::baseband_output_pipe baseband_output_pipe;
+  srtb::pipeline::baseband_output_pipe</* continuous_write = */ true>
+      baseband_output_write_all_pipe;
+  srtb::pipeline::baseband_output_pipe</* continuous_write = */ false>
+      baseband_output_pipe;
   std::jthread baseband_output_thread;
-  baseband_output_thread = baseband_output_pipe.start();
+  if (srtb::config.baseband_write_all) {
+    baseband_output_thread = baseband_output_write_all_pipe.start();
+  } else {
+    baseband_output_thread = baseband_output_pipe.start();
+  }
 
   srtb::pipeline::simplify_spectrum_pipe simplify_spectrum_pipe;
   std::jthread simplify_spectrum_thread;

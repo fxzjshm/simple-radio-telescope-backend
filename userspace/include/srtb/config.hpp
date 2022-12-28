@@ -61,8 +61,6 @@ using udp_packet_counter_type = uint64_t;
 inline constexpr bool fft_window_precompute = false;
 inline constexpr bool fft_operate_in_place = true;
 
-inline constexpr bool write_all_baseband = false;
-
 // TODO: is this necessary or too large?
 inline constexpr size_t MEMORY_ALIGNMENT = 64ul;
 
@@ -157,6 +155,12 @@ struct configs {
    * @brief Prefix of saved baseband data. Full name will be ${prefix}${counter}.bin
    */
   std::string baseband_output_file_prefix = "srtb_baseband_output_";
+
+  /**
+   * @brief if true, record all baseband into one file per polarization;
+   *        if false, write only those with signal detected.
+   */
+  bool baseband_write_all = false;
 
   /**
     * @brief Debug level for console log output.
