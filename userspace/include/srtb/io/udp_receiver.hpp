@@ -115,25 +115,30 @@ class udp_receiver_worker {
         first_counter = received_counter;
         first_counter_set = true;
       }
-      const auto lost_packets_count = received_counter - last_counter - 1;
-      if (lost_packets_count != 0 &&
-          last_counter !=
-              last_counter_initial_value /* first counter may not be 0 */) {
-        total_lost_packets_count += lost_packets_count;
-        const auto fill_count = data_len * lost_packets_count;
-        auto dest_buffer = data_buffer.prepare(fill_count);
-        auto ptr = reinterpret_cast<std::byte*>(dest_buffer.data());
-        std::fill(ptr, ptr + fill_count, std::byte{0});
-        data_buffer.commit(fill_count);
-      }
-      last_counter = received_counter;
 
-      auto dest_buffer = data_buffer.prepare(data_len);
-      std::memcpy(dest_buffer.data(),
+      size_t lost_packets_count = received_counter - last_counter - 1;
+      if (last_counter ==
+          last_counter_initial_value /* first counter may not be 0 */)
+          [[unlikely]] {
+        // this is first time that a packet is received, not really a packet lost
+        lost_packets_count = 0;
+      }
+      total_lost_packets_count += lost_packets_count;
+      const size_t fill_zero_count = data_len * lost_packets_count;
+      const size_t all_data_write_count = fill_zero_count + data_len;
+      //  ------ danger zone: raw memory operations ------
+      auto dest_buffer = data_buffer.prepare(all_data_write_count);
+      std::byte* ptr = reinterpret_cast<std::byte*>(dest_buffer.data());
+      auto ptr2 = std::fill_n(ptr, fill_zero_count, std::byte{0});
+      assert(ptr2 == ptr + fill_zero_count);
+      std::memcpy(ptr2,
                   reinterpret_cast<std::byte*>(receive_buffer.data()) +
                       counter_bytes_count,
                   data_len);
-      data_buffer.commit(data_len);
+      data_buffer.commit(all_data_write_count);
+      //  ------ danger zone: raw memory operations ------
+
+      last_counter = received_counter;
     }
     if (total_lost_packets_count > 0) {
       SRTB_LOGW << " [udp receiver worker] "

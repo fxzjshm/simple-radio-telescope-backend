@@ -103,6 +103,8 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native ")
 if(SRTB_SYCL_IMPLEMENTATION STREQUAL "intel-llvm")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-sycl-id-queries-fit-in-int ")
 endif()
+## sanitizer, for debug usage
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -fno-optimize-sibling-calls ")
 
 # dependency
 set(THREADS_PREFER_PTHREAD_FLAG ON)
