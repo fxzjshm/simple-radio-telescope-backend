@@ -34,7 +34,7 @@ namespace srtb {
 // ------ Compile time configuration ------
 
 // TODO: maybe float on GPU?
-using real = double;
+using real = float;
 
 #ifdef SYCL_IMPLEMENTATION_ONEAPI
 template <typename T>
@@ -166,7 +166,7 @@ struct configs {
     * @brief Debug level for console log output.
     * @see srtb::log::levels
     */
-  /* srtb::log::levels */ int log_level = /* srtb::log::levels::DEBUG */ 4;
+  /* srtb::log::levels */ int log_level = /* srtb::log::levels::INFO */ 3;
 
   /**
    * @brief Location to save fftw wisdom.

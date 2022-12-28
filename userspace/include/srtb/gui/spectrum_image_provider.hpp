@@ -28,8 +28,8 @@ namespace gui {
 namespace spectrum {
 
 // TODO: where to put the pixmap?
-inline constexpr int width = 640;
-inline constexpr int height = 480;
+inline constexpr int width = 1280;
+inline constexpr int height = 720;
 inline constexpr int max_draw_update_count = 2;
 
 /** @brief common 8-bit color has 2^8 == 256 values*/
@@ -42,7 +42,8 @@ class color_map_holder_t {
   QColor error_color;
 
  public:
-  color_map_holder_t(QColor color = Qt::cyan, QColor error_color = Qt::red) {
+  color_map_holder_t(QColor color = Qt::cyan,
+                     QColor error_color = QColor{255, 127, 127}) {
     set_color(color, error_color);
   }
 
