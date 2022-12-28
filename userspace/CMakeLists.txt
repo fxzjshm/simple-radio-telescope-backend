@@ -85,7 +85,8 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 # set C++ language version requirement
 set(CMAKE_CXX_STANDARD 20)
 
-# add extra warnings
+# add extra flags
+## add extra warnings
 ## known SYCL implementations are gcc compatible
 ## -Wold-style-cast removed due to usage in library
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pedantic -pedantic-errors -Wextra -Wall -Winit-self -Woverloaded-virtual -Wuninitialized -Wmissing-declarations -Winit-self")
@@ -97,6 +98,11 @@ set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -rdynamic ")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-builtins -Wno-deprecated-copy ")
 ## optimize for this machine
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native ")
+## do not assume id range fit in MAX_INT because baseband_input_count may be very large
+## when dealing with very high dispersion measurement
+if(SRTB_SYCL_IMPLEMENTATION STREQUAL "intel-llvm")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-sycl-id-queries-fit-in-int ")
+endif()
 
 # dependency
 set(THREADS_PREFER_PTHREAD_FLAG ON)
