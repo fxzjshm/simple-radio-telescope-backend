@@ -77,20 +77,26 @@ inline color_map_holder_t color_map_holder;
  */
 class request_size_scheduler {
  protected:
-  size_t next_request_size = 1;
+  size_t request_size = 1;
 
  public:
   void set_last_size_too_few(bool is_too_few) {
+    size_t next_request_size;
+    // just a simple thought inspired by 3n+1 problem :)
     if (is_too_few) {
-      next_request_size++;
+      next_request_size = 3 * request_size + 1;
     } else {
-      next_request_size--;
+      next_request_size = request_size / 2;
     }
+    if (next_request_size == 0) [[unlikely]] {
+      next_request_size = 1;
+    }
+    request_size = next_request_size;
   }
 
   size_t get_next_request_size() const noexcept {
     //return 1;
-    return next_request_size;
+    return request_size;
   }
 };
 
