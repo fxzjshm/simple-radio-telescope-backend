@@ -22,7 +22,6 @@
 #include <iostream>
 #include <thread>
 
-#include "srtb/coherent_dedispersion.hpp"
 #include "srtb/commons.hpp"
 
 namespace srtb {

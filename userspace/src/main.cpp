@@ -110,6 +110,9 @@ int main(int argc, char** argv) {
       baseband_output_pipe;
   std::jthread baseband_output_thread;
   if (srtb::config.baseband_write_all) {
+    SRTB_LOGW << " [main] "
+              << "Writing all baseband data, take care of disk space!"
+              << srtb::endl;
     baseband_output_thread = baseband_output_write_all_pipe.start();
   } else {
     baseband_output_thread = baseband_output_pipe.start();

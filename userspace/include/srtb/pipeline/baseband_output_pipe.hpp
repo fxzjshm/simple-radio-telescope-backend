@@ -63,11 +63,17 @@ class baseband_output_pipe<true> : public pipe<baseband_output_pipe<true> > {
       signal_detect_result_queue.pop();
     }
 
-    if (!file_output_stream) {
+    // file name need time stamp, so cannot create early
+    if (!file_output_stream) [[unlikely]] {
       std::string file_path = srtb::config.baseband_output_file_prefix +
                               std::to_string(baseband_output_work.timestamp) +
                               ".bin";
       file_output_stream = std::ofstream(file_path.c_str(), std::ios::binary);
+      if (!file_output_stream) [[unlikely]] {
+        auto err = "Cannot open file " + file_path;
+        SRTB_LOGE << " [baseband_output_pipe] " << err << srtb::endl;
+        throw std::runtime_error{err};
+      }
     }
 
     const char* ptr = reinterpret_cast<char*>(baseband_output_work.ptr.get());
@@ -112,31 +118,31 @@ class baseband_output_pipe<false> : public pipe<baseband_output_pipe<false> > {
                             srtb::signal_detect_result_queue,
                             signal_detect_result, stop_token);
     while (baseband_output_work.timestamp != signal_detect_result.timestamp)
-      [[unlikely]] {
-        if (baseband_output_work.timestamp < signal_detect_result.timestamp) {
-          SRTB_LOGW << " [baseband_output_pipe] "
-                    << "baseband_output_work.timestamp = "
-                    << baseband_output_work.timestamp << " < "
-                    << "signal_detect_result.timestamp = "
-                    << signal_detect_result.timestamp << srtb::endl;
-          SRTB_POP_WORK_OR_RETURN(" [baseband_output_pipe] ",
-                                  srtb::baseband_output_queue,
-                                  baseband_output_work, stop_token);
-        } else if (baseband_output_work.timestamp >
-                   signal_detect_result.timestamp) {
-          SRTB_LOGW << " [baseband_output_pipe] "
-                    << "baseband_output_work.timestamp = "
-                    << baseband_output_work.timestamp << " > "
-                    << "signal_detect_result.timestamp = "
-                    << signal_detect_result.timestamp << srtb::endl;
-          SRTB_POP_WORK_OR_RETURN(" [baseband_output_pipe] ",
-                                  srtb::signal_detect_result_queue,
-                                  signal_detect_result, stop_token);
-        } else {
-          SRTB_LOGE << " [baseband_output_pipe] "
-                    << "Logic error. Something must be wrong." << srtb::endl;
-        }
+        [[unlikely]] {
+      if (baseband_output_work.timestamp < signal_detect_result.timestamp) {
+        SRTB_LOGW << " [baseband_output_pipe] "
+                  << "baseband_output_work.timestamp = "
+                  << baseband_output_work.timestamp << " < "
+                  << "signal_detect_result.timestamp = "
+                  << signal_detect_result.timestamp << srtb::endl;
+        SRTB_POP_WORK_OR_RETURN(" [baseband_output_pipe] ",
+                                srtb::baseband_output_queue,
+                                baseband_output_work, stop_token);
+      } else if (baseband_output_work.timestamp >
+                 signal_detect_result.timestamp) {
+        SRTB_LOGW << " [baseband_output_pipe] "
+                  << "baseband_output_work.timestamp = "
+                  << baseband_output_work.timestamp << " > "
+                  << "signal_detect_result.timestamp = "
+                  << signal_detect_result.timestamp << srtb::endl;
+        SRTB_POP_WORK_OR_RETURN(" [baseband_output_pipe] ",
+                                srtb::signal_detect_result_queue,
+                                signal_detect_result, stop_token);
+      } else {
+        SRTB_LOGE << " [baseband_output_pipe] "
+                  << "Logic error. Something must be wrong." << srtb::endl;
       }
+    }
 
     if (signal_detect_result.has_signal) {
       auto timestamp = baseband_output_work.timestamp;
@@ -195,7 +201,7 @@ class baseband_output_pipe<false> : public pipe<baseband_output_pipe<false> > {
 
       if (baseband_output_stream && time_series_output_stream) [[likely]] {
 #ifdef _POSIX_VERSION
-      // sometimes file is not fully written, so force syncing it
+        // sometimes file is not fully written, so force syncing it
         const int err1 = ::fdatasync(baseband_output_stream->handle());
         const int err2 = ::fdatasync(time_series_output_stream->handle());
         if (err1 != 0 || err2 != 0) [[unlikely]] {
