@@ -93,8 +93,8 @@ namespace program_options {
       ("baseband_output_file_prefix", boost::program_options::value<std::string>(),
        "Prefix of saved baseband data. Full name will be ${prefix}_${counter}.bin")
       ("baseband_write_all", boost::program_options::value<std::string>(),
-       "if true, record all baseband into one file per polarization; "
-       "if false, write only those with signal detected.")
+       "if 1, record all baseband into one file per polarization; "
+       "if 0, write only those with signal detected.")
     ;
     operation_option.add_options()
       ("dm,dedisperse_measurement", boost::program_options::value<std::string>(),

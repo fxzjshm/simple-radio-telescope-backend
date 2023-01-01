@@ -1,4 +1,4 @@
-
+# Building
 ## Dependency
 * a C++ compiler that supports at least C++20
 * SYCL 2020 implementation, such as [illuhad/hipSYCL](https://github.com/illuhad/hipSYCL/) and [intel/llvm](https://github.com/intel/llvm/)
@@ -21,6 +21,7 @@ if CUDA backend enabled, additional dependencies:
 
 ## Building
 This project uses CMake 3. 
+
 Configure options:
 * `SRTB_SYCL_IMPLEMENTATION`: switches SYCL implementation used. Default to `hipSYCL`.
   * set to `hipSYCL` to use hipSYCL

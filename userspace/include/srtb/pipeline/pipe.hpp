@@ -78,16 +78,21 @@ class pipe {
     }
     while ((!stop_token.stop_possible()) ||
            (stop_token.stop_possible() && !stop_token.stop_requested()))
-      [[likely]] { sub().run_once_impl(stop_token); }
+        [[likely]] {
+      sub().run_once_impl(stop_token);
+    }
     if constexpr (has_teardown) {
       sub().teardown_impl();
     }
     srtb::pipeline::running_pipe_count--;
   }
 
+  // functions run on the new thread:
   // setup() -> setup_impl(), if constructor doesn't apply here.
   // run_once() -> run_once_impl()
   // teardown() -> teardown_impl(), if destructor doesn't apply here.
+  // some functions rely on thread_local variables, but constructor & destructor
+  // run on main thread, so setup_impl() & teardown_impl() are needed.
 
  private:
   pipe() {
@@ -95,6 +100,13 @@ class pipe {
   }
 
   pipe(sycl::queue q_) : q{q_} {};
+
+  ~pipe() {
+    // wait until all operations in this pipe finish, then exit
+    // otherwise if the sycl runtime exit before operations (like host to device memcpy) is done,
+    // error may happen
+    q.wait();
+  }
 
   /**
    * @brief Shortcut for CRTP.
