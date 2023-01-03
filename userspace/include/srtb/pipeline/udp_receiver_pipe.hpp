@@ -43,7 +43,7 @@ class udp_receiver_pipe : public pipe<udp_receiver_pipe> {
     const std::string& sender_address =
         srtb::config.udp_receiver_sender_address;
     const unsigned short sender_port = srtb::config.udp_receiver_sender_port;
-    const int udp_receiver_buffer_size = srtb::config.udp_receiver_buffer_size;
+    const auto udp_receiver_buffer_size = srtb::config.udp_receiver_buffer_size;
     opt_worker.emplace(sender_address, sender_port, udp_receiver_buffer_size);
 
     srtb::thread_affinity::set_thread_affinity(

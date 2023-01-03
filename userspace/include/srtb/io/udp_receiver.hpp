@@ -20,9 +20,11 @@
 #include <chrono>
 #include <cstring>
 #include <iostream>
+#include <limits>
 #include <thread>
 
 #include "srtb/commons.hpp"
+#include "srtb/memory/streambuf.hpp"
 
 namespace srtb {
 namespace io {
@@ -62,7 +64,7 @@ class udp_receiver_worker {
   /**
    * @brief buffer for data storage, i.e. without counter 
    */
-  boost::asio::streambuf data_buffer;
+  srtb::memory::streambuf data_buffer;
   static constexpr udp_packet_counter_type last_counter_initial_value =
       static_cast<udp_packet_counter_type>(-1);
   /** 
@@ -73,13 +75,19 @@ class udp_receiver_worker {
  public:
   udp_receiver_worker(const std::string& sender_address,
                       const unsigned short sender_port,
-                      const int udp_receiver_buffer_size)
+                      const size_t udp_receiver_buffer_size)
       : sender_endpoint{boost::asio::ip::address::from_string(sender_address),
                         sender_port},
         socket{io_service, sender_endpoint} {
     socket.set_option(boost::asio::ip::udp::socket::reuse_address{true});
-    socket.set_option(boost::asio::socket_base::receive_buffer_size{
-        udp_receiver_buffer_size});
+    const int socket_buffer_size = static_cast<int>(
+        std::min(udp_receiver_buffer_size / 2,
+                 static_cast<size_t>(std::numeric_limits<int>::max())));
+    const size_t streambuf_buffer_size =
+        udp_receiver_buffer_size - socket_buffer_size;
+    socket.set_option(
+        boost::asio::socket_base::receive_buffer_size{socket_buffer_size});
+    data_buffer.reserve(streambuf_buffer_size);
   }
 
   /**

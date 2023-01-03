@@ -124,7 +124,7 @@ struct configs {
     * @brief Buffer size of socket for receving udp packet.
     * @see srtb::io::udp_receiver
     */
-  int udp_receiver_buffer_size = static_cast<int>((1L << 31) - 1);
+  size_t udp_receiver_buffer_size = std::numeric_limits<int>::max();
 
   /**
    * @brief Address to receive baseband UDP packets.
