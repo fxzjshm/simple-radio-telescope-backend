@@ -60,7 +60,7 @@ class udp_receiver_pipe : public pipe<udp_receiver_pipe> {
         baseband_input_count * baseband_input_bits / srtb::BITS_PER_BYTE;
     SRTB_LOGD << " [udp receiver pipe] "
               << "start receiving" << srtb::endl;
-    auto [buffer, first_counter] =
+    auto [buffer_pointer, first_counter] =
         worker.receive(/* required_length = */ baseband_input_bytes);
     SRTB_LOGD << " [udp receiver pipe] "
               << "receive finished" << srtb::endl;
@@ -72,8 +72,7 @@ class udp_receiver_pipe : public pipe<udp_receiver_pipe> {
         srtb::device_allocator.allocate_shared<std::byte>(baseband_input_bytes);
     std::shared_ptr<std::byte> h_ptr =
         srtb::host_allocator.allocate_shared<std::byte>(baseband_input_bytes);
-    std::copy_n(reinterpret_cast<const std::byte*>(buffer.data()),
-                baseband_input_bytes, h_ptr.get());
+    std::copy_n(buffer_pointer, baseband_input_bytes, h_ptr.get());
     sycl::event host_to_devive_copy_event =
         q.copy(h_ptr.get(), /* -> */ d_ptr.get(), baseband_input_bytes);
 

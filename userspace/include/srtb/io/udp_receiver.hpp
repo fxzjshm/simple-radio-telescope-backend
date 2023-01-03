@@ -24,7 +24,7 @@
 #include <thread>
 
 #include "srtb/commons.hpp"
-#include "srtb/memory/streambuf.hpp"
+#include "srtb/memory/host_ring_buffer.hpp"
 
 namespace srtb {
 namespace io {
@@ -64,7 +64,7 @@ class udp_receiver_worker {
   /**
    * @brief buffer for data storage, i.e. without counter 
    */
-  srtb::memory::streambuf data_buffer;
+  srtb::memory::host_ring_buffer<std::byte> data_buffer;
   static constexpr udp_packet_counter_type last_counter_initial_value =
       static_cast<udp_packet_counter_type>(-1);
   /** 
@@ -130,21 +130,17 @@ class udp_receiver_worker {
         // this is first time that a packet is received, not really a packet lost
         lost_packets_count = 0;
       }
+      if (lost_packets_count != 0) {
+        SRTB_LOGW << " [udp receiver worker] "
+                  << "data loss detected: " << lost_packets_count
+                  << " packets. Filling these with zero. " << srtb::endl;
+      }
       total_lost_packets_count += lost_packets_count;
       const size_t fill_zero_count = data_len * lost_packets_count;
-      const size_t all_data_write_count = fill_zero_count + data_len;
-      //  ------ danger zone: raw memory operations ------
-      auto dest_buffer = data_buffer.prepare(all_data_write_count);
-      std::byte* ptr = reinterpret_cast<std::byte*>(dest_buffer.data());
-      auto ptr2 = std::fill_n(ptr, fill_zero_count, std::byte{0});
-      assert(ptr2 == ptr + fill_zero_count);
-      std::memcpy(ptr2,
-                  reinterpret_cast<std::byte*>(receive_buffer.data()) +
-                      counter_bytes_count,
-                  data_len);
-      data_buffer.commit(all_data_write_count);
-      //  ------ danger zone: raw memory operations ------
-
+      data_buffer.fill(std::byte{0}, fill_zero_count);
+      data_buffer.push(reinterpret_cast<std::byte*>(receive_buffer.data()) +
+                           counter_bytes_count,
+                       data_len);
       last_counter = received_counter;
     }
     if (total_lost_packets_count > 0) {
@@ -160,10 +156,10 @@ class udp_receiver_worker {
     SRTB_LOGD << " [udp receiver worker] "
               << "recevice time = " << receive_time << " us." << srtb::endl;
 
-    return std::make_pair(data_buffer.data(), first_counter);
+    return std::make_pair(data_buffer.peek(required_length), first_counter);
   }
 
-  void consume(std::size_t n) { data_buffer.consume(n); }
+  void consume(std::size_t n) { data_buffer.pop(nullptr, n); }
 };
 
 }  // namespace udp_receiver
