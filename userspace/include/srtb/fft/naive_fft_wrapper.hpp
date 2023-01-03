@@ -14,6 +14,8 @@
 #ifndef __SRTB_NAIVE_FFT_WRAPPER__
 #define __SRTB_NAIVE_FFT_WRAPPER__
 
+#include <bit>
+
 #include "srtb/fft/naive_fft.hpp"
 
 namespace srtb {
@@ -37,13 +39,7 @@ class naive_fft_1d_wrapper
   void create_impl(size_t n, size_t batch_size, sycl::queue& queue) {
     (void)batch_size;
     (void)queue;
-    size_t p = 1, l = 0;
-    while (p < n) {
-      p <<= 1;
-      l++;
-      // so 2**l == p
-    }
-    k = l;
+    k = std::bit_width(n);
     // delay error on n != 2**k because this wrapper may not be called
     // as it is naive and slow
   }
@@ -69,7 +65,7 @@ class naive_fft_1d_wrapper
                               int>::type = 0>
   void process_impl(C* in, C* out) {
     const size_t n = (*this).n;
-    if ((1 << k) != n) {
+    if (std::has_single_bit(n)) {
       throw std::runtime_error("[naive_fft_wrapper]: n must be a power of 2");
     }
     constexpr int direction =
