@@ -81,17 +81,32 @@ inline srtb::real max_delay_time() {
   * TODO: check this
   */
 inline auto nsamps_reserved() -> size_t {
+  static bool have_given_warning = false;
+
   // disable this if it doesn't work as expected.
   //return 0;
+
   const size_t minimal_reserve_count =
       2 * std::round(srtb::coherent_dedispersion::max_delay_time() *
                      srtb::config.baseband_sample_rate);
   const size_t refft_length_real = srtb::config.refft_length * 2;
   const size_t baseband_input_count = srtb::config.baseband_input_count;
-  const size_t refft_total_size =
-      (srtb::config.baseband_input_count - minimal_reserve_count) /
+  const ssize_t refft_total_size =
+      static_cast<ssize_t>(baseband_input_count - minimal_reserve_count) /
       refft_length_real * refft_length_real;
-  return baseband_input_count - refft_total_size;
+  const size_t nsamps_may_reserved = baseband_input_count - refft_total_size;
+  if (refft_total_size > 0) {
+    return nsamps_may_reserved;
+  } else {
+    if (!have_given_warning) [[unlikely]] {
+      SRTB_LOGW << " [nsamps_reserved] "
+                << "nsamps_reserved = " << nsamps_may_reserved
+                << " > baseband_input_count = " << baseband_input_count
+                << srtb::endl;
+      have_given_warning = true;
+    }
+    return 0;
+  }
 }
 
 /**

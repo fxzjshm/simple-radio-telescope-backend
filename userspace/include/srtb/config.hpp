@@ -15,6 +15,7 @@
 #define __SRTB_CONFIG__
 
 #include <cstddef>  // for size_t
+#include <limits>
 #include <string>
 #include <string_view>
 
