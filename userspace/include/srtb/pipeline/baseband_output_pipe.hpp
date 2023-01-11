@@ -105,7 +105,19 @@ class baseband_output_pipe<false> : public pipe<baseband_output_pipe<false> > {
   std::vector<srtb::real> time_series_buffer;
 
  public:
-  baseband_output_pipe() {}
+  baseband_output_pipe() {
+    std::string check_file_path =
+        srtb::config.baseband_output_file_prefix + "check.bin";
+    try {
+      boost::iostreams::stream<boost::iostreams::file_descriptor_sink>
+          baseband_output_stream{check_file_path,
+                                 BOOST_IOS::binary | BOOST_IOS::out};
+    } catch (const boost::wrapexcept<std::ios_base::failure>& error) {
+      SRTB_LOGE << " [baseband_output_pipe] "
+                << "cannot open file " << check_file_path << srtb::endl;
+      throw error;
+    }
+  }
 
  protected:
   void run_once_impl(std::stop_token stop_token) {
