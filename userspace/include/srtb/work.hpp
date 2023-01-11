@@ -127,7 +127,7 @@ struct unpack_work : public srtb::work::work<std::shared_ptr<std::byte> > {
    *        currently 1, 2, 4 and 8 bit(s) baseband input is implemented,
    *        others will result in ... undefined behaviour.
    */
-  size_t baseband_input_bits;
+  int baseband_input_bits;
   /**
    * @brief let unpack_pipe to wait for host to device copy, so that
    *        udp receiver pipe may lose less packet.

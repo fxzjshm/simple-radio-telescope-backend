@@ -43,13 +43,13 @@ class read_file_pipe : public pipe<read_file_pipe> {
    */
   void read_file(const std::string& file_path,
                  const size_t baseband_input_count,
-                 const size_t baseband_input_bits,
+                 const int baseband_input_bits,
                  const size_t input_file_offset_bytes, sycl::queue& q,
                  std::stop_token stop_token) {
     std::ifstream input_file_stream{file_path,
                                     std::ifstream::in | std::ifstream::binary};
     const size_t time_sample_bytes =
-        baseband_input_count * baseband_input_bits / BITS_PER_BYTE;
+        baseband_input_count * std::abs(baseband_input_bits) / BITS_PER_BYTE;
 
     input_file_stream.ignore(input_file_offset_bytes);
 
@@ -102,7 +102,7 @@ class read_file_pipe : public pipe<read_file_pipe> {
       // reserved some samples for next round
       const size_t nsamps_reserved = srtb::codd::nsamps_reserved();
       const std::streamoff reserved_bytes =
-          nsamps_reserved * baseband_input_bits / BITS_PER_BYTE;
+          nsamps_reserved * std::abs(baseband_input_bits) / BITS_PER_BYTE;
       if (static_cast<size_t>(reserved_bytes) < time_sample_bytes) {
         logical_file_pos -= reserved_bytes;
         input_file_stream.seekg(logical_file_pos);

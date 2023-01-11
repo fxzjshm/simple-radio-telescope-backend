@@ -172,11 +172,16 @@ template <int IN_NBITS, bool handwritten = false, typename InputIterator,
 inline void unpack(InputIterator d_in, OutputIterator d_out,
                    const size_t out_count, TransformFunctor transform,
                    sycl::queue& q) {
+  typedef typename std::iterator_traits<InputIterator>::value_type input_type;
+  static_assert((std::is_same_v<std::byte, input_type> &&
+                 IN_NBITS < srtb::BITS_PER_BYTE * sizeof(std::byte)) ||
+                (srtb::BITS_PER_BYTE * sizeof(input_type) == IN_NBITS));
+
   size_t range_size;
   // here the parallel_for range differs.
   // 1) when in_nbits == 1, 2, 4, 8, one work item operates on 1 input std::byte,
   //    which write 8, 4, 2, 1 output(s), respectively
-  // 2) when in_nbits == 8, 16, 32, 64 or whatever else, 
+  // 2) when in_nbits == 8, 16, 32, 64 or whatever else,
   //    1 work item operates on only 1 input of some other type,
   //    which is not "unpack" but type casting to output type.
   // refer to device kernels above to see the difference.
@@ -190,6 +195,7 @@ inline void unpack(InputIterator d_in, OutputIterator d_out,
    }).wait();
 }
 
+/** @brief an overload that defaults functor to @c srtb::algorithm::map_identity */
 template <int IN_NBITS, bool handwritten = false, typename InputIterator,
           typename OutputIterator>
 inline void unpack(InputIterator d_in, OutputIterator d_out,
@@ -198,45 +204,8 @@ inline void unpack(InputIterator d_in, OutputIterator d_out,
                                        srtb::algorithm::map_identity(), q);
 }
 
-/** @brief runtime dispatch version */
-template <bool handwritten = false, typename InputIterator,
-          typename OutputIterator, typename TransformFunctor>
-inline void unpack(int in_nbits, InputIterator d_in, OutputIterator d_out,
-                   const size_t out_count, TransformFunctor transform,
-                   sycl::queue& q) {
-  typedef typename std::iterator_traits<InputIterator>::value_type input_type;
-  if constexpr (std::is_same_v<std::byte, input_type>) {
-    switch (in_nbits) {
-      case 1:
-        return unpack<1, handwritten>(d_in, d_out, out_count, transform, q);
-      case 2:
-        return unpack<2, handwritten>(d_in, d_out, out_count, transform, q);
-      case 4:
-        return unpack<4, handwritten>(d_in, d_out, out_count, transform, q);
-      // case 8 is included below, in (in_nbits == expected_in_nbits) branch
-      default:
-        break;
-    }
-  }
-  constexpr int expected_in_nbits = sizeof(input_type) * srtb::BITS_PER_BYTE;
-  if (in_nbits == expected_in_nbits) {
-    return unpack<expected_in_nbits, handwritten>(d_in, d_out, out_count,
-                                                  transform, q);
-  } else {
-    throw std::runtime_error("unpack: unsupported in_nbits " +
-                             std::to_string(in_nbits) + " with type " +
-                             std::string{typeid(input_type).name()});
-  }
-}
-
-/** @brief an overload that defaults functor to @c srtb::algorithm::map_identity */
-template <bool handwritten = false, typename InputIterator,
-          typename OutputIterator>
-inline void unpack(int in_nbits, InputIterator d_in, OutputIterator d_out,
-                   const size_t out_count, sycl::queue& q) {
-  return unpack<handwritten>(in_nbits, d_in, d_out, out_count,
-                             srtb::algorithm::map_identity(), q);
-}
+// runtime dispatch moved to unpack_pipe because reinterpret_cast is not generally available
+// for iterator of std::byte -> iterator of other types
 
 }  // namespace unpack
 }  // namespace srtb

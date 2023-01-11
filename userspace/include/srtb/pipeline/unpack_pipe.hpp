@@ -44,9 +44,9 @@ class unpack_pipe : public pipe<unpack_pipe> {
     SRTB_POP_WORK_OR_RETURN(" [unpack pipe] ", srtb::unpack_queue, unpack_work,
                             stop_token);
     // data length after unpack
-    const auto baseband_input_bits = unpack_work.baseband_input_bits;
+    const int baseband_input_bits = unpack_work.baseband_input_bits;
     const size_t out_count =
-        unpack_work.count * srtb::BITS_PER_BYTE / baseband_input_bits;
+        unpack_work.count * srtb::BITS_PER_BYTE / std::abs(baseband_input_bits);
 
     // re-construct fft_window_functor_manager if length mismatch
     if (out_count != window_functor_manager.functor.n) [[unlikely]] {
@@ -69,18 +69,44 @@ class unpack_pipe : public pipe<unpack_pipe> {
     auto d_in = d_in_shared.get();
     auto d_out = d_out_shared.get();
     // runtime dispatch of different input bits
-    if (baseband_input_bits <= srtb::BITS_PER_BYTE) {
-      // 1, 2, 4, 8 -> std::byte
-      srtb::unpack::unpack(baseband_input_bits, d_in, d_out, out_count,
-                           window_functor_manager.functor, q);
+    // TODO: baseband_input_bits = -4, 16, -16
+    if (baseband_input_bits == 1) {
+      // 1 -> std::byte
+      srtb::unpack::unpack<1>(d_in, d_out, out_count,
+                              window_functor_manager.functor, q);
+    } else if (baseband_input_bits == 2) {
+      // 2 -> std::byte
+      srtb::unpack::unpack<2>(d_in, d_out, out_count,
+                              window_functor_manager.functor, q);
+    } else if (baseband_input_bits == 4) {
+      // 4 -> std::byte
+      srtb::unpack::unpack<4>(d_in, d_out, out_count,
+                              window_functor_manager.functor, q);
+    } else if (baseband_input_bits == sizeof(uint8_t) * srtb::BITS_PER_BYTE) {
+      // 8 -> uint8_t / unsigned char / u8
+      using T = uint8_t;
+      srtb::unpack::unpack<sizeof(T) * srtb::BITS_PER_BYTE>(
+          reinterpret_cast<T*>(d_in), d_out, out_count,
+          window_functor_manager.functor, q);
+    } else if (baseband_input_bits ==
+               -int{sizeof(int8_t) * srtb::BITS_PER_BYTE}) {
+      // -8 -> int8_t / signed char / i8
+      using T = int8_t;
+      srtb::unpack::unpack<sizeof(T) * srtb::BITS_PER_BYTE>(
+          reinterpret_cast<T*>(d_in), d_out, out_count,
+          window_functor_manager.functor, q);
     } else if (baseband_input_bits == sizeof(float) * srtb::BITS_PER_BYTE) {
       // 32 -> float/f32
-      srtb::unpack::unpack(baseband_input_bits, reinterpret_cast<float*>(d_in),
-                           d_out, out_count, window_functor_manager.functor, q);
+      using T = float;
+      srtb::unpack::unpack<sizeof(T) * srtb::BITS_PER_BYTE>(
+          reinterpret_cast<T*>(d_in), d_out, out_count,
+          window_functor_manager.functor, q);
     } else if (baseband_input_bits == sizeof(double) * srtb::BITS_PER_BYTE) {
       // 64 -> double/f64
-      srtb::unpack::unpack(baseband_input_bits, reinterpret_cast<double*>(d_in),
-                           d_out, out_count, window_functor_manager.functor, q);
+      using T = double;
+      srtb::unpack::unpack<sizeof(T) * srtb::BITS_PER_BYTE>(
+          reinterpret_cast<T*>(d_in), d_out, out_count,
+          window_functor_manager.functor, q);
     } else {
       throw std::runtime_error(
           "[unpack pipe] unsupported baseband_input_bits = " +

@@ -55,9 +55,10 @@ class udp_receiver_pipe : public pipe<udp_receiver_pipe> {
 
     // this config should persist during one work push
     const size_t baseband_input_count = srtb::config.baseband_input_count;
-    const size_t baseband_input_bits = srtb::config.baseband_input_bits;
-    const size_t baseband_input_bytes =
-        baseband_input_count * baseband_input_bits / srtb::BITS_PER_BYTE;
+    const int baseband_input_bits = srtb::config.baseband_input_bits;
+    const size_t baseband_input_bytes = baseband_input_count *
+                                        std::abs(baseband_input_bits) /
+                                        srtb::BITS_PER_BYTE;
     SRTB_LOGD << " [udp receiver pipe] "
               << "start receiving" << srtb::endl;
     auto [buffer_pointer, first_counter] =

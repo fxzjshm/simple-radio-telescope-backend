@@ -94,9 +94,10 @@ struct configs {
 
   /**
    * @brief Length of a single input data, used in unpack.
+   *        negative value is signed integers
    *        TODO: 32 -> uint32 or float?
    */
-  size_t baseband_input_bits = 8;
+  int baseband_input_bits = 8;
 
   /**
    * @brief Lowerest frequency of received baseband signal, in MHz.

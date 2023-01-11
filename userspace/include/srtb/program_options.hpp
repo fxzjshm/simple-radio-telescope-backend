@@ -66,7 +66,9 @@ namespace program_options {
        "Count of data to be transferred to GPU for once processing, in sample counts. "
        "Should be power of 2 so that FFT and channelizing can work properly.")
       ("baseband_input_bits", boost::program_options::value<std::string>(),
-       "Length of a single input data, used in unpack.")
+       "Length of a single input data, used in unpack."
+       "Negative value is signed integers."
+       "Currently supported: 1(uint1), 2(uint2), 4(uint4), 8(uint8), -8(int8), 32(float), 64(double)")
       ("baseband_freq_low", boost::program_options::value<std::string>(),
        "Lowerest frequency of received baseband signal, in MHz.")
       ("baseband_bandwidth", boost::program_options::value<std::string>(),
