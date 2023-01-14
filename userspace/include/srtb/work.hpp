@@ -19,46 +19,41 @@
 
 #include "srtb/config.hpp"
 
-#define SRTB_PUSH_WORK_OR_RETURN(tag, work_queue, work, stop_token)          \
-  {                                                                          \
-    bool ret = work_queue.push(work);                                        \
-    if (!ret) [[unlikely]] {                                                 \
-      SRTB_LOGW << tag                                                       \
-                << " Pushing " #work " to " #work_queue " failed! Retrying." \
-                << srtb::endl;                                               \
-      while (!ret) {                                                         \
-        if (stop_token.stop_requested()) [[unlikely]] {                      \
-          return;                                                            \
-        }                                                                    \
-        std::this_thread::yield(); /* TODO: spin lock here? */               \
-        std::this_thread::sleep_for(std::chrono::nanoseconds(                \
-            srtb::config.thread_query_work_wait_time));                      \
-        ret = work_queue.push(work);                                         \
-      }                                                                      \
-      SRTB_LOGI << tag << " Pushed " #work " to " #work_queue << srtb::endl; \
-    } else [[likely]] {                                                      \
-      SRTB_LOGD << tag << " Pushed " #work " to " #work_queue << srtb::endl; \
-    }                                                                        \
+#define SRTB_PUSH_WORK_OR_RETURN(tag, work_queue, work, stop_token)        \
+  {                                                                        \
+    bool ret = work_queue.push(work);                                      \
+    if (!ret) [[unlikely]] {                                               \
+      SRTB_LOGW << tag                                                     \
+                << " Pipeline stuck: Pushing " #work " to " #work_queue    \
+                   " failed! Retrying."                                    \
+                << srtb::endl;                                             \
+      while (!ret) {                                                       \
+        if (stop_token.stop_requested()) [[unlikely]] {                    \
+          return;                                                          \
+        }                                                                  \
+        std::this_thread::yield(); /* TODO: spin lock here? */             \
+        std::this_thread::sleep_for(std::chrono::nanoseconds(              \
+            srtb::config.thread_query_work_wait_time));                    \
+        ret = work_queue.push(work);                                       \
+      }                                                                    \
+    }                                                                      \
+    SRTB_LOGD << tag << " Pushed " #work " to " #work_queue << srtb::endl; \
   }
 
-#define SRTB_POP_WORK_OR_RETURN(tag, work_queue, work, stop_token)             \
-  {                                                                            \
-    bool ret = work_queue.pop(work);                                           \
-    if (!ret) [[unlikely]] {                                                   \
-      SRTB_LOGD << tag                                                         \
-                << " Popping " #work " from " #work_queue " failed! Retrying." \
-                << srtb::endl;                                                 \
-      while (!ret) {                                                           \
-        if (stop_token.stop_requested()) [[unlikely]] {                        \
-          return;                                                              \
-        }                                                                      \
-        std::this_thread::yield(); /* TODO: spin lock here? */                 \
-        std::this_thread::sleep_for(std::chrono::nanoseconds(                  \
-            srtb::config.thread_query_work_wait_time));                        \
-        ret = work_queue.pop(work);                                            \
-      }                                                                        \
-    }                                                                          \
-    SRTB_LOGD << tag << " Popped " #work " from " #work_queue << srtb::endl;   \
+#define SRTB_POP_WORK_OR_RETURN(tag, work_queue, work, stop_token) \
+  {                                                                \
+    bool ret = work_queue.pop(work);                               \
+    if (!ret) [[unlikely]] {                                       \
+      while (!ret) {                                               \
+        if (stop_token.stop_requested()) [[unlikely]] {            \
+          return;                                                  \
+        }                                                          \
+        std::this_thread::yield(); /* TODO: spin lock here? */     \
+        std::this_thread::sleep_for(std::chrono::nanoseconds(      \
+            srtb::config.thread_query_work_wait_time));            \
+        ret = work_queue.pop(work);                                \
+      }                                                            \
+    }                                                              \
   }
 
 namespace srtb {

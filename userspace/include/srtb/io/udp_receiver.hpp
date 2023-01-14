@@ -130,11 +130,6 @@ class udp_receiver_worker {
         // this is first time that a packet is received, not really a packet lost
         lost_packets_count = 0;
       }
-      if (lost_packets_count != 0) {
-        SRTB_LOGW << " [udp receiver worker] "
-                  << "data loss detected: " << lost_packets_count
-                  << " packets. Filling these with zero. " << srtb::endl;
-      }
       total_lost_packets_count += lost_packets_count;
       const size_t fill_zero_count = data_len * lost_packets_count;
       data_buffer.fill(std::byte{0}, fill_zero_count);
