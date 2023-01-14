@@ -177,10 +177,15 @@ struct configs {
   std::string fft_fftw_wisdom_path = "srtb_fftw_wisdom.txt";
 
   /**
-   * @brief Temporary threshold for RFI mitigation. Channels with signal stronger
-   *        than this threshold * average strength will be set to 0
+   * @brief Temporary threshold for RFI mitigation. Frequency channels with 
+   *        signal stronger than (this threshold * average strength) will be set to 0
    */
-  srtb::real mitigate_rfi_threshold = 10;
+  srtb::real mitigate_rfi_average_method_threshold = 10;
+
+  /**
+   * @brief Frequency channels with spectral kurtosis larger than this threshold will be set to 0
+   */
+  srtb::real mitigate_rfi_spectral_kurtosis_threshold = 6;
 
   /**
    * @brief list of frequency pairs to zap/remove,

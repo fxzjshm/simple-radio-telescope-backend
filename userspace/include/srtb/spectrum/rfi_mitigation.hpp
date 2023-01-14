@@ -25,11 +25,13 @@
 namespace srtb {
 namespace spectrum {
 
+// ---------------- rfi mitigation using average value ----------------
+
 /**
  * @brief Mitigate radio frequency interference (RFI),
  *        in this method RFI is determined by intensity of single frequency 
  *        compared to average intensity, so better for long time scale RFI
- * TODO: use "spectural kurtosis"
+ * @note "spectural kurtosis" method in signal_detect_pipe
  * TODO: compute norm twice or once with temporary buffer for it ?
  */
 template <typename T = srtb::real, typename C = srtb::complex<srtb::real>,
@@ -50,6 +52,8 @@ inline void mitigate_rfi_average_method(DeviceComplexInputAccessor d_in,
      }
    }).wait();
 }
+
+// ---------------- rfi mitigation using manual selected ranges ----------------
 
 using rfi_range_type = std::pair<srtb::real, srtb::real>;
 

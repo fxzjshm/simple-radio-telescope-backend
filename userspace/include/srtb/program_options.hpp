@@ -103,9 +103,11 @@ namespace program_options {
        "Target dispersion measurement for coherent dedispersion.")
       ("fft_fftw_wisdom_path", boost::program_options::value<std::string>(),
        "Location to save fftw wisdom.")
-      ("mitigate_rfi_threshold", boost::program_options::value<std::string>(),
-       "Temporary threshold for RFI mitigation. Channels with signal stronger "
-       "than this threshold * average strength will be set to 0 .")
+      ("mitigate_rfi_average_method_threshold", boost::program_options::value<std::string>(),
+       "Temporary threshold for RFI mitigation. Frequency channels with signal "
+       "stronger than (this threshold * average strength) will be set to 0")
+      ("mitigate_rfi_spectral_kurtosis_threshold", boost::program_options::value<std::string>(),
+       "Frequency channels with spectral kurtosis larger than this threshold will be set to 0")
       ("mitigate_rfi_freq_list", boost::program_options::value<std::string>(),
        "list of frequency pairs to zap/remove, "
        "format: 11-12, 15-90, 233-235, 1176-1177 (arbitary values)")
@@ -214,7 +216,8 @@ inline void evaluate_and_apply_changed_config(const std::string& name,
   SRTB_PARSE(baseband_write_all)
   SRTB_PARSE(log_level)
   SRTB_ASSIGN(fft_fftw_wisdom_path)
-  SRTB_PARSE(mitigate_rfi_threshold)
+  SRTB_PARSE(mitigate_rfi_average_method_threshold)
+  SRTB_PARSE(mitigate_rfi_spectral_kurtosis_threshold)
   SRTB_ASSIGN(mitigate_rfi_freq_list)
   SRTB_PARSE(refft_length)
   SRTB_PARSE(signal_detect_threshold)

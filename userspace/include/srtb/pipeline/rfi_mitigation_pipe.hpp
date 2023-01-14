@@ -42,7 +42,8 @@ class rfi_mitigation_pipe : public pipe<rfi_mitigation_pipe> {
     auto d_in = d_in_shared.get();
     const size_t in_count = rfi_mitigation_work.count;
 
-    const srtb::real threshold = srtb::config.mitigate_rfi_threshold;
+    const srtb::real threshold =
+        srtb::config.mitigate_rfi_average_method_threshold;
     srtb::spectrum::mitigate_rfi_average_method(d_in, in_count, threshold, q);
 
     if (srtb::config.mitigate_rfi_freq_list != mitigate_rfi_freq_list)

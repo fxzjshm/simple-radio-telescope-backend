@@ -19,6 +19,7 @@
 // --- divide line for clang-format
 #include "srtb/algorithm/map_reduce.hpp"
 #include "srtb/algorithm/multi_reduce.hpp"
+#include "srtb/spectrum/rfi_mitigation.hpp"
 
 namespace srtb {
 namespace pipeline {
@@ -44,6 +45,63 @@ class signal_detect_pipe : public pipe<signal_detect_pipe> {
     auto d_in = d_in_shared.get();
     const size_t count_per_batch = signal_detect_work.count;
     const size_t batch_size = signal_detect_work.batch_size;
+
+    // rfi mitigation based on spectral kurtosis
+    // ref: Antoni, 2004 (doi:10.1016/j.ymssp.2004.09.001)
+    //      Jiang, 2022
+    {
+      using sum_real_t = double;
+      // notice the difference of definition of spectral kurtosis (constant can be -1 or -2)
+      // here -1 is picked, and this constant is moved into threshold to reduce computation on device
+      const srtb::real threshold =
+          srtb::config.mitigate_rfi_spectral_kurtosis_threshold + 1;
+      auto d_sk_shared =
+          srtb::device_allocator.allocate_unique<srtb::real>(count_per_batch);
+      // spectral kurtosis + 1
+      auto d_sk_ = d_sk_shared.get();
+      q.parallel_for(sycl::range<1>{count_per_batch}, [=](sycl::item<1> id) {
+         const size_t j = id.get_id(0);
+         sum_real_t s2 = 0, s4 = 0;
+         for (size_t i = 0; i < batch_size; i++) {
+           const size_t index = i * count_per_batch + j;
+           SRTB_ASSERT_IN_KERNEL(index < count_per_batch * batch_size);
+           const srtb::complex<srtb::real> in = d_in[index];
+           const sum_real_t x = srtb::norm(in);
+           const sum_real_t x2 = x * x;
+           const sum_real_t x4 = x2 * x2;
+           s2 += x2;
+           s4 += x4;
+         }
+         // notice the comment of threshold above
+         const srtb::real sk_ = batch_size * (s4 / (s2 * s2));
+         d_sk_[j] = sk_;
+       }).wait();
+      q.parallel_for(sycl::range<1>{count_per_batch}, [=](sycl::item<1> id) {
+         const size_t j = id.get_id(0);
+         constexpr auto zero = srtb::complex<srtb::real>{0, 0};
+         const srtb::real sk_ = d_sk_[j];
+         if (sk_ > threshold) {
+           for (size_t i = 0; i < batch_size; i++) {
+             const size_t index = i * count_per_batch + j;
+             SRTB_ASSERT_IN_KERNEL(index < count_per_batch * batch_size);
+             d_in[index] = zero;
+           }
+         }
+       }).wait();
+    }
+
+    {
+      // temporary work: spectrum analyzer
+      srtb::work::simplify_spectrum_work simplify_spectrum_work;
+      simplify_spectrum_work.ptr = d_in_shared;
+      simplify_spectrum_work.count = count_per_batch;
+      simplify_spectrum_work.batch_size = batch_size;
+      simplify_spectrum_work.timestamp = signal_detect_work.timestamp;
+      // just try once, in case GUI is stuck (e.g. when using X forwarding on SSH)
+      srtb::simplify_spectrum_queue.push(simplify_spectrum_work);
+    }
+
+    // time series
     const size_t out_count = batch_size;
     auto d_out_shared =
         srtb::device_allocator.allocate_shared<srtb::real>(out_count);

@@ -189,6 +189,10 @@ class ifft_1d_c2c_pipe : public pipe<ifft_1d_c2c_pipe> {
  * @brief This pipe reads coherently dedispersed time data from @c srtb::refft_1d_c2c_queue ,
  *                  performs shorter FFTs to get high time resolution,
  *             then push to @c srtb::simplify_spectrum_queue
+ * 
+ * @note  In re-FFTed complex data, data stream with same frequency channel is 
+ *        already time domain samples of this frequency channel.
+ *        (seems common sense, but really didn't know before)
  */
 class refft_1d_c2c_pipe : public pipe<refft_1d_c2c_pipe> {
   friend pipe<refft_1d_c2c_pipe>;
@@ -286,16 +290,6 @@ class refft_1d_c2c_pipe : public pipe<refft_1d_c2c_pipe> {
 
     auto d_out = d_out_shared.get();
     refft_dispatcher.process(d_in, d_out);
-
-    // temporary work: spectrum analyzer
-    srtb::work::simplify_spectrum_work simplify_spectrum_work;
-    simplify_spectrum_work.ptr = d_out_shared;
-    simplify_spectrum_work.count = refft_length;
-    simplify_spectrum_work.batch_size = refft_batch_size;
-    simplify_spectrum_work.timestamp = refft_1d_c2c_work.timestamp;
-    SRTB_PUSH_WORK_OR_RETURN(" [refft 1d c2c pipe] ",
-                             srtb::simplify_spectrum_queue,
-                             simplify_spectrum_work, stop_token);
 
     srtb::work::signal_detect_work signal_detect_work;
     signal_detect_work.ptr = d_out_shared;
