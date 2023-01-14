@@ -36,7 +36,7 @@ class host_ring_buffer {
   mutable std::mutex mutex;
 #endif  // SRTB_MEMORY_HOST_RING_BUFFER_USE_MUTEX
   std::vector<T> buffer;
-  /** index of first element valid in ptr (i.e. inclusive), 0 <= head < capacity */
+  /** index of first element valid in ptr (i.e. inclusive), 0 <= head < capacity, head == capacity -> empty */
   size_t head;
   /** index of last element valid in ptr + 1 (i.e. exclusive), 0 <= tail <= capacity */
   size_t tail;
@@ -60,7 +60,7 @@ class host_ring_buffer {
 
   void check_index() const {
     assert(0 <= head);
-    assert(head < capacity() || capacity() == 0);
+    assert(head <= capacity());
     assert(0 <= tail);
     assert(tail <= capacity());
   }
