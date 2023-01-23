@@ -90,6 +90,24 @@ class signal_detect_pipe : public pipe<signal_detect_pipe> {
        }).wait();
     }
 
+    size_t zero_count = 0;
+    // count masked channels
+    {
+      auto d_zero_count_shared = srtb::algorithm::map_reduce(
+          d_in, count_per_batch, /* map = */
+          []([[maybe_unused]] const size_t pos,
+             const srtb::complex<srtb::real> x) {
+            if (srtb::norm(x) == 0) {
+              return size_t{1};
+            } else {
+              return size_t{0};
+            }
+          },
+          sycl::plus<size_t>(), q);
+      auto d_zero_count = d_zero_count_shared.get();
+      q.copy(d_zero_count, &zero_count, 1).wait();
+    }
+
     {
       // temporary work: spectrum analyzer
       srtb::work::simplify_spectrum_work simplify_spectrum_work;
@@ -169,7 +187,9 @@ class signal_detect_pipe : public pipe<signal_detect_pipe> {
       size_t h_signal_count;
       q.copy(d_signal_count, /* -> */ &h_signal_count, /* size = */ 1).wait();
 
-      const bool has_signal = (h_signal_count > 0);
+      // if too many frequency channels are masked, result is often inaccurate
+      const bool has_signal =
+          ((zero_count < 0.9 * count_per_batch) && (h_signal_count > 0));
       srtb::work::signal_detect_result signal_detect_result{
           .timestamp = signal_detect_work.timestamp,
           .has_signal = has_signal,
