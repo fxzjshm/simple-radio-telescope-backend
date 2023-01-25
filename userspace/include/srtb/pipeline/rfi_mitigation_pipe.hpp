@@ -24,11 +24,18 @@
 namespace srtb {
 namespace pipeline {
 
+/**
+ * @brief this pipe mitigates radio frequency interferences (RFI)
+ *        using average intensity of frequency channels and manually set ranges.
+ * @note another RFI mitigation using spectral kurtosis is in signal_detect_pipe
+ */
 class rfi_mitigation_pipe : public pipe<rfi_mitigation_pipe> {
   friend pipe<rfi_mitigation_pipe>;
 
  protected:
+  /** @brief frequency ranges that is manuallly set in config by user */
   std::string mitigate_rfi_freq_list;
+  /** @brief frequency tanges parsed from the string above */
   std::vector<srtb::spectrum::rfi_range_type> rfi_ranges;
 
  protected:
@@ -42,19 +49,46 @@ class rfi_mitigation_pipe : public pipe<rfi_mitigation_pipe> {
     auto d_in = d_in_shared.get();
     const size_t in_count = rfi_mitigation_work.count;
 
-    const srtb::real threshold =
-        srtb::config.mitigate_rfi_average_method_threshold;
-    srtb::spectrum::mitigate_rfi_average_method(d_in, in_count, threshold, q);
-
-    if (srtb::config.mitigate_rfi_freq_list != mitigate_rfi_freq_list)
-        [[unlikely]] {
-      mitigate_rfi_freq_list = srtb::config.mitigate_rfi_freq_list;
-      rfi_ranges = srtb::spectrum::eval_rfi_ranges(mitigate_rfi_freq_list);
+    // mitigate using average method & normalize
+    {
+      const srtb::real threshold =
+          srtb::config.mitigate_rfi_average_method_threshold;
+      auto d_norm_avg_shared = srtb::algorithm::map_average(
+          d_in, in_count,
+          /* map = */
+          []([[maybe_unused]] size_t pos, const srtb::complex<srtb::real> c) {
+            return srtb::norm(c);
+          },
+          q);
+      auto d_norm_avg = d_norm_avg_shared.get();
+      q.parallel_for(sycl::range<1>{in_count}, [=](sycl::item<1> id) {
+         const size_t i = id.get_id(0);
+         const srtb::real norm_avg = (*d_norm_avg);
+         const auto in = d_in[i];
+         const srtb::real val = srtb::norm(in);
+         constexpr auto zero = srtb::complex<srtb::real>{0, 0};
+         if (val > threshold * norm_avg) {
+           // zap this channel
+           d_in[i] = zero;
+         } else {
+           // normalize
+           d_in[i] = in / static_cast<srtb::real>(in_count);
+         }
+       }).wait();
     }
-    const auto baseband_freq_low = srtb::config.baseband_freq_low;
-    const auto baseband_bandwidth = srtb::config.baseband_bandwidth;
-    srtb::spectrum::mitigate_rfi_manual(d_in, in_count, baseband_freq_low,
-                                        baseband_bandwidth, rfi_ranges, q);
+
+    // manual zap channel
+    {
+      if (srtb::config.mitigate_rfi_freq_list != mitigate_rfi_freq_list)
+          [[unlikely]] {
+        mitigate_rfi_freq_list = srtb::config.mitigate_rfi_freq_list;
+        rfi_ranges = srtb::spectrum::eval_rfi_ranges(mitigate_rfi_freq_list);
+      }
+      const auto baseband_freq_low = srtb::config.baseband_freq_low;
+      const auto baseband_bandwidth = srtb::config.baseband_bandwidth;
+      srtb::spectrum::mitigate_rfi_manual(d_in, in_count, baseband_freq_low,
+                                          baseband_bandwidth, rfi_ranges, q);
+    }
 
     // shortcut
     //srtb::work::simplify_spectrum_work simplify_spectrum_work;

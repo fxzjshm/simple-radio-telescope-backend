@@ -46,51 +46,9 @@ class signal_detect_pipe : public pipe<signal_detect_pipe> {
     const size_t count_per_batch = signal_detect_work.count;
     const size_t batch_size = signal_detect_work.batch_size;
 
-    // rfi mitigation based on spectral kurtosis
-    // ref: Antoni, 2004 (doi:10.1016/j.ymssp.2004.09.001)
-    //      Jiang, 2022
-    {
-      using sum_real_t = double;
-      // notice the difference of definition of spectral kurtosis (constant can be -1 or -2)
-      // here -1 is picked, and constants are moved into threshold to reduce computation on device
-      const size_t M = batch_size;
-      const srtb::real M_ = M;
-      const srtb::real threshold =
-          (srtb::config.mitigate_rfi_spectral_kurtosis_threshold + 1) *
-          ((M_ - 1) / (M_ + 1));
-      auto d_sk_shared =
-          srtb::device_allocator.allocate_unique<srtb::real>(count_per_batch);
-      // spectral kurtosis + 1
-      auto d_sk_ = d_sk_shared.get();
-      q.parallel_for(sycl::range<1>{count_per_batch}, [=](sycl::item<1> id) {
-         const size_t j = id.get_id(0);
-         sum_real_t s2 = 0, s4 = 0;
-         for (size_t i = 0; i < M; i++) {
-           const size_t index = i * count_per_batch + j;
-           SRTB_ASSERT_IN_KERNEL(index < count_per_batch * batch_size);
-           const srtb::complex<srtb::real> in = d_in[index];
-           const sum_real_t x2 = srtb::norm(in);
-           const sum_real_t x4 = x2 * x2;
-           s2 += x2;
-           s4 += x4;
-         }
-         // notice the comment of threshold above
-         const srtb::real sk_ = M * (s4 / (s2 * s2));
-         d_sk_[j] = sk_;
-       }).wait();
-      q.parallel_for(sycl::range<1>{count_per_batch}, [=](sycl::item<1> id) {
-         const size_t j = id.get_id(0);
-         constexpr auto zero = srtb::complex<srtb::real>{0, 0};
-         const srtb::real sk_ = d_sk_[j];
-         if (sk_ > threshold) {
-           for (size_t i = 0; i < M; i++) {
-             const size_t index = i * count_per_batch + j;
-             SRTB_ASSERT_IN_KERNEL(index < count_per_batch * batch_size);
-             d_in[index] = zero;
-           }
-         }
-       }).wait();
-    }
+    srtb::spectrum::mitigate_rfi_spectural_kurtosis_method(
+        d_in, count_per_batch, batch_size,
+        srtb::config.mitigate_rfi_spectral_kurtosis_threshold, q);
 
     size_t zero_count = 0;
     // count masked channels

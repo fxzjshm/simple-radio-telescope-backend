@@ -31,7 +31,7 @@ namespace spectrum {
  * @brief Mitigate radio frequency interference (RFI),
  *        in this method RFI is determined by intensity of single frequency 
  *        compared to average intensity, so better for long time scale RFI
- * @note "spectural kurtosis" method in signal_detect_pipe
+ * @note not used because normalization fused in, see @c mitigate_rfi_pipe
  * TODO: compute norm twice or once with temporary buffer for it ?
  */
 template <typename T = srtb::real, typename C = srtb::complex<srtb::real>,
@@ -154,6 +154,60 @@ inline void mitigate_rfi_manual(DeviceComplexInputAccessor d_in,
   for (auto iter = events.rbegin(); iter != events.rend(); iter++) {
     (*iter).wait();
   }
+}
+
+// ---------------- rfi mitigation using spectrum kutorsis ----------------
+
+/**
+ * @brief Mitigate radio frequency interference (RFI), using spectural kurtosis
+ * 
+ *        frequency
+ *       ---------->
+ *     1111......1111 |
+ *     1111......1111 | time
+ *          ....      |
+ *     1111......1111 v
+ * 
+ * ->  xxxx......xxxx
+ * 
+ * ref: Antoni, 2004 (doi:10.1016/j.ymssp.2004.09.001)
+ *      Jiang, 2022
+ */
+template <typename T = srtb::real, typename C = srtb::complex<srtb::real>,
+          typename DeviceComplexInputAccessor = C*>
+inline void mitigate_rfi_spectural_kurtosis_method(
+    DeviceComplexInputAccessor d_in, size_t fft_bins, size_t time_counts,
+    T sk_threshold, sycl::queue& q = srtb::queue) {
+  // sometimes float is not enough
+  using sum_real_t = srtb::real;
+  // notice the difference of definition of spectral kurtosis (constant can be -1 or -2)
+  // here -1 is picked, and constants are moved into threshold to reduce computation on device
+  const size_t M = time_counts;
+  const srtb::real M_ = M;
+  const srtb::real threshold_ = (sk_threshold + 1) * ((M_ - 1) / (M_ + 1));
+  q.parallel_for(sycl::range<1>{fft_bins}, [=](sycl::item<1> id) {
+     const size_t j = id.get_id(0);
+     sum_real_t s2 = 0, s4 = 0;
+     for (size_t i = 0; i < M; i++) {
+       const size_t index = i * fft_bins + j;
+       SRTB_ASSERT_IN_KERNEL(index < fft_bins * time_counts);
+       const srtb::complex<srtb::real> in = d_in[index];
+       const sum_real_t x2 = srtb::norm(in);
+       const sum_real_t x4 = x2 * x2;
+       s2 += x2;
+       s4 += x4;
+     }
+     // notice the comment of threshold above
+     const srtb::real sk_ = M * (s4 / (s2 * s2));
+     constexpr auto zero = srtb::complex<srtb::real>{0, 0};
+     if (sk_ > threshold_) {
+       for (size_t i = 0; i < M; i++) {
+         const size_t index = i * fft_bins + j;
+         SRTB_ASSERT_IN_KERNEL(index < fft_bins * time_counts);
+         d_in[index] = zero;
+       }
+     }
+   }).wait();
 }
 
 }  // namespace spectrum
