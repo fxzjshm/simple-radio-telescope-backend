@@ -31,13 +31,14 @@ template <typename T, typename C = srtb::complex<T> >
 inline void coherent_dedispersion_and_frequency_domain_filterbank_host_ptr(
     C* h_in, C* h_out, const T f_min, const T delta_f, const T dm,
     const size_t M, const size_t N, sycl::queue& q) {
+  const T f_c = f_min + delta_f * N;
   auto d_in_shared = srtb::device_allocator.allocate_shared<C>(N);
   auto d_in = d_in_shared.get();
   auto d_out_shared = srtb::device_allocator.allocate_shared<C>(N);
   auto d_out = d_out_shared.get();
   q.copy(h_in, d_in, N).wait();
   srtb::coherent_dedispersion_and_frequency_domain_filterbank(
-      d_in, d_out, f_min, delta_f, dm, M, N, q);
+      d_in, d_out, f_min, f_c, delta_f, dm, M, N, q);
   q.copy(d_out, h_out, N).wait();
 }
 
@@ -58,7 +59,7 @@ int main(int argc, char** argv) {
     });
     coherent_dedispersion_and_frequency_domain_filterbank_host_ptr(
         &h_in[0], &h_out[0], srtb::real{1000.0}, srtb::real{1.0},
-        srtb::real{0.0}, /* M := channel_count = */ 1, N, q);
+        /* dm = */ srtb::real{0.0}, /* M := channel_count = */ 1, N, q);
     SRTB_CHECK_TEST_FREQUENCY_DOMAIN_FILTERBANK(
         check_absolute_error(h_in.begin(), h_in.end(), h_out.begin(), eps));
   }
