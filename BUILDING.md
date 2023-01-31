@@ -1,7 +1,7 @@
 # Building
 ## Dependency
 * a C++ compiler that supports at least C++20
-* SYCL 2020 implementation, such as [illuhad/hipSYCL](https://github.com/illuhad/hipSYCL/) and [intel/llvm](https://github.com/intel/llvm/)
+* a SYCL 2020 implementation, such as [illuhad/hipSYCL](https://github.com/illuhad/hipSYCL/) and [intel/llvm](https://github.com/intel/llvm/)
   * if use hipSYCL, refer to [this guide](https://github.com/illuhad/hipSYCL/blob/develop/doc/installing.md)
   * if use intel/llvm, version newer than `998fd91` (2022.11.07) is needed. Refer to [this guide](https://github.com/intel/llvm/blob/sycl/sycl/doc/GetStartedGuide.md) for installation.
 * Boost libraries
@@ -9,6 +9,7 @@
 * hwloc
 * FFTW 3
 * Qt 5
+* Python 3 with development headers & matplotlib
 
 if ROCm backend enabled, additional dependencies:
 * ROCm
@@ -60,20 +61,10 @@ You may use CMake configure option `BOOST_ROOT` to set the Boost library used, i
 #### 2. configure error: "clangrt builtins lib not found"
 If compile with intel/llvm, ROCm/HIP may search 'clang_rt.builtins' in intel/llvm, but this module isn't built by default. 
 
-A patch to `buildbot/configure.py` is
-```diff
-diff --git a/buildbot/configure.py b/buildbot/configure.py
-index f3a43857b7..08cb75e5e3 100644
---- a/buildbot/configure.py
-+++ b/buildbot/configure.py
-@@ -13,7 +13,7 @@ def do_configure(args):
-     if not os.path.isdir(abs_obj_dir):
-       os.makedirs(abs_obj_dir)
- 
--    llvm_external_projects = 'sycl;llvm-spirv;opencl;xpti;xptifw'
-+    llvm_external_projects = 'sycl;llvm-spirv;opencl;xpti;xptifw;compiler-rt'
- 
-     # libdevice build requires a working SYCL toolchain, which is not the case
-     # with macOS target right now.
+To fix this, Add
+```bash
+--llvm-external-projects "compiler-rt"
 ```
+when executing `buildbot/configure.py`.
+
 Also add `openmp` if needed, e.g. use intel/llvm as a compiler for hipSYCL

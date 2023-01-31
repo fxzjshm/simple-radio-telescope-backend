@@ -205,9 +205,9 @@ class baseband_output_pipe<false> : public pipe<baseband_output_pipe<false> > {
         plt::named_plot(time_series_file_path, time_series_buffer);
         plt::save(time_series_picture_file_path);
         plt::cla();
-      } catch ([[maybe_unused]] const std::runtime_error& error) {
+      } catch (const std::runtime_error& error) {
         SRTB_LOGW << " [baseband_output_pipe] "
-                  << "Failed to plot  time series: " << error.what()
+                  << "Failed to plot time series: " << error.what()
                   << srtb::endl;
       }
 
