@@ -16,6 +16,7 @@
 
 #include <bit>
 
+#include "srtb/fft/fft_wrapper.hpp"
 #include "srtb/fft/naive_fft.hpp"
 
 namespace srtb {
@@ -39,7 +40,7 @@ class naive_fft_1d_wrapper
   void create_impl(size_t n, size_t batch_size, sycl::queue& queue) {
     (void)batch_size;
     (void)queue;
-    k = std::bit_width(n);
+    k = std::bit_width(n) - 1;
     // delay error on n != 2**k because this wrapper may not be called
     // as it is naive and slow
   }
@@ -47,6 +48,12 @@ class naive_fft_1d_wrapper
   void destroy_impl() {}
 
   bool has_inited_impl() { return true; }
+
+  void check_size(size_t n) {
+    if (!std::has_single_bit(n)) {
+      throw std::runtime_error("[naive_fft_wrapper]: n must be a power of 2");
+    }
+  }
 
   // SFINAE ref: https://stackoverflow.com/a/50714150
   template <typename..., srtb::fft::type fft_type_ = fft_type,
@@ -65,14 +72,12 @@ class naive_fft_1d_wrapper
                               int>::type = 0>
   void process_impl(C* in, C* out) {
     const size_t n = (*this).n;
-    if (std::has_single_bit(n)) {
-      throw std::runtime_error("[naive_fft_wrapper]: n must be a power of 2");
-    }
+    check_size(n);
     constexpr int direction =
         (fft_type == srtb::fft::type::C2C_1D_BACKWARD) ? -1 : +1;
     for (size_t i = 0; i < (*this).batch_size; i++) {
-      naive_fft::fft_1d_c2c<T>(k, (*this).q, in + i * n, out + i * n,
-                               direction);
+      naive_fft::fft_1d_c2c<T>(k, in + i * n, out + i * n, direction,
+                               (*this).q);
     }
   }
 

@@ -37,9 +37,10 @@ inline T bit_reverse(T x, size_t k) {
   return y;
 }
 
-template <typename Accessor>
-inline void bit_reverse_swap(const size_t k, const size_t i, Accessor input,
-                             Accessor output) noexcept {
+template <typename InputAccessor, typename OutputAccessor>
+inline void bit_reverse_swap(const size_t k, const size_t i,
+                             InputAccessor input,
+                             OutputAccessor output) noexcept {
   const size_t j = bit_reverse(i, k);
 
   if (i <= j) {
@@ -80,7 +81,7 @@ inline void fft_1d_c2c_butterfly(const size_t m, const size_t i,
   const size_t x = butterfly_group_id * butterfly_size + butterfly_local_id;
   const size_t y = x + (butterfly_size / 2);
   const T theta =
-      -T(2.0) * M_PI * butterfly_local_id / butterfly_size * direction;
+      -T{2.0 * M_PI} * butterfly_local_id / butterfly_size * direction;
   const T w_re = sycl::cos(theta), w_im = sycl::sin(theta);
   const C w = C(w_re, w_im);
   //assert(x < n);
@@ -96,19 +97,20 @@ inline void fft_1d_c2c_butterfly(const size_t m, const size_t i,
  * @param i thread index, 0 <= i < n / 2
  * @param input Accessor or pointer or something like that of input buffer
  * @param output Accessor or pointer or something like that of output buffer
- * @param invert 1 -> forward, -1 -> backward
+ * @param direction 1 -> forward, -1 -> backward
  */
 template <typename T, typename C = srtb::complex<T>, typename InputAccessor,
           typename OutputAccessor>
-inline void fft_1d_c2c(const size_t k, sycl::queue& q, InputAccessor input,
-                       OutputAccessor output, const int direction) {
+inline void fft_1d_c2c(const size_t k, InputAccessor input,
+                       OutputAccessor output, const int direction,
+                       sycl::queue& q) {
   const size_t n = 1 << k;
   q.parallel_for(sycl::range{n}, [=](sycl::item<1> id) {
      const size_t i = id.get_id(0);
      bit_reverse_swap(k, i, input, output);
    }).wait();
 
-  for (uint m = 0; m < k; ++m) {
+  for (unsigned int m = 0; m < k; ++m) {
     // 2**m is the half-size of the butterfly
     // NOTE: the size of range is n/2 as every thread do 2 points (output[x] and output[y])
     q.parallel_for(sycl::range{n / 2}, [=](sycl::item<1> id) {
@@ -117,11 +119,7 @@ inline void fft_1d_c2c(const size_t k, sycl::queue& q, InputAccessor input,
      }).wait();
   }
 
-  if (direction < 0) {
-    q.parallel_for(sycl::range{n}, [=](sycl::item<1> id) {
-       output[id.get_id(0)] /= T(n);
-     }).wait();
-  }
+  // normalization is removed to stay in sync with FFTW, cuFFT & hipFFT
 }
 
 // TODO: 1D R2C FFT
