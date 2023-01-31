@@ -148,7 +148,7 @@ int main(int argc, char** argv) {
     // set up test environment
     srtb::queue = sycl::queue{device};
     srtb::device_allocator =
-#ifdef SRTB_USE_USM
+#ifdef SRTB_USE_USM_SHARED_MEMORY
         srtb::memory::cached_allocator<sycl::usm_allocator<
             std::byte, sycl::usm::alloc::shared, srtb::MEMORY_ALIGNMENT> >{
             srtb::queue};
