@@ -60,9 +60,14 @@ class naive_fft_1d_wrapper
             typename std::enable_if<(fft_type_ == srtb::fft::type::R2C_1D),
                                     int>::type = 0>
   void process_impl(T* in, C* out) {
-    (void)in;
-    (void)out;
-    throw std::runtime_error("[naive_fft_wrapper]: R2C TODO");
+    const size_t n = (*this).n;
+    check_size(n);
+    const size_t n_real = n, n_complex = n_real / 2 + 1;
+    // compute in reverse direction so no overwriting when batch_size > 1
+    for (size_t i = (*this).batch_size - 1; i != static_cast<size_t>(-1); i--) {
+      naive_fft::fft_1d_r2c<T>(k, in + i * n_real, out + i * n_complex,
+                               (*this).q);
+    }
   }
 
   template <

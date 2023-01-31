@@ -50,12 +50,18 @@
 
 namespace srtb {
 
-template <typename T = srtb::real>
+template <typename T>
 inline constexpr auto norm(const srtb::complex<T> c) noexcept -> T {
   return c.real() * c.real() + c.imag() * c.imag();
 }
 
-template <typename T = srtb::real>
+template <typename T>
+inline constexpr auto conj(const srtb::complex<T> c) noexcept
+    -> srtb::complex<T> {
+  return srtb::complex<T>{c.real(), -c.imag()};
+}
+
+template <typename T>
 inline constexpr auto abs(const srtb::complex<T> c) noexcept -> T {
   return sycl::sqrt(srtb::norm(c));
 }

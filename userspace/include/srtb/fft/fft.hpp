@@ -50,6 +50,7 @@ class fft_1d_dispatcher {
   std::optional<hipfft_1d_wrapper<fft_type, T, C> > hipfft_1d_wrapper_instance;
 #endif  // SRTB_ENABLE_ROCM_INTEROP
   std::optional<fftw_1d_wrapper<fft_type, T, C> > fftw_1d_wrapper_instance;
+  naive_fft_1d_wrapper<fft_type, T, C> naive_fft_1d_wrapper_instance;
 
  public:
   /**
@@ -61,8 +62,8 @@ class fft_1d_dispatcher {
   */
   fft_1d_dispatcher(size_t n, size_t batch_size = 1,
                     sycl::queue& q_ = srtb::queue)
-      : q{q_} {
-    auto device = queue.get_device();
+      : q{q_}, naive_fft_1d_wrapper_instance{n, batch_size, q} {
+    auto device = q.get_device();
     SRTB_IF_ENABLED_CUDA_INTEROP({
       if (device.get_backend() == srtb::backend::cuda) [[likely]] {
         cufft_1d_wrapper_instance.emplace(n, batch_size, q);
@@ -84,8 +85,6 @@ class fft_1d_dispatcher {
       SRTB_CHECK_FFT(fftw_1d_wrapper_instance.has_value());
       return;
     }
-
-    throw std::runtime_error{"[fft_1d_dispatcher] constructor: TODO"};
   }
 
 #define SRTB_FFT_DISPATCH(func, ...)                                 \
@@ -106,7 +105,7 @@ class fft_1d_dispatcher {
       return fftw_1d_wrapper_instance.value().func(__VA_ARGS__);     \
     }                                                                \
                                                                      \
-    throw std::runtime_error{"[fft_1d_dispatcher] " #func ": TODO"}; \
+    return naive_fft_1d_wrapper_instance.func(__VA_ARGS__);          \
   }
 
   template <typename InputIterator, typename OutputIterator>

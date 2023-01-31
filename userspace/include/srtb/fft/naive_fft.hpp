@@ -122,7 +122,61 @@ inline void fft_1d_c2c(const size_t k, InputAccessor input,
   // normalization is removed to stay in sync with FFTW, cuFFT & hipFFT
 }
 
-// TODO: 1D R2C FFT
+template<typename T, typename C = srtb::complex<T> >
+inline constexpr auto reinterpret_as_complex(T* x) -> C* {
+  return reinterpret_cast<C*>(x);
+}
+
+/**
+ * @param n size of input real numbers
+ * @param k s.t. n == 2**k
+ * @param i thread index, 0 <= i < n / 2
+ * @param input Accessor or pointer or something like that of input buffer
+ * @param output Accessor or pointer or something like that of output buffer
+ * 
+ * ref: https://www.cnblogs.com/liam-ji/p/11742941.html
+ *      http://www.dspguide.com/ch12/5.htm
+ */
+template <typename T, typename C = srtb::complex<T>, typename InputAccessor, typename OutputAccessor>
+inline void fft_1d_r2c(const size_t k, InputAccessor input, OutputAccessor output,
+                       sycl::queue& q) {
+  const size_t n_real = 1 << k;
+  //const size_t n_complex = n_real / 2 + 1;
+  const size_t N = n_real / 2;
+  const auto input_as_complex = reinterpret_as_complex(input);
+  fft_1d_c2c<T, C>(k - 1, input_as_complex, output, +1, q);
+  const auto H = output;
+  q.parallel_for(sycl::range{N / 2 + 1}, [=](sycl::item<1> id) {
+     const size_t k = id.get_id(0);
+     const C H_k = H[k];
+     const C H_N_k = ((k == 0) ? (H[0]) : (H[N - k]));
+
+     //const C H_k_conj = srtb::conj(H_k);
+     const C H_N_k_conj = srtb::conj(H_N_k);
+     const C F_k = (H_k + H_N_k_conj) / T{2};
+     const C G_k = (H_k - H_N_k_conj) * (-C{0, 1} / T{2});
+     //const C F_N_k = (H_N_k + H_k_conj) / T{2};
+     //const C G_N_k = (H_N_k - H_k_conj) * (-C{0, 1} / T{2});
+     const C F_N_k = srtb::conj(F_k);
+     const C G_N_k = srtb::conj(G_k);
+
+     //const T theta = -T{2.0 * M_PI} * k / n_real;
+     const T theta_k = -T{M_PI} * k / N;
+     const T w_k_re = sycl::cos(theta_k), w_k_im = sycl::sin(theta_k);
+     const C w_k = C{w_k_re, w_k_im};
+     //const T theta_N_k = -T{M_PI} * (N - k) / N;
+     //const T w_N_k_re = sycl::cos(theta_N_k), w_N_k_im = sycl::sin(theta_N_k);
+     //const C w_N_k = C{w_N_k_re, w_N_k_im};
+     const C w_N_k = C{-w_k_re, w_k_im};
+
+     const C X_k = F_k + G_k * w_k;
+     const C X_N_k = F_N_k + G_N_k * w_N_k;
+     output[k] = X_k;
+     output[N - k] = X_N_k;
+     // can prove X_N also satisfies this formula
+     // as F_0 and G_0 is real
+   }).wait();
+}
 
 }  // namespace naive_fft
 
