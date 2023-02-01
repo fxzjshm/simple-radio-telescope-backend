@@ -19,6 +19,7 @@
 // --- divide line for clang-format
 #include "srtb/algorithm/map_reduce.hpp"
 #include "srtb/algorithm/multi_reduce.hpp"
+#include "srtb/signal_detect.hpp"
 #include "srtb/spectrum/rfi_mitigation.hpp"
 
 namespace srtb {
@@ -97,7 +98,8 @@ class signal_detect_pipe : public pipe<signal_detect_pipe> {
     d_in = nullptr;
     d_in_shared.reset();
 
-    const srtb::real threshold = srtb::config.signal_detect_threshold;
+    const srtb::real signal_detect_threshold =
+        srtb::config.signal_detect_threshold;
 
     // remove baseline -- substract average
     // this is done first to avoid big float - big float when calculating variance
@@ -116,36 +118,8 @@ class signal_detect_pipe : public pipe<signal_detect_pipe> {
 
     // trivial signal detect
     {
-      auto d_variance_squared_shared = srtb::algorithm::map_average(
-          d_out, out_count,
-          []([[maybe_unused]] size_t pos, srtb::real x) -> double {
-            const double y = static_cast<double>(x);
-            return y * y;
-          },
-          q);
-      auto d_variance_squared = d_variance_squared_shared.get();
-      auto d_variance_shared =
-          srtb::device_allocator.allocate_shared<srtb::real>(1);
-      auto d_variance = d_variance_shared.get();
-      q.single_task([=]() {
-         (*d_variance) =
-             static_cast<srtb::real>(sycl::sqrt(*d_variance_squared));
-       }).wait();
-
-      auto d_signal_count_shared = srtb::algorithm::map_sum(
-          d_out, out_count, /* map = */
-          [=]([[maybe_unused]] size_t pos, srtb::real x) -> size_t {
-            // also known as count_if
-            if (srtb::abs(x) > threshold * (*d_variance)) {
-              return size_t{1};
-            } else {
-              return size_t{0};
-            }
-          },
-          q);
-      size_t* d_signal_count = d_signal_count_shared.get();
-      size_t h_signal_count;
-      q.copy(d_signal_count, /* -> */ &h_signal_count, /* size = */ 1).wait();
+      const size_t h_signal_count = srtb::signal_detect::count_signal(
+          d_out, out_count, signal_detect_threshold, q);
 
       // if too many frequency channels are masked, result is often inaccurate
       const bool has_signal =
