@@ -185,7 +185,7 @@ struct configs {
   /**
    * @brief Frequency channels with spectral kurtosis larger than this threshold will be set to 0
    */
-  srtb::real mitigate_rfi_spectral_kurtosis_threshold = 6;
+  srtb::real mitigate_rfi_spectral_kurtosis_threshold = 1.1;
 
   /**
    * @brief list of frequency pairs to zap/remove,
