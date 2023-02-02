@@ -94,8 +94,6 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pedantic -pedantic-errors -Wextra -Wall
 ## why CMAKE_BUILD_TYPE=Debug produces binary without debug info?
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -fno-omit-frame-pointer ")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -rdynamic ")
-## remove some warnings that do not directly related to this code
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-builtins -Wno-deprecated-copy ")
 ## optimize for this machine
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native ")
 ## do not assume id range fit in MAX_INT because baseband_input_count may be very large
@@ -110,16 +108,17 @@ endif()
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 find_package(Boost COMPONENTS program_options iostreams REQUIRED)
-include_directories(${Boost_INCLUDE_DIRS})
+include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
 if(SRTB_ENABLE_ROCM)
     link_directories("/opt/rocm/lib")
 endif()
 ## ref: https://github.com/lava/matplotlib-cpp/blob/master/CMakeLists.txt
 find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
 find_package(Python3 COMPONENTS NumPy)
-include_directories("3rdparty/")
-include_directories("3rdparty/matplotlib-cpp/")
+include_directories(SYSTEM "3rdparty/")
+include_directories(SYSTEM "3rdparty/matplotlib-cpp/")
 find_package(Qt5 COMPONENTS Quick Gui REQUIRED)
+
 
 function(srtb_add_dependency target_name)
     # add SYCL to targets
