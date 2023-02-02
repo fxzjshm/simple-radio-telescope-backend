@@ -117,6 +117,7 @@ find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
 find_package(Python3 COMPONENTS NumPy)
 include_directories(SYSTEM "3rdparty/")
 include_directories(SYSTEM "3rdparty/matplotlib-cpp/")
+include_directories(SYSTEM "3rdparty/SyclParallelSTL/include/")
 find_package(Qt5 COMPONENTS Quick Gui REQUIRED)
 
 

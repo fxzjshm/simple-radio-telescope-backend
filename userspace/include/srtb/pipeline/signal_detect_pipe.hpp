@@ -14,6 +14,8 @@
 #ifndef __SRTB_PIPELINE_SIGNAL_DETECT_PIPE__
 #define __SRTB_PIPELINE_SIGNAL_DETECT_PIPE__
 
+#include "sycl/execution_policy"
+// --- divide line for clang-format
 #include "srtb/commons.hpp"
 #include "srtb/pipeline/pipe.hpp"
 // --- divide line for clang-format
@@ -35,6 +37,9 @@ namespace pipeline {
  */
 class signal_detect_pipe : public pipe<signal_detect_pipe> {
   friend pipe<signal_detect_pipe>;
+
+ protected:
+  sycl::sycl_execution_policy<> execution_policy{q};
 
  protected:
   void run_once_impl(std::stop_token stop_token) {
@@ -81,10 +86,10 @@ class signal_detect_pipe : public pipe<signal_detect_pipe> {
     }
 
     // time series
-    const size_t out_count = batch_size;
-    auto d_out_shared =
-        srtb::device_allocator.allocate_shared<srtb::real>(out_count);
-    auto d_out = d_out_shared.get();
+    const size_t time_series_count = batch_size;
+    auto d_time_series_shared =
+        srtb::device_allocator.allocate_shared<srtb::real>(time_series_count);
+    auto d_time_series = d_time_series_shared.get();
 
     constexpr auto map = []([[maybe_unused]] size_t pos,
                             srtb::complex<srtb::real> c) {
@@ -92,7 +97,7 @@ class signal_detect_pipe : public pipe<signal_detect_pipe> {
     };
 
     srtb::algorithm::multi_mapreduce(
-        d_in, count_per_batch, batch_size, d_out, map,
+        d_in, count_per_batch, batch_size, d_time_series, map,
         /* reduce = */ sycl::plus<srtb::real>(), q);
 
     d_in = nullptr;
@@ -106,42 +111,113 @@ class signal_detect_pipe : public pipe<signal_detect_pipe> {
     // TODO: does baseline changes a lot in this time scale ? Is a linear approximation needed ?
     {
       auto d_average_shared = srtb::algorithm::map_average(
-          d_out, out_count, srtb::algorithm::map_identity(), q);
+          d_time_series, time_series_count, srtb::algorithm::map_identity(), q);
       auto d_average = d_average_shared.get();
-      q.parallel_for(sycl::range<1>{out_count}, [=](sycl::item<1> item) {
-         const auto i = item.get_id(0);
-         d_out[i] -= (*d_average);
-       }).wait();
+      q.parallel_for(sycl::range<1>{time_series_count},
+                     [=](sycl::item<1> item) {
+                       const auto i = item.get_id(0);
+                       d_time_series[i] -= (*d_average);
+                     })
+          .wait();
     }
+    // time series is now available
 
-    // TODO: matched filter
+    srtb::work::signal_detect_result signal_detect_result{
+        .timestamp = signal_detect_work.timestamp};
 
-    // trivial signal detect
-    {
-      const size_t h_signal_count = srtb::signal_detect::count_signal(
-          d_out, out_count, signal_detect_threshold, q);
-
-      // if too many frequency channels are masked, result is often inaccurate
-      const bool has_signal =
-          ((zero_count < 0.9 * count_per_batch) && (h_signal_count > 0));
-      srtb::work::signal_detect_result signal_detect_result{
-          .timestamp = signal_detect_work.timestamp,
-          .has_signal = has_signal,
-          .time_series_ptr = std::shared_ptr<srtb::real>{},
-          .time_series_length = 0};
-      if (has_signal) {
-        signal_detect_result.time_series_ptr = d_out_shared;
-        signal_detect_result.time_series_length = out_count;
-        SRTB_LOGI << " [signal_detect_pipe] " << h_signal_count
-                  << " signal(s) detected!" << srtb::endl;
-      } else {
-        SRTB_LOGD << " [signal_detect_pipe] "
-                  << "no signal detected." << srtb::endl;
+    // if too many frequency channels are masked, result is often inaccurate
+    if (zero_count < 0.9 * count_per_batch) {
+      // trivial signal detect on raw time series
+      {
+        const size_t h_signal_count = srtb::signal_detect::count_signal(
+            d_time_series, time_series_count, signal_detect_threshold, q);
+        const bool has_signal = (h_signal_count > 0);
+        if (has_signal) /* [[unlikely]] */ {
+          srtb::work::time_series_holder time_series_holder{
+              .time_series_ptr = d_time_series_shared,
+              .time_series_length = time_series_count,
+              .boxcar_length = 1};
+          signal_detect_result.time_series.push_back(time_series_holder);
+        }
       }
-      SRTB_PUSH_WORK_OR_RETURN(" [signal_detect_pipe] ",
-                               srtb::signal_detect_result_queue,
-                               signal_detect_result, stop_token);
+
+      // boxcar method
+      // ref: heimdall
+      {
+        auto d_accumulated_unique_ptr =
+            srtb::device_allocator.allocate_unique<srtb::real>(
+                time_series_count);
+        auto d_accumulated = d_accumulated_unique_ptr.get();
+        sycl::impl::inclusive_scan(execution_policy, d_time_series,
+                                   d_time_series + time_series_count,
+                                   d_accumulated, srtb::real{0}, std::plus());
+        // TODO: reuse d_time_series ?
+        // this is reused for different boxcar_length
+        auto d_boxcared_time_series_unique_ptr =
+            srtb::device_allocator.allocate_unique<srtb::real>(
+                time_series_count);
+        auto d_boxcared_time_series = d_boxcared_time_series_unique_ptr.get();
+
+        const size_t max_boxcar_length =
+            srtb::config.signal_detect_max_boxcar_length;
+        // TODO: async submit kernel ?
+        for (size_t boxcar_length = 2; (boxcar_length <= max_boxcar_length &&
+                                        boxcar_length < time_series_count);
+             boxcar_length *= 2) {
+          // compute boxcared time series
+          const size_t boxcared_time_series_count =
+              time_series_count - boxcar_length + 1;
+          q.parallel_for(sycl::range{boxcared_time_series_count},
+                         [=](sycl::item<1> id) {
+                           const size_t i = id.get_id(0);
+                           d_boxcared_time_series[i] =
+                               d_accumulated[i + boxcar_length] -
+                               d_accumulated[i];
+                         })
+              .wait();
+
+          // trivially detect signal, again
+          const size_t h_signal_count = srtb::signal_detect::count_signal(
+              d_boxcared_time_series, boxcared_time_series_count,
+              signal_detect_threshold, q);
+          const bool has_signal = (h_signal_count > 0);
+          if (has_signal) /* [[unlikely]] */ {
+            // d_boxcared_time_series is reused for different boxcar_length,
+            // so need to copy if a signal is detected
+            auto d_out_shared =
+                srtb::device_allocator.allocate_shared<srtb::real>(
+                    time_series_count);
+            auto d_out = d_out_shared.get();
+            q.copy(d_boxcared_time_series, /* -> */ d_out,
+                   boxcared_time_series_count)
+                .wait();
+            srtb::work::time_series_holder time_series_holder{
+                .time_series_ptr = std::move(d_out_shared),
+                .time_series_length = boxcared_time_series_count,
+                .boxcar_length = boxcar_length};
+            signal_detect_result.time_series.push_back(time_series_holder);
+          }
+        }
+      }
+    } else {
+      // signal_detect_result.has_signal = false;
+      // currently represented as time_series.size() == 0
+      // that is, do nothing
     }
+
+    const bool has_signal = (signal_detect_result.time_series.size() > 0);
+    if (has_signal) {
+      SRTB_LOGI << " [signal_detect_pipe] "
+                << " signal detected in "
+                << signal_detect_result.time_series.size() << " time series"
+                << srtb::endl;
+    } else {
+      SRTB_LOGD << " [signal_detect_pipe] "
+                << "no signal detected" << srtb::endl;
+    }
+    SRTB_PUSH_WORK_OR_RETURN(" [signal_detect_pipe] ",
+                             srtb::signal_detect_result_queue,
+                             signal_detect_result, stop_token);
   }
 };
 

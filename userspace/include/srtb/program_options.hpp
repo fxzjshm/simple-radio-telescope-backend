@@ -116,6 +116,8 @@ namespace program_options {
        "of complex numbers, so refft_length <= baseband_input_count / 2")
       ("signal_detect_threshold", boost::program_options::value<std::string>(),
        "threshold for signal detect, target signal / noise ratio")
+      ("signal_detect_max_boxcar_length", boost::program_options::value<std::string>(),
+       "max boxcar length for signal detect")
     ;
   /* clang-format on */
   data_io_option.add(udp_receiver_options).add(file_io_options);
@@ -221,6 +223,7 @@ inline void evaluate_and_apply_changed_config(const std::string& name,
   SRTB_ASSIGN(mitigate_rfi_freq_list)
   SRTB_PARSE(refft_length)
   SRTB_PARSE(signal_detect_threshold)
+  SRTB_PARSE(signal_detect_max_boxcar_length)
   SRTB_PARSE(thread_query_work_wait_time)
   /* else */ {
     SRTB_LOGW << " [program_options] "

@@ -213,7 +213,7 @@ struct configs {
   size_t refft_length = 1 << 15;
 
   /**
-   * @brief threshold for signal detect.
+   * @brief threshold for signal detect, target signal / noise ratio
    *        If $ \exist x_i $ s.t. $$ x_i > \mu + k * \sigma $$,
    *        where $ x_i $ is a value of time series,
    *              $ \mu $ is its mean value, $ \sigma $ is variance,
@@ -221,6 +221,11 @@ struct configs {
    *        then it is thought a signal.
    */
   srtb::real signal_detect_threshold = 6;
+
+  /**
+   * @brief max boxcar length for signal detect.
+   */
+  size_t signal_detect_max_boxcar_length = 1024;
 
   /**
    * @brief Wait time in naneseconds for a thread to sleep if it fails to get work now.
