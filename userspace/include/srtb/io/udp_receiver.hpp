@@ -54,6 +54,11 @@ inline constexpr size_t counter_bytes_count =
  */
 class udp_receiver_worker {
  protected:
+  /**
+   * @brief buffer for data storage, i.e. without counter
+   */
+  srtb::memory::host_ring_buffer<std::byte> data_buffer;
+
   boost::asio::ip::udp::endpoint sender_endpoint, ep2;
   boost::asio::io_service io_service;
   boost::asio::ip::udp::socket socket;
@@ -61,10 +66,6 @@ class udp_receiver_worker {
    * @brief buffer for receiving one UDP packet
    */
   std::array<std::byte, UDP_MAX_SIZE> udp_packet_buffer;
-  /**
-   * @brief buffer for data storage, i.e. without counter 
-   */
-  srtb::memory::host_ring_buffer<std::byte> data_buffer;
   static constexpr udp_packet_counter_type last_counter_initial_value =
       static_cast<udp_packet_counter_type>(-1);
   /** 
@@ -76,18 +77,16 @@ class udp_receiver_worker {
   udp_receiver_worker(const std::string& sender_address,
                       const unsigned short sender_port,
                       const size_t udp_receiver_buffer_size)
-      : sender_endpoint{boost::asio::ip::address::from_string(sender_address),
+      : data_buffer{udp_receiver_buffer_size},  // this is initialized first to avoid data loss in middle of data stream when malloc()
+        sender_endpoint{boost::asio::ip::address::from_string(sender_address),
                         sender_port},
         socket{io_service, sender_endpoint} {
     socket.set_option(boost::asio::ip::udp::socket::reuse_address{true});
     const int socket_buffer_size = static_cast<int>(
-        std::min(udp_receiver_buffer_size / 2,
+        std::min(udp_receiver_buffer_size,
                  static_cast<size_t>(std::numeric_limits<int>::max())));
-    const size_t streambuf_buffer_size =
-        udp_receiver_buffer_size - socket_buffer_size;
     socket.set_option(
         boost::asio::socket_base::receive_buffer_size{socket_buffer_size});
-    data_buffer.reserve(streambuf_buffer_size);
   }
 
   /**
