@@ -61,6 +61,7 @@ class rfi_mitigation_pipe : public pipe<rfi_mitigation_pipe> {
           },
           q);
       auto d_norm_avg = d_norm_avg_shared.get();
+      const srtb::real normalization_coefficient = std::pow(in_count, -1.5);
       q.parallel_for(sycl::range<1>{in_count}, [=](sycl::item<1> id) {
          const size_t i = id.get_id(0);
          const srtb::real norm_avg = (*d_norm_avg);
@@ -72,7 +73,7 @@ class rfi_mitigation_pipe : public pipe<rfi_mitigation_pipe> {
            d_in[i] = zero;
          } else {
            // normalize
-           d_in[i] = in / static_cast<srtb::real>(in_count);
+           d_in[i] = in * normalization_coefficient;
          }
        }).wait();
     }
