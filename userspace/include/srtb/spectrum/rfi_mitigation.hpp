@@ -184,7 +184,14 @@ inline void mitigate_rfi_spectural_kurtosis_method(
   // here -1 is picked, and constants are moved into threshold to reduce computation on device
   const size_t M = time_counts;
   const srtb::real M_ = M;
-  const srtb::real threshold_ = (sk_threshold + 1) * ((M_ - 1) / (M_ + 1));
+  srtb::real threshold_high = sk_threshold;
+  srtb::real threshold_low = 2 - sk_threshold;
+  if (threshold_low > threshold_high) {
+    std::swap(threshold_low, threshold_high);
+  }
+  const srtb::real threshold_low_ = (threshold_low + 1) * ((M_ - 1) / (M_ + 1));
+  const srtb::real threshold_high_ =
+      (threshold_high + 1) * ((M_ - 1) / (M_ + 1));
   q.parallel_for(sycl::range<1>{fft_bins}, [=](sycl::item<1> id) {
      const size_t j = id.get_id(0);
      sum_real_t s2 = 0, s4 = 0;
@@ -200,7 +207,7 @@ inline void mitigate_rfi_spectural_kurtosis_method(
      // notice the comment of threshold above
      const srtb::real sk_ = M * (s4 / (s2 * s2));
      constexpr auto zero = srtb::complex<srtb::real>{0, 0};
-     if (sk_ > threshold_) {
+     if (sk_ > threshold_high_ || sk_ < threshold_low_) {
        for (size_t i = 0; i < M; i++) {
          const size_t index = i * fft_bins + j;
          SRTB_ASSERT_IN_KERNEL(index < fft_bins * time_counts);
