@@ -179,7 +179,6 @@ class draw_spectrum_work_holder {
  *      Gqrx's plotter: https://github.com/gqrx-sdr/gqrx/blob/master/src/qtgui/plotter.cpp
  *      LMMS's spectrum analyzer plugin: https://github.com/LMMS/lmms/tree/master/plugins/SpectrumAnalyzer
  */
-
 class SpectrumImageProvider : public QObject, public QQuickImageProvider {
   Q_OBJECT
 

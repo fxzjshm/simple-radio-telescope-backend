@@ -34,7 +34,8 @@ namespace srtb {
 
 // ------ Compile time configuration ------
 
-// TODO: maybe float on GPU?
+// maybe double on CPU,
+//       float on most GPUs, even most professional cards of SOME VENDOR.
 using real = float;
 
 #ifdef SYCL_IMPLEMENTATION_ONEAPI
@@ -51,10 +52,10 @@ using complex = std::complex<T>;
 /**
  * @brief initial capacity of srtb::work_queue
  */
-inline constexpr size_t work_queue_capacity = 4;
+inline constexpr size_t work_queue_capacity = 2;
 
 // option to use fix the max size of work_queue or not
-inline constexpr bool work_queue_fixed_size = false;
+inline constexpr bool work_queue_fixed_size = true;
 
 using udp_packet_counter_type = uint64_t;
 

@@ -135,20 +135,20 @@ inline C coherent_dedispersion_factor(const dedisp_real_t f,
 
   //// 1) original formula
   //const dedisp_real_t delta_phi =
-  //    -2 * M_PI * D * 1e6 * dm *
+  //    -T{2 * M_PI} * D * 1e6 * dm *
   //    (dedisp_real_t(1.0) / (f * f) - dedisp_real_t(1.0) / (f_c * f_c)) * f;
 
   //// 2) J.C. Jiang (2022)  ->  Lorimer et al. (2004)
   //const dedisp_real_t delta_f = f - f_c;
   //const dedisp_real_t delta_phi =
-  //    -2 * M_PI * D * 1e6 * dm * ((delta_f * delta_f) / (f * f_c * f_c));
+  //    -T{2 * M_PI} * D * 1e6 * dm * ((delta_f * delta_f) / (f * f_c * f_c));
 
   //// 3)
   const dedisp_real_t delta_f = f - dedisp_real_t{f_c};
   const dedisp_real_t k =
       D * dm * 1e6 / f * ((delta_f / f_c) * (delta_f / f_c));
   const T k_modded = sycl::fmod(k, dedisp_real_t{1});
-  const T delta_phi = -2 * M_PI * k_modded;
+  const T delta_phi = -T{2 * M_PI} * k_modded;
   const C factor = C(sycl::cos(delta_phi), sycl::sin(delta_phi));
   return factor;
 }

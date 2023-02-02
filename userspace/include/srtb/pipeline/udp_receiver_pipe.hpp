@@ -36,6 +36,8 @@ class udp_receiver_pipe : public pipe<udp_receiver_pipe> {
   std::optional<srtb::io::udp_receiver::udp_receiver_worker> opt_worker;
 
  public:
+  // init of worker is deferred because this pipe may not be used,
+  // and failure of binding address will result in a error
   udp_receiver_pipe() = default;
 
  protected:
