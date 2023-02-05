@@ -133,8 +133,13 @@ class signal_detect_pipe : public pipe<signal_detect_pipe> {
             d_time_series, time_series_count, signal_detect_threshold, q);
         const bool has_signal = (h_signal_count > 0);
         if (has_signal) /* [[unlikely]] */ {
+          // copy from device to host
+          auto h_out_shared = srtb::host_allocator.allocate_shared<srtb::real>(
+              time_series_count);
+          auto h_out = h_out_shared.get();
+          q.copy(d_time_series, /* -> */ h_out, time_series_count).wait();
           srtb::work::time_series_holder time_series_holder{
-              .time_series_ptr = d_time_series_shared,
+              .time_series_ptr = h_out_shared,
               .time_series_length = time_series_count,
               .boxcar_length = 1};
           signal_detect_result.time_series.push_back(time_series_holder);
@@ -166,7 +171,7 @@ class signal_detect_pipe : public pipe<signal_detect_pipe> {
              boxcar_length *= 2) {
           // compute boxcared time series
           const size_t boxcared_time_series_count =
-              time_series_count - boxcar_length + 1;
+              time_series_count - boxcar_length;
           q.parallel_for(sycl::range{boxcared_time_series_count},
                          [=](sycl::item<1> id) {
                            const size_t i = id.get_id(0);
@@ -182,17 +187,16 @@ class signal_detect_pipe : public pipe<signal_detect_pipe> {
               signal_detect_threshold, q);
           const bool has_signal = (h_signal_count > 0);
           if (has_signal) /* [[unlikely]] */ {
-            // d_boxcared_time_series is reused for different boxcar_length,
-            // so need to copy if a signal is detected
-            auto d_out_shared =
-                srtb::device_allocator.allocate_shared<srtb::real>(
+            // copy from device to host
+            auto h_out_shared =
+                srtb::host_allocator.allocate_shared<srtb::real>(
                     time_series_count);
-            auto d_out = d_out_shared.get();
-            q.copy(d_boxcared_time_series, /* -> */ d_out,
+            auto h_out = h_out_shared.get();
+            q.copy(d_boxcared_time_series, /* -> */ h_out,
                    boxcared_time_series_count)
                 .wait();
             srtb::work::time_series_holder time_series_holder{
-                .time_series_ptr = std::move(d_out_shared),
+                .time_series_ptr = h_out_shared,
                 .time_series_length = boxcared_time_series_count,
                 .boxcar_length = boxcar_length};
             signal_detect_result.time_series.push_back(time_series_holder);
