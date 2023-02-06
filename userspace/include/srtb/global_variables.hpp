@@ -101,9 +101,7 @@ inline std::atomic<size_t> running_pipe_count = 0;
 
 // used for end of pipeline to send a signal to start of the pipeline,
 // currently enabled only when input source is a file
-inline std::mutex pipeline_mutex;
-inline std::condition_variable pipeline_cv;
-inline bool need_more_work = false;
+inline std::atomic<bool> need_more_work = false;
 
 }  // namespace pipeline
 
