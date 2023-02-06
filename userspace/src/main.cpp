@@ -37,6 +37,67 @@
 #include "srtb/program_options.hpp"
 #include "srtb/spectrum/simplify_spectrum.hpp"
 
+namespace srtb {
+namespace main {
+
+/**
+ * @brief allocate memory needed before pipeline start, used in `main()`
+ * 
+ * for device side, allocation is minimal;
+ * for host side resonable spaces are used,
+ * because it is observed that allocation of host pinned memory is very slow (~500ms for 1GB)
+ *                         but allocation of device memory is quick
+ *       & VRAM is usually limited.
+ * 
+ * this function is quite ugly, and should be updated once pipeline structure chnages.
+ */
+inline void allocate_memory_regions() {
+  // hold all pointers; using RAII
+  std::vector<std::shared_ptr<std::byte> > ptrs;
+
+  // host side udp receiver buffer, raw baseband data
+  for (size_t i = 0; i < 5; i++) {
+    ptrs.push_back(srtb::host_allocator.allocate_shared<std::byte>(
+        sizeof(std::byte) * srtb::config.baseband_input_count *
+        std::abs(srtb::config.baseband_input_bits) / srtb::BITS_PER_BYTE));
+  }
+
+  // device side raw baseband data, to be unpacked
+  ptrs.push_back(srtb::device_allocator.allocate_shared<std::byte>(
+      sizeof(std::byte) * srtb::config.baseband_input_count *
+      std::abs(srtb::config.baseband_input_bits) / srtb::BITS_PER_BYTE));
+  
+  // device side unpacked baseband data / FFT-ed spectrum / STFT-ed waterfall (if in place)
+  ptrs.push_back(srtb::device_allocator.allocate_shared<std::byte>(
+      sizeof(srtb::complex<srtb::real>) *
+      (srtb::config.baseband_input_count / 2 + 1)));
+  
+  // device side time series (original / accumulated / boxcar-ed)
+  for (size_t i = 0; i < 3; i++) {
+    ptrs.push_back(srtb::device_allocator.allocate_shared<std::byte>(
+        sizeof(srtb::real) * srtb::config.baseband_input_count /
+        srtb::config.refft_length / 2));
+  }
+
+  // host side time series for a segment of baseband
+  for (size_t w = 1; w <= srtb::config.signal_detect_max_boxcar_length;
+       w *= 2) {
+    ptrs.push_back(srtb::host_allocator.allocate_shared<std::byte>(
+        sizeof(srtb::real) * srtb::config.baseband_input_count /
+        srtb::config.refft_length / 2));
+  }
+
+  // host & device side waterfall
+  ptrs.push_back(srtb::device_allocator.allocate_shared<std::byte>(
+      sizeof(srtb::real) * srtb::config.baseband_input_count /
+      srtb::config.refft_length / 2 * srtb::gui::spectrum::width));
+  ptrs.push_back(srtb::host_allocator.allocate_shared<std::byte>(
+      sizeof(srtb::real) * srtb::config.baseband_input_count /
+      srtb::config.refft_length / 2 * srtb::gui::spectrum::width));
+  
+  // ptrs.drop(); a.k.a. ~ptrs();
+}
+
 int main(int argc, char** argv) {
   srtb::changed_configs = srtb::program_options::parse_arguments(
       argc, argv, std::string(srtb::config.config_file_name));
@@ -47,6 +108,8 @@ int main(int argc, char** argv) {
 #ifdef SRTB_ENABLE_CUDA_INTEROP
   cudaSetDeviceFlags(cudaDeviceScheduleYield);
 #endif
+
+  allocate_memory_regions();
 
   // TODO std::thread for other pipelines
 
@@ -136,3 +199,8 @@ int main(int argc, char** argv) {
 
   return srtb::gui::show_gui(argc, argv, std::move(threads));
 }
+
+}  // namespace main
+}  // namespace srtb
+
+int main(int argc, char** argv) { return srtb::main::main(argc, argv); }
