@@ -66,12 +66,12 @@ inline void allocate_memory_regions() {
   ptrs.push_back(srtb::device_allocator.allocate_shared<std::byte>(
       sizeof(std::byte) * srtb::config.baseband_input_count *
       std::abs(srtb::config.baseband_input_bits) / srtb::BITS_PER_BYTE));
-  
+
   // device side unpacked baseband data / FFT-ed spectrum / STFT-ed waterfall (if in place)
   ptrs.push_back(srtb::device_allocator.allocate_shared<std::byte>(
       sizeof(srtb::complex<srtb::real>) *
       (srtb::config.baseband_input_count / 2 + 1)));
-  
+
   // device side time series (original / accumulated / boxcar-ed)
   for (size_t i = 0; i < 3; i++) {
     ptrs.push_back(srtb::device_allocator.allocate_shared<std::byte>(
@@ -87,6 +87,12 @@ inline void allocate_memory_regions() {
         srtb::config.refft_length / 2));
   }
 
+  // device side STFT buffer, for spectrural kurtosis & mean value
+  for (size_t i = 0; i < 2; i++) {
+    ptrs.push_back(srtb::device_allocator.allocate_shared<std::byte>(
+        sizeof(srtb::complex<srtb::real>) * srtb::config.refft_length));
+  }
+
   // host & device side waterfall
   ptrs.push_back(srtb::device_allocator.allocate_shared<std::byte>(
       sizeof(srtb::real) * srtb::config.baseband_input_count /
@@ -94,7 +100,7 @@ inline void allocate_memory_regions() {
   ptrs.push_back(srtb::host_allocator.allocate_shared<std::byte>(
       sizeof(srtb::real) * srtb::config.baseband_input_count /
       srtb::config.refft_length / 2 * srtb::gui::spectrum::width));
-  
+
   // ptrs.drop(); a.k.a. ~ptrs();
 }
 

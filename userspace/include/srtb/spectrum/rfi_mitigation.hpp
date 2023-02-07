@@ -172,17 +172,23 @@ inline void mitigate_rfi_manual(DeviceComplexInputAccessor d_in,
  * 
  * ref: Antoni, 2004 (doi:10.1016/j.ymssp.2004.09.001)
  *      Jiang, 2022
+ * 
+ * @note current implementation is not efficient if fft_bins is small
+ * 
+ * update: fused normalizations
+ *         remove different amplification on different channels
  */
 template <typename T = srtb::real, typename C = srtb::complex<srtb::real>,
-          typename DeviceComplexInputAccessor = C*>
+          typename DeviceComplexInputAccessor = C*, bool normalization = true>
 inline void mitigate_rfi_spectural_kurtosis_method(
     DeviceComplexInputAccessor d_in, size_t fft_bins, size_t time_counts,
     T sk_threshold, sycl::queue& q = srtb::queue) {
-  // sometimes float is not enough
+  // sometimes float is not enough, change to double if so
   using sum_real_t = srtb::real;
   // notice the difference of definition of spectral kurtosis (constant can be -1 or -2)
   // here -1 is picked, and constants are moved into threshold to reduce computation on device
   const size_t M = time_counts;
+  const size_t total_size = fft_bins * time_counts;
   const srtb::real M_ = M;
   srtb::real threshold_high = sk_threshold;
   srtb::real threshold_low = 2 - sk_threshold;
@@ -192,26 +198,63 @@ inline void mitigate_rfi_spectural_kurtosis_method(
   const srtb::real threshold_low_ = (threshold_low + 1) * ((M_ - 1) / (M_ + 1));
   const srtb::real threshold_high_ =
       (threshold_high + 1) * ((M_ - 1) / (M_ + 1));
+
+  auto d_sk_unique =
+      srtb::device_allocator.allocate_unique<srtb::real>(fft_bins);
+  auto d_sk_ = d_sk_unique.get();
+  auto d_average_unique =
+      srtb::device_allocator.allocate_unique<srtb::real>(fft_bins);
+  auto d_average = d_sk_unique.get();
+
+  // TODO: further parallelize this, as fft_bins may only 1024 or even 256,
+  //       but shader cores are 3840 / 8192 / 10752...
   q.parallel_for(sycl::range<1>{fft_bins}, [=](sycl::item<1> id) {
      const size_t j = id.get_id(0);
-     sum_real_t s2 = 0, s4 = 0;
+     // s_n := \sum x^n
+     sum_real_t s1 = 0, s2 = 0, s4 = 0;
      for (size_t i = 0; i < M; i++) {
        const size_t index = i * fft_bins + j;
        SRTB_ASSERT_IN_KERNEL(index < fft_bins * time_counts);
-       const srtb::complex<srtb::real> in = d_in[index];
+       const C in = d_in[index];
        const sum_real_t x2 = srtb::norm(in);
        const sum_real_t x4 = x2 * x2;
+       if constexpr (normalization) {
+         const sum_real_t x1 = sycl::sqrt(x2);
+         s1 += x1;
+       }
        s2 += x2;
        s4 += x4;
      }
-     // notice the comment of threshold above
+     // for sk_, notice the comment of threshold above
      const srtb::real sk_ = M * (s4 / (s2 * s2));
-     constexpr auto zero = srtb::complex<srtb::real>{0, 0};
-     if (sk_ > threshold_high_ || sk_ < threshold_low_) {
-       for (size_t i = 0; i < M; i++) {
-         const size_t index = i * fft_bins + j;
-         SRTB_ASSERT_IN_KERNEL(index < fft_bins * time_counts);
-         d_in[index] = zero;
+     const T average = s1 / M;
+     d_sk_[j] = sk_;
+     d_average[j] = average;
+   }).wait();
+
+  q.parallel_for(sycl::range<1>(total_size), [=](sycl::item<1> id) {
+     const size_t i = id.get_id(0);
+     const size_t j = i - ((i / fft_bins) * fft_bins);
+     const auto sk_ = d_sk_[j];
+     const auto average = d_average[j];
+     const bool zeroing = (sk_ > threshold_high_ || sk_ < threshold_low_);
+     constexpr auto zero = C{T{0}, T{0}};
+
+     const C in = d_in[i];
+     if constexpr (normalization) {
+       C out;
+       if (!zeroing) {
+         // TODO: other methods may make average == 0.0
+         //       currently no such, but hard to say in the future
+         out = in / average;
+         SRTB_ASSERT_IN_KERNEL(out == out);
+       } else {
+         out = zero;
+       }
+       d_in[i] = out;
+     } else {
+       if (zeroing) {
+         d_in[i] = zero;
        }
      }
    }).wait();
