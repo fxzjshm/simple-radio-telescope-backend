@@ -195,9 +195,8 @@ inline void mitigate_rfi_spectural_kurtosis_method(
   if (threshold_low > threshold_high) {
     std::swap(threshold_low, threshold_high);
   }
-  const srtb::real threshold_low_ = (threshold_low + 1) * ((M_ - 1) / (M_ + 1));
-  const srtb::real threshold_high_ =
-      (threshold_high + 1) * ((M_ - 1) / (M_ + 1));
+  const srtb::real threshold_low_ = threshold_low * ((M_ - 1) / (M_ + 1)) + 1;
+  const srtb::real threshold_high_ = threshold_high * ((M_ - 1) / (M_ + 1)) + 1;
 
   auto d_sk_unique =
       srtb::device_allocator.allocate_unique<srtb::real>(fft_bins);
