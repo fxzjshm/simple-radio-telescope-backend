@@ -175,11 +175,11 @@ inline void mitigate_rfi_manual(DeviceComplexInputAccessor d_in,
  * 
  * @note current implementation is not efficient if fft_bins is small
  * 
- * update: fused normalizations
+ * update: fused normalizations (disabled now)
  *         remove different amplification on different channels
  */
 template <typename T = srtb::real, typename C = srtb::complex<srtb::real>,
-          typename DeviceComplexInputAccessor = C*, bool normalization = true>
+          typename DeviceComplexInputAccessor = C*, bool normalization = false>
 inline void mitigate_rfi_spectural_kurtosis_method(
     DeviceComplexInputAccessor d_in, size_t fft_bins, size_t time_counts,
     T sk_threshold, sycl::queue& q = srtb::queue) {
@@ -204,7 +204,7 @@ inline void mitigate_rfi_spectural_kurtosis_method(
   auto d_sk_ = d_sk_unique.get();
   auto d_average_unique =
       srtb::device_allocator.allocate_unique<srtb::real>(fft_bins);
-  auto d_average = d_sk_unique.get();
+  auto d_average = d_average_unique.get();
 
   // TODO: further parallelize this, as fft_bins may only 1024 or even 256,
   //       but shader cores are 3840 / 8192 / 10752...
