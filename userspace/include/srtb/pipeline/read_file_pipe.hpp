@@ -120,6 +120,17 @@ class read_file_pipe : public pipe<read_file_pipe> {
     SRTB_LOGI << " [read_file] " << file_path << " has been read" << srtb::endl;
   }
 
+  void setup_impl(std::stop_token stop_token) {
+    // wait until other pipes have set up
+    while (srtb::pipeline::running_pipe_count !=
+               srtb::pipeline::expected_running_pipe_count -
+                   srtb::pipeline::expected_input_pipe_count ||
+           stop_token.stop_requested()) {
+      std::this_thread::sleep_for(
+          std::chrono::nanoseconds(srtb::config.thread_query_work_wait_time));
+    }
+  }
+
   void run_once_impl(std::stop_token stop_token) {
     if (!has_read) {
       read_file(srtb::config.input_file_path, srtb::config.baseband_input_count,

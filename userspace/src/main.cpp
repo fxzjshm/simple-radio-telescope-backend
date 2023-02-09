@@ -203,6 +203,9 @@ int main(int argc, char** argv) {
   threads.push_back(std::move(baseband_output_thread));
   threads.push_back(std::move(simplify_spectrum_thread));
 
+  srtb::pipeline::expected_running_pipe_count = threads.size();
+  srtb::pipeline::expected_input_pipe_count = 1;
+
   return srtb::gui::show_gui(argc, argv, std::move(threads));
 }
 

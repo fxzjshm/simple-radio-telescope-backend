@@ -41,7 +41,16 @@ class udp_receiver_pipe : public pipe<udp_receiver_pipe> {
   udp_receiver_pipe() = default;
 
  protected:
-  void setup_impl() {
+  void setup_impl([[maybe_unused]] std::stop_token stop_token) {
+    // wait until other pipes have set up
+    while (srtb::pipeline::running_pipe_count !=
+               srtb::pipeline::expected_running_pipe_count -
+                   srtb::pipeline::expected_input_pipe_count ||
+           stop_token.stop_requested()) {
+      std::this_thread::sleep_for(
+          std::chrono::nanoseconds(srtb::config.thread_query_work_wait_time));
+    }
+
     const std::string& sender_address =
         srtb::config.udp_receiver_sender_address;
     const unsigned short sender_port = srtb::config.udp_receiver_sender_port;

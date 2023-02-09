@@ -38,7 +38,7 @@ class fft_1d_r2c_pipe : public pipe<fft_1d_r2c_pipe> {
   fft_1d_r2c_pipe() = default;
 
  protected:
-  void setup_impl() {
+  void setup_impl([[maybe_unused]] std::stop_token stop_token) {
     opt_dispatcher.emplace(/* n = */ srtb::config.baseband_input_count,
                            /* batch_size = */ 1, q);
   }
@@ -106,7 +106,7 @@ class ifft_1d_c2c_pipe : public pipe<ifft_1d_c2c_pipe> {
   ifft_1d_c2c_pipe() = default;
 
  protected:
-  void setup_impl() {
+  void setup_impl([[maybe_unused]] std::stop_token stop_token) {
     // divided by 2 because baseband input is real number, but here is complex
     const size_t input_count = srtb::config.baseband_input_count / 2;
     opt_ifft_dispatcher.emplace(/* n = */ input_count, /* batch_size = */ 1, q);
@@ -211,7 +211,7 @@ class refft_1d_c2c_pipe : public pipe<refft_1d_c2c_pipe> {
   refft_1d_c2c_pipe() = default;
 
  protected:
-  void setup_impl() {
+  void setup_impl([[maybe_unused]] std::stop_token stop_token) {
     const auto nsamps_reserved_real =
         srtb::coherent_dedispersion::nsamps_reserved();
     const auto nsamps_reserved_complex = nsamps_reserved_real / 2;

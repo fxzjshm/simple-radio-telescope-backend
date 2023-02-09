@@ -69,22 +69,23 @@ class pipe {
    * @brief Run on this thread. May block this thread.
    */
   void run(std::stop_token stop_token) {
-    constexpr bool has_setup = requires() { sub().setup_impl(); };
-    constexpr bool has_teardown = requires() { sub().teardown_impl(); };
+    constexpr bool has_setup = requires() { sub().setup_impl(stop_token); };
+    constexpr bool has_teardown =
+        requires() { sub().teardown_impl(stop_token); };
 
-    srtb::pipeline::running_pipe_count++;
     if constexpr (has_setup) {
-      sub().setup_impl();
+      sub().setup_impl(stop_token);
     }
+    srtb::pipeline::running_pipe_count++;
     while ((!stop_token.stop_possible()) ||
            (stop_token.stop_possible() && !stop_token.stop_requested()))
         [[likely]] {
       sub().run_once_impl(stop_token);
     }
-    if constexpr (has_teardown) {
-      sub().teardown_impl();
-    }
     srtb::pipeline::running_pipe_count--;
+    if constexpr (has_teardown) {
+      sub().teardown_impl(stop_token);
+    }
   }
 
   // functions run on the new thread:
