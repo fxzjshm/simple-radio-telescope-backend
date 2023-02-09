@@ -40,6 +40,8 @@
 namespace srtb {
 namespace main {
 
+inline namespace detail {
+
 /**
  * @brief allocate memory needed before pipeline start, used in `main()`
  * 
@@ -95,14 +97,28 @@ inline void allocate_memory_regions() {
 
   // host & device side waterfall
   ptrs.push_back(srtb::device_allocator.allocate_shared<std::byte>(
-      sizeof(srtb::real) * srtb::config.baseband_input_count /
+      sizeof(srtb::real) *
+      (srtb::config.baseband_input_count - srtb::codd::nsamps_reserved()) /
       srtb::config.refft_length / 2 * srtb::gui::spectrum::width));
-  ptrs.push_back(srtb::host_allocator.allocate_shared<std::byte>(
-      sizeof(srtb::real) * srtb::config.baseband_input_count /
-      srtb::config.refft_length / 2 * srtb::gui::spectrum::width));
+  for (size_t i = 0; i < 5; i++) {
+    ptrs.push_back(srtb::host_allocator.allocate_shared<std::byte>(
+        sizeof(srtb::real) *
+        (srtb::config.baseband_input_count - srtb::codd::nsamps_reserved()) /
+        srtb::config.refft_length / 2 * srtb::gui::spectrum::width));
+  }
+
+  // misc value holders
+  for (size_t i = 0; i < 2; i++) {
+    ptrs.push_back(
+        srtb::device_allocator.allocate_shared<std::byte>(sizeof(srtb::real)));
+    ptrs.push_back(srtb::device_allocator.allocate_shared<std::byte>(
+        sizeof(srtb::complex<srtb::real>)));
+  }
 
   // ptrs.drop(); a.k.a. ~ptrs();
 }
+
+}  // namespace detail
 
 int main(int argc, char** argv) {
   srtb::changed_configs = srtb::program_options::parse_arguments(
@@ -116,6 +132,15 @@ int main(int argc, char** argv) {
 #endif
 
   allocate_memory_regions();
+
+  // trigger JIT
+  // some implementations may pack intermediate representation with executable binary
+  // and just-in-time compile it into device code when launching first kernel
+  {
+    auto d_out_unique = srtb::device_allocator.allocate_unique<srtb::real>(1);
+    auto d_out = d_out_unique.get();
+    srtb::queue.single_task([=]() { (*d_out) = srtb::real{42}; }).wait();
+  }
 
   // TODO std::thread for other pipelines
 
