@@ -52,8 +52,13 @@ class simplify_spectrum_pipe : public pipe<simplify_spectrum_pipe> {
 
     SRTB_LOGD << " [simplify spectrum pipe] "
               << " start simplifying" << srtb::endl;
+
     srtb::spectrum::simplify_spectrum_calculate_norm(d_in, in_count, d_out,
                                                      out_count, batch_size, q);
+    d_in = nullptr;
+    d_in_shared.reset();
+
+    // normalization, so that it can be drawn onto image
     // choice 1: normalize all together using max value
     //srtb::spectrum::simplify_spectrum_normalize_with_max_value(
     //    d_out, total_out_count, 1, q);
@@ -63,6 +68,7 @@ class simplify_spectrum_pipe : public pipe<simplify_spectrum_pipe> {
     // choice 3: normalize all together using average value
     srtb::spectrum::simplify_spectrum_normalize_with_average_value(
         d_out, total_out_count, q);
+
     SRTB_LOGD << " [simplify spectrum pipe] "
               << " finished simplifying" << srtb::endl;
 
@@ -75,9 +81,18 @@ class simplify_spectrum_pipe : public pipe<simplify_spectrum_pipe> {
     draw_spectrum_work.count = out_count;
     draw_spectrum_work.batch_size = batch_size;
     draw_spectrum_work.timestamp = simplify_spectrum_work.timestamp;
-    SRTB_PUSH_WORK_OR_RETURN(" [simplify spectrum pipe] ",
-                             srtb::draw_spectrum_queue, draw_spectrum_work,
-                             stop_token);
+    // same as SRTB_PUSH_WORK_OR_RETURN(), but supressed logs
+    {
+      bool success = false;
+      do {
+        if (stop_token.stop_requested()) [[unlikely]] {
+          return;
+        }
+        std::this_thread::sleep_for(
+            std::chrono::nanoseconds(srtb::config.thread_query_work_wait_time));
+        success = srtb::draw_spectrum_queue.push(draw_spectrum_work);
+      } while (!success);
+    }
 
     srtb::pipeline::notify();
   }
