@@ -149,14 +149,12 @@ int main(int argc, char** argv) {
             << srtb::queue.get_device().get_info<sycl::info::device::name>()
             << srtb::endl;
 
-  srtb::pipeline::udp_receiver_pipe udp_receiver_pipe;
-  srtb::pipeline::read_file_pipe read_file_pipe;
   std::jthread input_thread;
   auto input_file_path = srtb::config.input_file_path;
   if (std::filesystem::exists(input_file_path)) {
     SRTB_LOGI << " [main] "
               << "Reading file " << input_file_path << srtb::endl;
-    input_thread = read_file_pipe.start();
+    input_thread = srtb::pipeline::read_file_pipe::start();
   } else {
     if (input_file_path != "") {
       SRTB_LOGE << " [main] "
@@ -165,56 +163,40 @@ int main(int argc, char** argv) {
     }
     SRTB_LOGI << " [main] "
               << "Receiving UDP packets" << srtb::endl;
-    input_thread = udp_receiver_pipe.start();
+    input_thread = srtb::pipeline::udp_receiver_pipe::start();
   }
 
-  srtb::pipeline::unpack_pipe unpack_pipe;
-  std::jthread unpack_thread;
-  unpack_thread = unpack_pipe.start();
+  std::jthread unpack_thread = srtb::pipeline::unpack_pipe::start();
 
-  srtb::pipeline::fft_1d_r2c_pipe fft_1d_r2c_pipe;
-  std::jthread fft_1d_r2c_thread;
-  fft_1d_r2c_thread = fft_1d_r2c_pipe.start();
+  std::jthread fft_1d_r2c_thread = srtb::pipeline::fft_1d_r2c_pipe::start();
 
-  srtb::pipeline::rfi_mitigation_pipe rfi_mitigation_pipe;
-  std::jthread rfi_mitigation_thread;
-  rfi_mitigation_thread = rfi_mitigation_pipe.start();
+  std::jthread rfi_mitigation_thread =
+      srtb::pipeline::rfi_mitigation_pipe::start();
 
-  //srtb::pipeline::dedisperse_and_channelize_pipe dedisperse_and_channelize_pipe;
-  //dedisperse_and_channelize_pipe.start();
-  srtb::pipeline::dedisperse_pipe dedisperse_pipe;
-  std::jthread dedisperse_thread;
-  dedisperse_thread = dedisperse_pipe.start();
+  //srtb::pipeline::dedisperse_and_channelize_pipe::start();
+  std::jthread dedisperse_thread = srtb::pipeline::dedisperse_pipe::start();
 
-  srtb::pipeline::ifft_1d_c2c_pipe ifft_1d_c2c_pipe;
-  std::jthread ifft_1d_c2c_thread;
-  ifft_1d_c2c_thread = ifft_1d_c2c_pipe.start();
+  std::jthread ifft_1d_c2c_thread = srtb::pipeline::ifft_1d_c2c_pipe::start();
 
-  srtb::pipeline::refft_1d_c2c_pipe refft_1d_c2c_pipe;
-  std::jthread refft_1d_c2c_thread;
-  refft_1d_c2c_thread = refft_1d_c2c_pipe.start();
+  std::jthread refft_1d_c2c_thread = srtb::pipeline::refft_1d_c2c_pipe::start();
 
-  srtb::pipeline::signal_detect_pipe signal_detect_pipe;
-  std::jthread signal_detect_thread;
-  signal_detect_thread = signal_detect_pipe.start();
+  std::jthread signal_detect_thread =
+      srtb::pipeline::signal_detect_pipe::start();
 
-  srtb::pipeline::baseband_output_pipe</* continuous_write = */ true>
-      baseband_output_write_all_pipe;
-  srtb::pipeline::baseband_output_pipe</* continuous_write = */ false>
-      baseband_output_pipe;
   std::jthread baseband_output_thread;
   if (srtb::config.baseband_write_all) {
     SRTB_LOGW << " [main] "
               << "Writing all baseband data, take care of disk space!"
               << srtb::endl;
-    baseband_output_thread = baseband_output_write_all_pipe.start();
+    baseband_output_thread = srtb::pipeline::baseband_output_pipe<
+        /* continuous_write = */ true>::start();
   } else {
-    baseband_output_thread = baseband_output_pipe.start();
+    baseband_output_thread = srtb::pipeline::baseband_output_pipe<
+        /* continuous_write = */ false>::start();
   }
 
-  srtb::pipeline::simplify_spectrum_pipe simplify_spectrum_pipe;
-  std::jthread simplify_spectrum_thread;
-  simplify_spectrum_thread = simplify_spectrum_pipe.start();
+  std::jthread simplify_spectrum_thread =
+      srtb::pipeline::simplify_spectrum_pipe::start();
 
   std::vector<std::jthread> threads;
   threads.push_back(std::move(input_thread));

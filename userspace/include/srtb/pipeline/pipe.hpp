@@ -52,9 +52,13 @@ class pipe {
    * @brief Start working in a new thread
    * @return std::jthread the thread running on.
    */
-  std::jthread start() {
-    std::jthread jthread{
-        [this](std::stop_token stop_token) { run(stop_token); }};
+  template <typename... Args>
+  static std::jthread start(Args... args) {
+    std::jthread jthread{[](std::stop_token stop_token, Args... args) {
+                           Derived derived{args...};
+                           derived.run(stop_token);
+                         },
+                         args...};
 #if __has_include(<pthread.h>)
     const std::string thread_name = generate_thread_name();
     pthread_setname_np(jthread.native_handle(), thread_name.c_str());
