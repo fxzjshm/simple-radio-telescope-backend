@@ -214,14 +214,21 @@ struct configs {
   size_t refft_length = 1 << 15;
 
   /**
-   * @brief threshold for signal detect, target signal / noise ratio
+   * @brief signal noise ratio threshold for signal detect,
    *        If $ \exist x_i $ s.t. $$ x_i > \mu + k * \sigma $$,
    *        where $ x_i $ is a value of time series,
    *              $ \mu $ is its mean value, $ \sigma $ is variance,
    *              $ k $ is this threshold
    *        then it is thought a signal.
    */
-  srtb::real signal_detect_threshold = 6;
+  srtb::real signal_detect_signal_noise_threshold = 6;
+
+  /**
+   * @brief threshold of ratio of non-zapped channels
+   * 
+   * if too many channels are zapped, result is often not correct
+   */
+  srtb::real signal_detect_channel_threshold = 0.9;
 
   /**
    * @brief max boxcar length for signal detect.

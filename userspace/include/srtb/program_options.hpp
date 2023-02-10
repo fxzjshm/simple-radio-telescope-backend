@@ -114,8 +114,11 @@ namespace program_options {
       ("refft_length", boost::program_options::value<std::string>(),
        "Length of FFT for re-constructing signals after coherent dedispersion, "
        "of complex numbers, so refft_length <= baseband_input_count / 2")
-      ("signal_detect_threshold", boost::program_options::value<std::string>(),
+      ("signal_detect_signal_noise_threshold", boost::program_options::value<std::string>(),
        "threshold for signal detect, target signal / noise ratio")
+      ("signal_detect_channel_threshold", boost::program_options::value<std::string>(),
+       "threshold of ratio of non-zapped channels. "
+       "if too many channels are zapped, result is often not correct")
       ("signal_detect_max_boxcar_length", boost::program_options::value<std::string>(),
        "max boxcar length for signal detect")
     ;
@@ -222,7 +225,8 @@ inline void evaluate_and_apply_changed_config(const std::string& name,
   SRTB_PARSE(mitigate_rfi_spectral_kurtosis_threshold)
   SRTB_ASSIGN(mitigate_rfi_freq_list)
   SRTB_PARSE(refft_length)
-  SRTB_PARSE(signal_detect_threshold)
+  SRTB_PARSE(signal_detect_signal_noise_threshold)
+  SRTB_PARSE(signal_detect_channel_threshold)
   SRTB_PARSE(signal_detect_max_boxcar_length)
   SRTB_PARSE(thread_query_work_wait_time)
   /* else */ {

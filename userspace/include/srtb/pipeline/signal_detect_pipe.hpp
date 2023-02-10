@@ -103,8 +103,8 @@ class signal_detect_pipe : public pipe<signal_detect_pipe> {
     d_in = nullptr;
     d_in_shared.reset();
 
-    const srtb::real signal_detect_threshold =
-        srtb::config.signal_detect_threshold;
+    const srtb::real snr_threshold =
+        srtb::config.signal_detect_signal_noise_threshold;
 
     // remove baseline -- substract average
     // this is done first to avoid big float - big float when calculating variance
@@ -126,11 +126,12 @@ class signal_detect_pipe : public pipe<signal_detect_pipe> {
         .timestamp = signal_detect_work.timestamp};
 
     // if too many frequency channels are masked, result is often inaccurate
-    if (zero_count < 0.9 * count_per_batch) {
+    if (zero_count <
+        srtb::config.signal_detect_channel_threshold * count_per_batch) {
       // trivial signal detect on raw time series
       {
         const size_t h_signal_count = srtb::signal_detect::count_signal(
-            d_time_series, time_series_count, signal_detect_threshold, q);
+            d_time_series, time_series_count, snr_threshold, q);
         const bool has_signal = (h_signal_count > 0);
         if (has_signal) /* [[unlikely]] */ {
           // copy from device to host
@@ -183,8 +184,8 @@ class signal_detect_pipe : public pipe<signal_detect_pipe> {
 
           // trivially detect signal, again
           const size_t h_signal_count = srtb::signal_detect::count_signal(
-              d_boxcared_time_series, boxcared_time_series_count,
-              signal_detect_threshold, q);
+              d_boxcared_time_series, boxcared_time_series_count, snr_threshold,
+              q);
           const bool has_signal = (h_signal_count > 0);
           if (has_signal) /* [[unlikely]] */ {
             // copy from device to host
