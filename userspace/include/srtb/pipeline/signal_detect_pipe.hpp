@@ -138,11 +138,13 @@ class signal_detect_pipe : public pipe<signal_detect_pipe> {
           auto h_out_shared = srtb::host_allocator.allocate_shared<srtb::real>(
               time_series_count);
           auto h_out = h_out_shared.get();
-          q.copy(d_time_series, /* -> */ h_out, time_series_count).wait();
+          sycl::event event =
+              q.copy(d_time_series, /* -> */ h_out, time_series_count);
           srtb::work::time_series_holder time_series_holder{
-              .time_series_ptr = h_out_shared,
+              .h_time_series = h_out_shared,
               .time_series_length = time_series_count,
-              .boxcar_length = 1};
+              .boxcar_length = 1,
+              .transfer_event = event};
           signal_detect_result.time_series.push_back(time_series_holder);
         }
       }
@@ -193,13 +195,13 @@ class signal_detect_pipe : public pipe<signal_detect_pipe> {
                 srtb::host_allocator.allocate_shared<srtb::real>(
                     time_series_count);
             auto h_out = h_out_shared.get();
-            q.copy(d_boxcared_time_series, /* -> */ h_out,
-                   boxcared_time_series_count)
-                .wait();
+            sycl::event event = q.copy(d_boxcared_time_series, /* -> */ h_out,
+                                       boxcared_time_series_count);
             srtb::work::time_series_holder time_series_holder{
-                .time_series_ptr = h_out_shared,
+                .h_time_series = h_out_shared,
                 .time_series_length = boxcared_time_series_count,
-                .boxcar_length = boxcar_length};
+                .boxcar_length = boxcar_length,
+                .transfer_event = event};
             signal_detect_result.time_series.push_back(time_series_holder);
           }
         }

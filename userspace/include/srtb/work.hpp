@@ -209,10 +209,11 @@ using baseband_output_work = srtb::work::work<std::shared_ptr<std::byte> >;
  * @brief contains info for a time series of a spectrum
  */
 struct time_series_holder {
-  std::shared_ptr<srtb::real> time_series_ptr;
+  std::shared_ptr<srtb::real> h_time_series;
   size_t time_series_length;
   /** @brief size of boxcar used to compute the time series; = 1 if not used */
   size_t boxcar_length;
+  sycl::event transfer_event;
 };
 
 /**

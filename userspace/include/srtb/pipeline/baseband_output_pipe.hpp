@@ -199,14 +199,17 @@ class baseband_output_pipe</* continuous_write = */ false>
             time_series_output_stream{time_series_file_path,
                                       BOOST_IOS::binary | BOOST_IOS::out};
 
+        // wait until data copy completed
+        time_series_holder.transfer_event.wait();
+
         // write time series
-        const auto time_series_ptr = time_series_holder.time_series_ptr.get();
+        const auto time_series_ptr = time_series_holder.h_time_series.get();
         const size_t time_series_length = time_series_holder.time_series_length;
         time_series_output_stream.write(
             reinterpret_cast<const char*>(time_series_ptr),
             time_series_length *
-                sizeof(decltype(time_series_holder
-                                    .time_series_ptr)::element_type));
+                sizeof(
+                    decltype(time_series_holder.h_time_series)::element_type));
         time_series_output_stream.flush();
 
         // draw time series using matplotlib cpp
