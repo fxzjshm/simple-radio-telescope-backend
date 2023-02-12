@@ -27,9 +27,10 @@ namespace signal_detect {
 
 /**
  * @brief trivial signal detection, using signal-to-noise ratio
+ * @note assuming average has been set to 0
  */
 template <typename T, typename InputIterator>
-inline auto count_signal(InputIterator d_in, size_t in_count, T threshold,
+inline auto count_signal(InputIterator d_in, size_t in_count, T snr_threshold,
                          sycl::queue& q) -> size_t {
   // check value types, to avoid unexpected type casts
   static_assert(
@@ -46,17 +47,18 @@ inline auto count_signal(InputIterator d_in, size_t in_count, T threshold,
       },
       q);
   auto d_variance_squared = d_variance_squared_shared.get();
-  auto d_variance_shared = srtb::device_allocator.allocate_shared<T>(1);
-  auto d_variance = d_variance_shared.get();
+  auto d_threshold_unique = srtb::device_allocator.allocate_unique<T>(1);
+  auto d_threshold = d_threshold_unique.get();
   q.single_task([=]() {
-     (*d_variance) = static_cast<T>(sycl::sqrt(*d_variance_squared));
+     (*d_threshold) =
+         static_cast<T>(snr_threshold * sycl::sqrt(*d_variance_squared));
    }).wait();
 
   auto d_signal_count_shared = srtb::algorithm::map_sum(
       d_in, in_count, /* map = */
       [=]([[maybe_unused]] size_t pos, srtb::real x) -> size_t {
         // also known as count_if
-        if (x > threshold * (*d_variance)) {
+        if (x > (*d_threshold)) {
           return size_t{1};
         } else {
           return size_t{0};
