@@ -56,7 +56,7 @@ inline auto count_signal(InputIterator d_in, size_t in_count, T threshold,
       d_in, in_count, /* map = */
       [=]([[maybe_unused]] size_t pos, srtb::real x) -> size_t {
         // also known as count_if
-        if (srtb::abs(x) > threshold * (*d_variance)) {
+        if (x > threshold * (*d_variance)) {
           return size_t{1};
         } else {
           return size_t{0};
