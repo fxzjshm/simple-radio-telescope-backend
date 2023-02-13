@@ -16,6 +16,7 @@
 
 #include <chrono>
 #include <iostream>
+#include <sstream>
 #include <syncstream>
 
 #include "srtb/global_variables.hpp"
@@ -74,6 +75,22 @@ inline std::string get_log_prefix(const log::levels level) {
   std::snprintf(str, sizeof(str), "%s[%9.06f] %s%s:", prefix.c_str(),
                 interval_sec, tag.c_str(), suffix.c_str());
   return std::string(str);
+}
+
+template <typename Container, typename U>
+inline auto container_to_string(const Container& container, U delimiter)
+    -> std::string {
+  std::stringstream ss;
+  bool is_first_one = true;
+  for (auto value : container) {
+    if (is_first_one) {
+      is_first_one = false;
+    } else {
+      ss << delimiter;
+    }
+    ss << value;
+  }
+  return ss.str();
 }
 
 }  // namespace log

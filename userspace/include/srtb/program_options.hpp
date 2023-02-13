@@ -190,18 +190,45 @@ inline void evaluate_and_apply_changed_config(const std::string& name,
                                               const std::string& value,
                                               srtb::configs& config) {
 // TODO: this seems ugly. better approach?
-#define SRTB_PARSE(target_name)                                     \
-  if (name == #target_name) {                                       \
-    const decltype(config.target_name) parsed_value = parse(value); \
-    SRTB_LOGI << " [program_options] " << #target_name << " = "     \
-              << parsed_value << srtb::endl;                        \
-    config.target_name = parsed_value;                              \
+#define SRTB_PARSE(target_name)                                 \
+  if (name == #target_name) {                                   \
+    using target_type = decltype(config.target_name);           \
+    const target_type parsed_value = parse<target_type>(value); \
+    SRTB_LOGI << " [program_options] " << #target_name << " = " \
+              << parsed_value << srtb::endl;                    \
+    config.target_name = parsed_value;                          \
   } else
 #define SRTB_ASSIGN(target_name)                                         \
   if (name == #target_name) {                                            \
     SRTB_LOGI << " [program_options] " << #target_name << " = " << value \
               << srtb::endl;                                             \
     config.target_name = value;                                          \
+  } else
+#define SRTB_SPLIT_PARSE(target_name, delimiter)                           \
+  if (name == #target_name) {                                              \
+    using target_type = typename decltype(config.target_name)::value_type; \
+    std::vector<std::string> sub_strings;                                  \
+    boost::split(sub_strings, value, boost::is_any_of(delimiter),          \
+                 boost::token_compress_on);                                \
+    std::vector<target_type> sub_values;                                   \
+    for (auto sub_string : sub_strings) {                                  \
+      const target_type sub_value = parse<target_type>(sub_string);        \
+      sub_values.push_back(sub_value);                                     \
+    }                                                                      \
+    SRTB_LOGI << " [program_options] " << #target_name << " = "            \
+              << srtb::log::container_to_string(sub_values, delimiter)     \
+              << srtb::endl;                                               \
+    config.target_name = sub_values;                                       \
+  } else
+#define SRTB_SPLIT_ASSIGN(target_name, delimiter)                       \
+  if (name == #target_name) {                                           \
+    std::vector<std::string> sub_strings;                               \
+    boost::split(sub_strings, value, boost::is_any_of(delimiter),       \
+                 boost::token_compress_on);                             \
+    SRTB_LOGI << " [program_options] " << #target_name << " = "         \
+              << srtb::log::container_to_string(sub_strings, delimiter) \
+              << srtb::endl;                                            \
+    config.target_name = sub_strings;                                   \
   } else
 
   ;  // <- for clang-format
@@ -236,6 +263,8 @@ inline void evaluate_and_apply_changed_config(const std::string& name,
   }
 #undef SRTB_PARSE
 #undef SRTB_ASSIGN
+#undef SRTB_SPLIT_PARSE
+#undef SRTB_SPLIT_ASSIGN
 }
 
 inline void apply_changed_configs(
