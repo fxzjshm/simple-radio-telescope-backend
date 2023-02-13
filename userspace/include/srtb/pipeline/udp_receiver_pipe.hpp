@@ -34,11 +34,17 @@ class udp_receiver_pipe : public pipe<udp_receiver_pipe> {
 
  protected:
   std::optional<srtb::io::udp_receiver::udp_receiver_worker> opt_worker;
+  /**
+   * @brief identifier for different pipe instances
+   * 
+   * e.g. id == 0 and 1 for two polarizations
+   */
+  size_t id;
 
  public:
   // init of worker is deferred because this pipe may not be used,
   // and failure of binding address will result in a error
-  udp_receiver_pipe() = default;
+  udp_receiver_pipe(size_t id_ = 0) : id{id_} {};
 
  protected:
   void setup_impl([[maybe_unused]] std::stop_token stop_token) {
@@ -51,14 +57,57 @@ class udp_receiver_pipe : public pipe<udp_receiver_pipe> {
           std::chrono::nanoseconds(srtb::config.thread_query_work_wait_time));
     }
 
-    const std::string& sender_address =
-        srtb::config.udp_receiver_sender_address;
-    const unsigned short sender_port = srtb::config.udp_receiver_sender_port;
+    std::string sender_address;
+    {
+      const auto& sender_addresses = srtb::config.udp_receiver_sender_address;
+      if (sender_addresses.size() == 1) {
+        sender_address = sender_addresses.at(0);
+      } else if (id < sender_addresses.size()) {
+        sender_address = sender_addresses.at(id);
+      } else {
+        SRTB_LOGE << " [udp receiver pipe] "
+                  << "id = " << id << ": "
+                  << "no UDP sender address set" << srtb::endl;
+        throw std::runtime_error{
+            " [udp receiver pipe] no UDP sender address for id = " +
+            std::to_string(id)};
+      }
+    }
+    unsigned short sender_port;
+    {
+      const auto& sender_ports = srtb::config.udp_receiver_sender_port;
+      if (sender_ports.size() == 1) {
+        sender_port = sender_ports.at(0);
+      } else if (id < sender_ports.size()) {
+        sender_port = sender_ports.at(id);
+      } else {
+        SRTB_LOGE << " [udp receiver pipe] "
+                  << "id = " << id << ": "
+                  << "no UDP sender port set" << srtb::endl;
+        throw std::runtime_error{
+            " [udp receiver pipe] no UDP sender port for id = " +
+            std::to_string(id)};
+      }
+    }
     const auto udp_receiver_buffer_size = srtb::config.udp_receiver_buffer_size;
     opt_worker.emplace(sender_address, sender_port, udp_receiver_buffer_size);
 
-    srtb::thread_affinity::set_thread_affinity(
-        srtb::config.udp_receiver_cpu_preferred);
+    const auto& cpus_preferred = srtb::config.udp_receiver_cpu_preferred;
+    if (0 <= id && id < cpus_preferred.size()) {
+      const auto cpu_preferred = cpus_preferred.at(id);
+      srtb::thread_affinity::set_thread_affinity(cpu_preferred);
+    } else {
+      // no preferred CPU is set, so not setting thread affinity
+      SRTB_LOGW << " [udp receiver pipe] "
+                << "id = " << id << ": "
+                << "CPU affinity not set, performance may be degraded"
+                << srtb::endl;
+    }
+
+    SRTB_LOGI << " [udp receiver pipe] "
+              << "id = " << id << ": "
+              << "start reading, address = " << sender_address << ", "
+              << "port = " << sender_port << srtb::endl;
   }
 
   void run_once_impl(std::stop_token stop_token) {
@@ -71,10 +120,12 @@ class udp_receiver_pipe : public pipe<udp_receiver_pipe> {
                                         std::abs(baseband_input_bits) /
                                         srtb::BITS_PER_BYTE;
     SRTB_LOGD << " [udp receiver pipe] "
+              << "id = " << id << ": "
               << "start receiving" << srtb::endl;
     auto [buffer_pointer, first_counter] =
         worker.receive(/* required_length = */ baseband_input_bytes);
     SRTB_LOGD << " [udp receiver pipe] "
+              << "id = " << id << ": "
               << "receive finished" << srtb::endl;
 
     auto time_before_push = std::chrono::system_clock::now();
@@ -118,9 +169,11 @@ class udp_receiver_pipe : public pipe<udp_receiver_pipe> {
     if (nsamps_reserved < baseband_input_count) {
       worker.consume(baseband_input_count - nsamps_reserved);
       SRTB_LOGD << " [udp receiver pipe] "
+                << "id = " << id << ": "
                 << "reserved " << nsamps_reserved << " samples" << srtb::endl;
     } else {
       SRTB_LOGW << " [udp receiver pipe] "
+                << "id = " << id << ": "
                 << "baseband_input_count = " << baseband_input_count
                 << " >= nsamps_reserved = " << nsamps_reserved << srtb::endl;
       worker.consume(baseband_input_count);

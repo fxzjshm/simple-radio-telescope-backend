@@ -53,66 +53,68 @@ inline namespace detail {
  * 
  * this function is quite ugly, and should be updated once pipeline structure chnages.
  */
-inline void allocate_memory_regions() {
+inline void allocate_memory_regions(size_t input_pipe_count) {
   // hold all pointers; using RAII
   std::vector<std::shared_ptr<std::byte> > ptrs;
 
-  // host side udp receiver buffer, raw baseband data
-  for (size_t i = 0; i < 5; i++) {
-    ptrs.push_back(srtb::host_allocator.allocate_shared<std::byte>(
+  for (size_t k = 0; k < input_pipe_count; k++) {
+    // host side udp receiver buffer, raw baseband data
+    for (size_t i = 0; i < 5; i++) {
+      ptrs.push_back(srtb::host_allocator.allocate_shared<std::byte>(
+          sizeof(std::byte) * srtb::config.baseband_input_count *
+          std::abs(srtb::config.baseband_input_bits) / srtb::BITS_PER_BYTE));
+    }
+
+    // device side raw baseband data, to be unpacked
+    ptrs.push_back(srtb::device_allocator.allocate_shared<std::byte>(
         sizeof(std::byte) * srtb::config.baseband_input_count *
         std::abs(srtb::config.baseband_input_bits) / srtb::BITS_PER_BYTE));
-  }
 
-  // device side raw baseband data, to be unpacked
-  ptrs.push_back(srtb::device_allocator.allocate_shared<std::byte>(
-      sizeof(std::byte) * srtb::config.baseband_input_count *
-      std::abs(srtb::config.baseband_input_bits) / srtb::BITS_PER_BYTE));
-
-  // device side unpacked baseband data / FFT-ed spectrum / STFT-ed waterfall (if in place)
-  ptrs.push_back(srtb::device_allocator.allocate_shared<std::byte>(
-      sizeof(srtb::complex<srtb::real>) *
-      (srtb::config.baseband_input_count / 2 + 1)));
-
-  // device side time series (original / accumulated / boxcar-ed)
-  for (size_t i = 0; i < 3; i++) {
+    // device side unpacked baseband data / FFT-ed spectrum / STFT-ed waterfall (if in place)
     ptrs.push_back(srtb::device_allocator.allocate_shared<std::byte>(
-        sizeof(srtb::real) * srtb::config.baseband_input_count /
-        srtb::config.refft_length / 2));
-  }
+        sizeof(srtb::complex<srtb::real>) *
+        (srtb::config.baseband_input_count / 2 + 1)));
 
-  // host side time series for a segment of baseband
-  for (size_t w = 1; w <= srtb::config.signal_detect_max_boxcar_length;
-       w *= 2) {
-    ptrs.push_back(srtb::host_allocator.allocate_shared<std::byte>(
-        sizeof(srtb::real) * srtb::config.baseband_input_count /
-        srtb::config.refft_length / 2));
-  }
+    // device side time series (original / accumulated / boxcar-ed)
+    for (size_t i = 0; i < 3; i++) {
+      ptrs.push_back(srtb::device_allocator.allocate_shared<std::byte>(
+          sizeof(srtb::real) * srtb::config.baseband_input_count /
+          srtb::config.refft_length / 2));
+    }
 
-  // device side STFT buffer, for spectrural kurtosis & mean value
-  for (size_t i = 0; i < 2; i++) {
+    // host side time series for a segment of baseband
+    for (size_t w = 1; w <= srtb::config.signal_detect_max_boxcar_length;
+         w *= 2) {
+      ptrs.push_back(srtb::host_allocator.allocate_shared<std::byte>(
+          sizeof(srtb::real) * srtb::config.baseband_input_count /
+          srtb::config.refft_length / 2));
+    }
+
+    // device side STFT buffer, for spectrural kurtosis & mean value
+    for (size_t i = 0; i < 2; i++) {
+      ptrs.push_back(srtb::device_allocator.allocate_shared<std::byte>(
+          sizeof(srtb::complex<srtb::real>) * srtb::config.refft_length));
+    }
+
+    // host & device side waterfall
     ptrs.push_back(srtb::device_allocator.allocate_shared<std::byte>(
-        sizeof(srtb::complex<srtb::real>) * srtb::config.refft_length));
-  }
-
-  // host & device side waterfall
-  ptrs.push_back(srtb::device_allocator.allocate_shared<std::byte>(
-      sizeof(srtb::real) *
-      (srtb::config.baseband_input_count - srtb::codd::nsamps_reserved()) /
-      srtb::config.refft_length / 2 * srtb::gui::spectrum::width));
-  for (size_t i = 0; i < 5; i++) {
-    ptrs.push_back(srtb::host_allocator.allocate_shared<std::byte>(
         sizeof(srtb::real) *
         (srtb::config.baseband_input_count - srtb::codd::nsamps_reserved()) /
         srtb::config.refft_length / 2 * srtb::gui::spectrum::width));
-  }
+    for (size_t i = 0; i < 5; i++) {
+      ptrs.push_back(srtb::host_allocator.allocate_shared<std::byte>(
+          sizeof(srtb::real) *
+          (srtb::config.baseband_input_count - srtb::codd::nsamps_reserved()) /
+          srtb::config.refft_length / 2 * srtb::gui::spectrum::width));
+    }
 
-  // misc value holders
-  for (size_t i = 0; i < 2; i++) {
-    ptrs.push_back(
-        srtb::device_allocator.allocate_shared<std::byte>(sizeof(srtb::real)));
-    ptrs.push_back(srtb::device_allocator.allocate_shared<std::byte>(
-        sizeof(srtb::complex<srtb::real>)));
+    // misc value holders
+    for (size_t i = 0; i < 2; i++) {
+      ptrs.push_back(srtb::device_allocator.allocate_shared<std::byte>(
+          sizeof(srtb::real)));
+      ptrs.push_back(srtb::device_allocator.allocate_shared<std::byte>(
+          sizeof(srtb::complex<srtb::real>)));
+    }
   }
 
   // ptrs.drop(); a.k.a. ~ptrs();
@@ -131,7 +133,12 @@ int main(int argc, char** argv) {
   cudaSetDeviceFlags(cudaDeviceScheduleYield);
 #endif
 
-  allocate_memory_regions();
+  const size_t input_pipe_count =
+      std::max(std::max(srtb::config.udp_receiver_sender_address.size(),
+                        srtb::config.udp_receiver_sender_port.size()),
+               size_t{1});
+
+  allocate_memory_regions(input_pipe_count);
 
   // trigger JIT
   // some implementations may pack intermediate representation with executable binary
@@ -149,12 +156,12 @@ int main(int argc, char** argv) {
             << srtb::queue.get_device().get_info<sycl::info::device::name>()
             << srtb::endl;
 
-  std::jthread input_thread;
+  std::vector<std::jthread> input_thread;
   auto input_file_path = srtb::config.input_file_path;
   if (std::filesystem::exists(input_file_path)) {
     SRTB_LOGI << " [main] "
               << "Reading file " << input_file_path << srtb::endl;
-    input_thread = srtb::pipeline::read_file_pipe::start();
+    input_thread.push_back(srtb::pipeline::read_file_pipe::start());
   } else {
     if (input_file_path != "") {
       SRTB_LOGE << " [main] "
@@ -163,7 +170,10 @@ int main(int argc, char** argv) {
     }
     SRTB_LOGI << " [main] "
               << "Receiving UDP packets" << srtb::endl;
-    input_thread = srtb::pipeline::udp_receiver_pipe::start();
+    for (size_t i = 0; i < input_pipe_count; i++) {
+      input_thread.push_back(
+          srtb::pipeline::udp_receiver_pipe::start(/* id = */ i));
+    }
   }
 
   std::jthread unpack_thread = srtb::pipeline::unpack_pipe::start();
@@ -199,7 +209,7 @@ int main(int argc, char** argv) {
       srtb::pipeline::simplify_spectrum_pipe::start();
 
   std::vector<std::jthread> threads;
-  threads.push_back(std::move(input_thread));
+  threads = std::move(input_thread);
   threads.push_back(std::move(unpack_thread));
   threads.push_back(std::move(fft_1d_r2c_thread));
   threads.push_back(std::move(rfi_mitigation_thread));
@@ -211,7 +221,7 @@ int main(int argc, char** argv) {
   threads.push_back(std::move(simplify_spectrum_thread));
 
   srtb::pipeline::expected_running_pipe_count = threads.size();
-  srtb::pipeline::expected_input_pipe_count = 1;
+  srtb::pipeline::expected_input_pipe_count = input_pipe_count;
 
   return srtb::gui::show_gui(argc, argv, std::move(threads));
 }

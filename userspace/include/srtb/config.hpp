@@ -18,6 +18,7 @@
 #include <limits>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "srtb/sycl.hpp"
 
@@ -132,17 +133,17 @@ struct configs {
   /**
    * @brief Address to receive baseband UDP packets.
    */
-  std::string udp_receiver_sender_address = "10.0.1.2";
+  std::vector<std::string> udp_receiver_sender_address = {"10.0.1.2"};
 
   /**
    * @brief Port to receive baseband UDP packets.
    */
-  unsigned short udp_receiver_sender_port = 12004;
+  std::vector<unsigned short> udp_receiver_sender_port = {12004};
 
   /**
    * @brief CPU core that UDP receiver should be bound to.
    */
-  unsigned int udp_receiver_cpu_preferred = 0;
+  std::vector<unsigned int> udp_receiver_cpu_preferred = {0};
 
   /**
    * @brief Path to the binary file to be read as baseband input.
