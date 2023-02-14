@@ -20,6 +20,7 @@
 
 #include "srtb/commons.hpp"
 // --- divide line for clang-format ---
+#include "srtb/algorithm/map_identity.hpp"
 #include "srtb/algorithm/map_reduce.hpp"
 
 namespace srtb {
@@ -175,7 +176,7 @@ inline void mitigate_rfi_manual(DeviceComplexInputAccessor d_in,
  * 
  * @note current implementation is not efficient if fft_bins is small
  * 
- * update: fused normalizations (disabled now)
+ * update: fused normalizations (disabled now, need further investigation)
  *         remove different amplification on different channels
  */
 template <typename T = srtb::real, typename C = srtb::complex<srtb::real>,
@@ -231,6 +232,18 @@ inline void mitigate_rfi_spectural_kurtosis_method(
      d_average[j] = average;
    }).wait();
 
+  // d_average_threshold is to detect whether this channel is formerly
+  // zapped manually
+  // TODO: check this; better ways?
+  auto d_average_intensity_shared = srtb::algorithm::map_average(
+      d_average, fft_bins, srtb::algorithm::map_identity(), q);
+  auto d_average_intensity = d_average_intensity_shared.get();
+  q.single_task([=]() {
+     // TODO: check this constant
+     (*d_average_intensity) *= T{0.1};
+   }).wait();
+  auto d_average_threshold = d_average_intensity;
+
   q.parallel_for(sycl::range<1>(total_size), [=](sycl::item<1> id) {
      const size_t i = id.get_id(0);
      const size_t j = i - ((i / fft_bins) * fft_bins);
@@ -243,9 +256,12 @@ inline void mitigate_rfi_spectural_kurtosis_method(
      if constexpr (normalization) {
        C out;
        if (!zeroing) {
-         // TODO: other methods may make average == 0.0
-         //       currently no such, but hard to say in the future
-         out = in / average;
+         // other methods may make average == 0.0, e.g. manual zap channels
+         if (average > (*d_average_threshold)) [[likely]] {
+           out = in / average;
+         } else {
+           out = in;
+         }
          SRTB_ASSERT_IN_KERNEL(out == out);
        } else {
          out = zero;
