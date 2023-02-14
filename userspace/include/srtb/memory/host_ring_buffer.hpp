@@ -66,6 +66,18 @@ class host_ring_buffer {
   }
 
   /**
+   * @brief confirm that data of @c requested_length has been written to this buffer,
+   *        usually used with @c prepare()
+   */
+  void commit(size_t requested_length) { tail += requested_length; }
+
+  /**
+   * @brief confirm that data of @c requested_length has been read from this buffer,
+   *        usually used with @c peek()
+   */
+  void consume(size_t requested_length) { head += requested_length; }
+
+  /**
    * @brief try to pop elements of @c request_length from buffer into @c output
    */
   template <typename OutputIterator>
@@ -87,7 +99,7 @@ class host_ring_buffer {
           std::copy_n(buffer.begin() + head, request_length, output);
         }
       }
-      head += request_length;
+      consume(request_length);
     } else {
       throw std::runtime_error{"[host_ring_buffer] pop: not enough items"};
     }
@@ -105,7 +117,7 @@ class host_ring_buffer {
    *  
    * TODO: thread safety? data race?
    */
-  [[nodiscard]] T* peek(size_t request_length) {
+  [[nodiscard]] auto peek(size_t request_length) -> T* {
 #ifdef SRTB_MEMORY_HOST_RING_BUFFER_USE_MUTEX
     std::lock_guard lock{mutex};
 #endif  // SRTB_MEMORY_HOST_RING_BUFFER_USE_MUTEX
@@ -120,17 +132,19 @@ class host_ring_buffer {
 
   /**
    * @brief prepare space for new elements of @c request_length
+   * @return begin of position where data can be pushed, 
+   *         with max writable length @c request_length
    */
-  void prepare(size_t request_length) {
+  auto prepare(size_t request_length) -> T* {
 #ifdef SRTB_MEMORY_HOST_RING_BUFFER_USE_MUTEX
     std::lock_guard lock{mutex};
 #endif  // SRTB_MEMORY_HOST_RING_BUFFER_USE_MUTEX
     check_index();
-    prepare_impl(request_length);
+    return prepare_impl(request_length);
   }
 
  protected:
-  void prepare_impl(size_t request_length) {
+  auto prepare_impl(size_t request_length) -> T* {
     check_index();
 
     // 1) try move data to left of buffer
@@ -151,6 +165,8 @@ class host_ring_buffer {
     if (tail + request_length > capacity()) [[unlikely]] {
       throw std::runtime_error{" [sycl_ring_buffer] logical error in push() ?"};
     }
+
+    return &buffer[0] + tail;
   }
 
  public:
@@ -166,7 +182,7 @@ class host_ring_buffer {
 
     prepare_impl(request_length);
     std::copy_n(input, request_length, buffer.begin() + tail);
-    tail += request_length;
+    commit(request_length);
   }
 
   /**
@@ -180,7 +196,7 @@ class host_ring_buffer {
 
     prepare_impl(request_length);
     std::fill_n(buffer.begin() + tail, request_length, x);
-    tail += request_length;
+    commit(request_length);
   }
 };
 
