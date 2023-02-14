@@ -112,7 +112,7 @@ class baseband_output_pipe</* continuous_write = */ false>
  public:
   baseband_output_pipe() {
     std::string check_file_path =
-        srtb::config.baseband_output_file_prefix + "check.bin";
+        srtb::config.baseband_output_file_prefix + "check";
     try {
       boost::iostreams::stream<boost::iostreams::file_descriptor_sink>
           baseband_output_stream{check_file_path,
@@ -135,31 +135,31 @@ class baseband_output_pipe</* continuous_write = */ false>
                             srtb::signal_detect_result_queue,
                             signal_detect_result, stop_token);
     while (baseband_output_work.timestamp != signal_detect_result.timestamp)
-      [[unlikely]] {
-        if (baseband_output_work.timestamp < signal_detect_result.timestamp) {
-          SRTB_LOGW << " [baseband_output_pipe] "
-                    << "baseband_output_work.timestamp = "
-                    << baseband_output_work.timestamp << " < "
-                    << "signal_detect_result.timestamp = "
-                    << signal_detect_result.timestamp << srtb::endl;
-          SRTB_POP_WORK_OR_RETURN(" [baseband_output_pipe] ",
-                                  srtb::baseband_output_queue,
-                                  baseband_output_work, stop_token);
-        } else if (baseband_output_work.timestamp >
-                   signal_detect_result.timestamp) {
-          SRTB_LOGW << " [baseband_output_pipe] "
-                    << "baseband_output_work.timestamp = "
-                    << baseband_output_work.timestamp << " > "
-                    << "signal_detect_result.timestamp = "
-                    << signal_detect_result.timestamp << srtb::endl;
-          SRTB_POP_WORK_OR_RETURN(" [baseband_output_pipe] ",
-                                  srtb::signal_detect_result_queue,
-                                  signal_detect_result, stop_token);
-        } else {
-          SRTB_LOGE << " [baseband_output_pipe] "
-                    << "Logic error. Something must be wrong." << srtb::endl;
-        }
+        [[unlikely]] {
+      if (baseband_output_work.timestamp < signal_detect_result.timestamp) {
+        SRTB_LOGW << " [baseband_output_pipe] "
+                  << "baseband_output_work.timestamp = "
+                  << baseband_output_work.timestamp << " < "
+                  << "signal_detect_result.timestamp = "
+                  << signal_detect_result.timestamp << srtb::endl;
+        SRTB_POP_WORK_OR_RETURN(" [baseband_output_pipe] ",
+                                srtb::baseband_output_queue,
+                                baseband_output_work, stop_token);
+      } else if (baseband_output_work.timestamp >
+                 signal_detect_result.timestamp) {
+        SRTB_LOGW << " [baseband_output_pipe] "
+                  << "baseband_output_work.timestamp = "
+                  << baseband_output_work.timestamp << " > "
+                  << "signal_detect_result.timestamp = "
+                  << signal_detect_result.timestamp << srtb::endl;
+        SRTB_POP_WORK_OR_RETURN(" [baseband_output_pipe] ",
+                                srtb::signal_detect_result_queue,
+                                signal_detect_result, stop_token);
+      } else {
+        SRTB_LOGE << " [baseband_output_pipe] "
+                  << "Logic error. Something must be wrong." << srtb::endl;
       }
+    }
 
     const bool has_signal = (signal_detect_result.time_series.size() > 0);
     if (has_signal) {

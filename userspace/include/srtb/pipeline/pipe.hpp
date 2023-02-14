@@ -18,6 +18,10 @@
 #include <thread>
 #include <type_traits>
 
+#if __has_include(<pthread.h>)
+#include <pthread.h>
+#endif
+
 #include "srtb/commons.hpp"
 
 namespace srtb {
@@ -100,11 +104,7 @@ class pipe {
   // run on main thread, so setup_impl() & teardown_impl() are needed.
 
  private:
-  pipe() {
-    q = sycl::queue{srtb::queue.get_context(), srtb::queue.get_device()};
-  }
-
-  pipe(sycl::queue q_) : q{q_} {};
+  pipe(sycl::queue q_ = srtb::queue) : q{q_} {};
 
   ~pipe() {
     // wait until all operations in this pipe finish, then exit

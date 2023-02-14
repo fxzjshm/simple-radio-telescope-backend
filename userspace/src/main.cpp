@@ -149,7 +149,7 @@ int main(int argc, char** argv) {
     srtb::queue.single_task([=]() { (*d_out) = srtb::real{42}; }).wait();
   }
 
-  // TODO std::thread for other pipelines
+  // TODO std::jthread for other pipelines
 
   SRTB_LOGI << " [main] "
             << "device name = "
