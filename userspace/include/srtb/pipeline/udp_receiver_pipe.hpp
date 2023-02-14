@@ -18,6 +18,7 @@
 
 #include "srtb/coherent_dedispersion.hpp"
 #include "srtb/io/udp_receiver.hpp"
+#include "srtb/memory/memcpy.hpp"
 #include "srtb/pipeline/pipe.hpp"
 #include "srtb/thread_affinity.hpp"
 
@@ -136,6 +137,8 @@ class udp_receiver_pipe : public pipe<udp_receiver_pipe> {
     std::shared_ptr<std::byte> h_ptr =
         srtb::host_allocator.allocate_shared<std::byte>(baseband_input_bytes);
     std::copy_n(buffer_pointer, baseband_input_bytes, h_ptr.get());
+    //srtb::memory::memcpy(h_ptr.get(), /* <- */ buffer_pointer,
+    //                     baseband_input_bytes);
     sycl::event host_to_devive_copy_event =
         q.copy(h_ptr.get(), /* -> */ d_ptr.get(), baseband_input_bytes);
 
