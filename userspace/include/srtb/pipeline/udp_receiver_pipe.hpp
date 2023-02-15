@@ -90,8 +90,7 @@ class udp_receiver_pipe : public pipe<udp_receiver_pipe> {
             std::to_string(id)};
       }
     }
-    const auto udp_receiver_buffer_size = srtb::config.udp_receiver_buffer_size;
-    opt_worker.emplace(sender_address, sender_port, udp_receiver_buffer_size);
+    opt_worker.emplace(sender_address, sender_port);
 
     const auto& cpus_preferred = srtb::config.udp_receiver_cpu_preferred;
     if (0 <= id && id < cpus_preferred.size()) {
@@ -120,11 +119,28 @@ class udp_receiver_pipe : public pipe<udp_receiver_pipe> {
     const size_t baseband_input_bytes = baseband_input_count *
                                         std::abs(baseband_input_bits) /
                                         srtb::BITS_PER_BYTE;
+
+    // reserved some samples for next round
+    size_t nsamps_reserved = srtb::codd::nsamps_reserved();
+
+    if (nsamps_reserved < baseband_input_count) {
+      SRTB_LOGD << " [udp receiver pipe] "
+                << "id = " << id << ": "
+                << "reserved " << nsamps_reserved << " samples" << srtb::endl;
+    } else {
+      SRTB_LOGW << " [udp receiver pipe] "
+                << "id = " << id << ": "
+                << "baseband_input_count = " << baseband_input_count
+                << " >= nsamps_reserved = " << nsamps_reserved << srtb::endl;
+      nsamps_reserved = 0;
+    }
+
     SRTB_LOGD << " [udp receiver pipe] "
               << "id = " << id << ": "
               << "start receiving" << srtb::endl;
-    auto [buffer_pointer, first_counter] =
-        worker.receive(/* required_length = */ baseband_input_bytes);
+    auto [h_ptr, first_counter] =
+        worker.receive(/* required_length = */ baseband_input_bytes,
+                       /* reserved_length = */ nsamps_reserved);
     SRTB_LOGD << " [udp receiver pipe] "
               << "id = " << id << ": "
               << "receive finished" << srtb::endl;
@@ -134,11 +150,6 @@ class udp_receiver_pipe : public pipe<udp_receiver_pipe> {
     // flush input of baseband_input_bytes
     std::shared_ptr<std::byte> d_ptr =
         srtb::device_allocator.allocate_shared<std::byte>(baseband_input_bytes);
-    std::shared_ptr<std::byte> h_ptr =
-        srtb::host_allocator.allocate_shared<std::byte>(baseband_input_bytes);
-    std::copy_n(buffer_pointer, baseband_input_bytes, h_ptr.get());
-    //srtb::memory::memcpy(h_ptr.get(), /* <- */ buffer_pointer,
-    //                     baseband_input_bytes);
     sycl::event host_to_devive_copy_event =
         q.copy(h_ptr.get(), /* -> */ d_ptr.get(), baseband_input_bytes);
 
@@ -166,27 +177,12 @@ class udp_receiver_pipe : public pipe<udp_receiver_pipe> {
                                baseband_output_work, stop_token);
     }
 
-    // reserved some samples for next round
-    const size_t nsamps_reserved = srtb::codd::nsamps_reserved();
-
-    if (nsamps_reserved < baseband_input_count) {
-      worker.consume(baseband_input_count - nsamps_reserved);
-      SRTB_LOGD << " [udp receiver pipe] "
-                << "id = " << id << ": "
-                << "reserved " << nsamps_reserved << " samples" << srtb::endl;
-    } else {
-      SRTB_LOGW << " [udp receiver pipe] "
-                << "id = " << id << ": "
-                << "baseband_input_count = " << baseband_input_count
-                << " >= nsamps_reserved = " << nsamps_reserved << srtb::endl;
-      worker.consume(baseband_input_count);
-    }
-
     auto time_after_push = std::chrono::system_clock::now();
     auto push_work_time = std::chrono::duration_cast<std::chrono::microseconds>(
                               time_after_push - time_before_push)
                               .count();
     SRTB_LOGD << " [udp receiver pipe] "
+              << "id = " << id << ": "
               << "push work time = " << push_work_time << " us" << srtb::endl;
   }
 };

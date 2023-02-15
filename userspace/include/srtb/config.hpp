@@ -125,12 +125,6 @@ struct configs {
   srtb::real dm = 0;
 
   /**
-    * @brief Buffer size of socket for receving udp packet.
-    * @see srtb::io::udp_receiver
-    */
-  size_t udp_receiver_buffer_size = std::numeric_limits<int>::max();
-
-  /**
    * @brief Address to receive baseband UDP packets.
    */
   std::vector<std::string> udp_receiver_sender_address = {"10.0.1.2"};
