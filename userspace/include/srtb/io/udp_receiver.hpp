@@ -25,6 +25,7 @@
 #include <vector>
 
 #include "srtb/commons.hpp"
+#include "srtb/memory/memcpy.hpp"
 
 namespace srtb {
 namespace io {
@@ -66,6 +67,9 @@ class udp_receiver_worker {
   size_t udp_packet_buffer_pos = 0;
   size_t udp_packet_buffer_size = 0;
 
+  size_t total_received_packet_count = 0;
+  size_t total_lost_packet_count = 0;
+
   static constexpr udp_packet_counter_type last_counter_initial_value =
       static_cast<udp_packet_counter_type>(-1);
   /** 
@@ -103,7 +107,8 @@ class udp_receiver_worker {
     const auto data_buffer_ptr = data_buffer.get();
     const size_t data_buffer_capacity = required_length;
     size_t data_buffer_content_size = 0;
-    size_t total_lost_packets_count = 0;
+    size_t current_received_packet_count = 0;
+    size_t current_lost_packet_count = 0;
     udp_packet_counter_type first_counter = 0;
     bool first_counter_set = false;
 
@@ -180,7 +185,8 @@ class udp_receiver_worker {
           // this is first time that a packet is received, not really a packet lost
           lost_packets_count = 0;
         }
-        total_lost_packets_count += lost_packets_count;
+        current_lost_packet_count += lost_packets_count;
+        current_received_packet_count++;
         assert(zeros_need_to_be_filled == 0);
         zeros_need_to_be_filled += data_len * lost_packets_count;
         fill_zero();
@@ -190,10 +196,18 @@ class udp_receiver_worker {
         copy_packet();
       }
     }
-    if (total_lost_packets_count > 0) {
+
+    // packet counts & warning if lost
+    total_lost_packet_count += current_lost_packet_count;
+    total_received_packet_count += current_received_packet_count;
+    if (current_lost_packet_count > 0) {
+      const auto loss_rate =
+          1.0 * total_lost_packet_count /
+          (total_lost_packet_count + total_received_packet_count);
       SRTB_LOGW << " [udp receiver worker] "
-                << "data loss detected: " << total_lost_packets_count
-                << " packets in total. Filling these with zero. " << srtb::endl;
+                << "data loss detected: " << current_lost_packet_count
+                << " packets this round. Filling these with zero. "
+                << "overall loss rate: " << loss_rate << srtb::endl;
     }
 
     // copy end of data buffer to reserved data for next round
