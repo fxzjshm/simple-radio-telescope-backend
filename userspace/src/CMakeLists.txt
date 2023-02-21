@@ -34,3 +34,8 @@ add_executable(test-gui
 )
 srtb_add_dependency(test-gui)
 target_link_libraries(test-gui PRIVATE Qt5::Gui Qt5::Quick)
+
+add_executable(srtb-correlator 
+  correlator.cpp
+)
+srtb_add_dependency(srtb-correlator)
