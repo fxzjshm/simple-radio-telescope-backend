@@ -15,6 +15,7 @@
 #define __SRTB_CUFFT_LIKE_WRAPPER__
 
 #include <concepts>
+#include <mutex>
 
 #include "srtb/fft/fft_wrapper.hpp"
 #include "srtb/global_variables.hpp"
@@ -37,6 +38,8 @@ namespace fft {
 /** @brief backend APIs, used by @c cufft_like_1d_wrapper */
 template <std::floating_point T, sycl::backend backend>
 struct cufft_like_trait;
+
+inline std::mutex cufft_like_mutex;
 
 /** @brief common wrapper for different vendor's FFT libraries that has a cufft-like API design. */
 template <sycl::backend backend, srtb::fft::type fft_type,
@@ -67,6 +70,7 @@ class cufft_like_1d_wrapper
 
  protected:
   void create_impl(size_t n, size_t batch_size, sycl::queue& q) {
+    std::lock_guard lock{srtb::fft::cufft_like_mutex};
     // should be equivalent to this
     /*
     plan = fftw_plan_dft_r2c_1d(static_cast<int>(n), tmp_in.get(),
