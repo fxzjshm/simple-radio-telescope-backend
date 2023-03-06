@@ -58,6 +58,11 @@ struct fftw_traits<double> {
   }
 
   template <typename... Args>
+  static inline decltype(auto) cleanup_threads(Args&&... args) {
+    return fftw_cleanup_threads(std::forward<Args>(args)...);
+  }
+
+  template <typename... Args>
   static inline decltype(auto) plan_with_nthreads(Args&&... args) {
     return fftw_plan_with_nthreads(std::forward<Args>(args)...);
   }
@@ -128,6 +133,11 @@ struct fftw_traits<float> {
   template <typename... Args>
   static inline decltype(auto) init_threads(Args&&... args) {
     return fftwf_init_threads(std::forward<Args>(args)...);
+  }
+
+  template <typename... Args>
+  static inline decltype(auto) cleanup_threads(Args&&... args) {
+    return fftwf_cleanup_threads(std::forward<Args>(args)...);
   }
 
   template <typename... Args>
@@ -221,7 +231,10 @@ class fftw_initializer {
     load_fftw_wisdom();
   }
 
-  inline void deinit_fftw() { save_fftw_wisdom(); }
+  inline void deinit_fftw() {
+    save_fftw_wisdom();
+    fftw_traits<T>::cleanup_threads();
+  }
 };
 
 inline fftw_initializer<srtb::real> global_fftw_initializer;
