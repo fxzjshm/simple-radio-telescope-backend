@@ -91,7 +91,7 @@ namespace program_options {
       ("input_file_offset_bytes", boost::program_options::value<std::string>(),
        "Skip some data before reading in, usually avoids header")
       ("baseband_output_file_prefix", boost::program_options::value<std::string>(),
-       "Prefix of saved baseband data. Full name will be ${prefix}_${counter}.bin")
+       "Prefix of saved baseband data. Full name will be ${prefix}${counter}.bin")
       ("baseband_write_all", boost::program_options::value<std::string>(),
        "if 1, record all baseband into one file per polarization; "
        "if 0, write only those with signal detected.")
@@ -253,7 +253,9 @@ inline void evaluate_and_apply_changed_config(const std::string& name,
   SRTB_PARSE(signal_detect_channel_threshold)
   SRTB_PARSE(signal_detect_max_boxcar_length)
   SRTB_PARSE(thread_query_work_wait_time)
-  /* else */ {
+  /* else */ if (name == "config_file_name") {
+    // has been processed earlier
+  } else {
     SRTB_LOGW << " [program_options] "
               << "Unrecognized config: name = " << '\"' << name << '\"' << ", "
               << "value = " << '\"' << value << '\"' << srtb::endl;
