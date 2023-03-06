@@ -138,8 +138,6 @@ int main(int argc, char** argv) {
                         srtb::config.udp_receiver_sender_port.size()),
                size_t{1});
 
-  allocate_memory_regions(input_pipe_count);
-
   // trigger JIT
   // some implementations may pack intermediate representation with executable binary
   // and just-in-time compile it into device code when launching first kernel
@@ -170,6 +168,7 @@ int main(int argc, char** argv) {
     }
     SRTB_LOGI << " [main] "
               << "Receiving UDP packets" << srtb::endl;
+    allocate_memory_regions(input_pipe_count);
     for (size_t i = 0; i < input_pipe_count; i++) {
       input_thread.push_back(
           srtb::pipeline::udp_receiver_pipe::start(/* id = */ i));
