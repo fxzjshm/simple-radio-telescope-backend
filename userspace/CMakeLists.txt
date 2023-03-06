@@ -85,6 +85,16 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 # set C++ language version requirement
 set(CMAKE_CXX_STANDARD 20)
 
+# https://cmake.org/cmake/help/v3.9/module/CheckIPOSupported.html
+# Optional IPO. Do not use IPO if it's not supported by compiler.
+include(CheckIPOSupported)
+check_ipo_supported(RESULT SRTB_IPO_SUPPORTED OUTPUT SRTB_IPO_CHECK_OUTPUT)
+if(SRTB_IPO_SUPPORTED)
+  set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
+else()
+  message(WARNING "Inter-Procedural Optimization is not supported: ${SRTB_IPO_CHECK_OUTPUT}")
+endif()
+
 # add extra flags
 ## add extra warnings
 ## known SYCL implementations are gcc compatible
@@ -94,8 +104,8 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pedantic -pedantic-errors -Wextra -Wall
 ## why CMAKE_BUILD_TYPE=Debug produces binary without debug info?
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -fno-omit-frame-pointer ")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -rdynamic ")
-## optimize for this machine
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native ")
+## optimize flags
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -ftree-vectorize")
 ## do not assume id range fit in MAX_INT because baseband_input_count may be very large
 ## when dealing with very high dispersion measurement
 if(SRTB_SYCL_IMPLEMENTATION STREQUAL "intel-llvm")
