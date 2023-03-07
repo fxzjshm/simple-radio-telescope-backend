@@ -42,35 +42,35 @@ Options:
 Command Line Only Options:
   -h [ --help ]                         Show help message
   --config_file_name arg                Path to config file to be used to read 
-                                        other configs.
+                                        other configs. 
 
 Options available in config file:
 
 General Options:
-  --log_level arg                       Debug level for console log output.
+  --log_level arg                       Debug level for console log output. 
   --thread_query_work_wait_time arg     Wait time in naneseconds for a thread 
                                         to sleep if it fails to get work. Trade
                                         off between CPU usage (most are wasted)
-                                        and pipeline latency.
+                                        and pipeline latency. 
 
 Baseband Options:
   --baseband_input_count arg            Count of data to be transferred to GPU 
                                         for once processing, in sample counts. 
                                         Should be power of 2 so that FFT and 
-                                        channelizing can work properly.
+                                        channelizing can work properly. 
   --baseband_input_bits arg             Length of a single input data, used in 
-                                        unpack.Negative value is signed 
-                                        integers.Currently supported: 1(uint1),
-                                        2(uint2), 4(uint4), 8(uint8), -8(int8),
-                                        32(float), 64(double)
+                                        unpack. Negative value is signed 
+                                        integers. Currently supported: 
+                                        1(uint1), 2(uint2), 4(uint4), 8(uint8),
+                                        -8(int8), 32(float), 64(double)
   --baseband_freq_low arg               Lowerest frequency of received baseband
-                                        signal, in MHz.
+                                        signal, in MHz. 
   --baseband_bandwidth arg              Band width of received baseband signal,
-                                        in MHz.
+                                        in MHz. 
   --baseband_sample_rate arg            Baseband sample rate, in samples / 
-                                        second.Should be 2 * baseband_bandwidth
-                                        (* 1e6 because of unit) if Nyquist 
-                                        rate.
+                                        second. Should be 2 * 
+                                        baseband_bandwidth (* 1e6 because of 
+                                        unit) if Nyquist rate. 
 
 Data Input/Output Options:
 
@@ -79,23 +79,23 @@ UDP Receiver Options:
                                         packets
   --udp_receiver_sender_port arg        Port(s) to receive baseband UDP packets
   --udp_receiver_cpu_preferred arg      CPU core that UDP receiver should be 
-                                        bound to.
+                                        bound to. 
 
 File Input/Output Options:
   --input_file_path arg                 Path to the binary file to be read as 
-                                        baseband input.
+                                        baseband input. 
   --input_file_offset_bytes arg         Skip some data before reading in, 
                                         usually avoids header
   --baseband_output_file_prefix arg     Prefix of saved baseband data. Full 
                                         name will be ${prefix}${counter}.bin
   --baseband_write_all arg              if 1, record all baseband into one file
                                         per polarization; if 0, write only 
-                                        those with signal detected.
+                                        those with signal detected. 
 
 Operation Options:
   --dm arg                              Target dispersion measurement for 
-                                        coherent dedispersion.
-  --fft_fftw_wisdom_path arg            Location to save fftw wisdom.
+                                        coherent dedispersion. 
+  --fft_fftw_wisdom_path arg            Location to save fftw wisdom. 
   --mitigate_rfi_average_method_threshold arg
                                         Temporary threshold for RFI mitigation.
                                         Frequency channels with signal stronger

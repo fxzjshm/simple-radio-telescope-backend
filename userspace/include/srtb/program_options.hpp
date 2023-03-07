@@ -52,30 +52,30 @@ namespace program_options {
     cmd_only_options.add_options()
       ("help,h", "Show help message")
       ("config_file_name", boost::program_options::value<std::string>(),
-       "Path to config file to be used to read other configs.")
+       "Path to config file to be used to read other configs. ")
     ;
     general_option.add_options()
       ("log_level", boost::program_options::value<std::string>(),
-       "Debug level for console log output.")
+       "Debug level for console log output. ")
       ("thread_query_work_wait_time", boost::program_options::value<std::string>(),
        "Wait time in naneseconds for a thread to sleep if it fails to get work. "
-       "Trade off between CPU usage (most are wasted) and pipeline latency.")
+       "Trade off between CPU usage (most are wasted) and pipeline latency. ")
     ;
     baseband_option.add_options()
       ("baseband_input_count", boost::program_options::value<std::string>(),
        "Count of data to be transferred to GPU for once processing, in sample counts. "
-       "Should be power of 2 so that FFT and channelizing can work properly.")
+       "Should be power of 2 so that FFT and channelizing can work properly. ")
       ("baseband_input_bits", boost::program_options::value<std::string>(),
-       "Length of a single input data, used in unpack."
-       "Negative value is signed integers."
+       "Length of a single input data, used in unpack. "
+       "Negative value is signed integers. "
        "Currently supported: 1(uint1), 2(uint2), 4(uint4), 8(uint8), -8(int8), 32(float), 64(double)")
       ("baseband_freq_low", boost::program_options::value<std::string>(),
-       "Lowerest frequency of received baseband signal, in MHz.")
+       "Lowerest frequency of received baseband signal, in MHz. ")
       ("baseband_bandwidth", boost::program_options::value<std::string>(),
-       "Band width of received baseband signal, in MHz.")
+       "Band width of received baseband signal, in MHz. ")
       ("baseband_sample_rate", boost::program_options::value<std::string>(),
-       "Baseband sample rate, in samples / second."
-       "Should be 2 * baseband_bandwidth (* 1e6 because of unit) if Nyquist rate.")
+       "Baseband sample rate, in samples / second. "
+       "Should be 2 * baseband_bandwidth (* 1e6 because of unit) if Nyquist rate. ")
     ;
     udp_receiver_options.add_options()
       ("udp_receiver_sender_address", boost::program_options::value<std::string>(),
@@ -83,24 +83,24 @@ namespace program_options {
       ("udp_receiver_sender_port", boost::program_options::value<std::string>(),
        "Port(s) to receive baseband UDP packets")
       ("udp_receiver_cpu_preferred", boost::program_options::value<std::string>(),
-       "CPU core that UDP receiver should be bound to.")
+       "CPU core that UDP receiver should be bound to. ")
     ;
     file_io_options.add_options()
       ("input_file_path", boost::program_options::value<std::string>(),
-       "Path to the binary file to be read as baseband input.")
+       "Path to the binary file to be read as baseband input. ")
       ("input_file_offset_bytes", boost::program_options::value<std::string>(),
        "Skip some data before reading in, usually avoids header")
       ("baseband_output_file_prefix", boost::program_options::value<std::string>(),
        "Prefix of saved baseband data. Full name will be ${prefix}${counter}.bin")
       ("baseband_write_all", boost::program_options::value<std::string>(),
        "if 1, record all baseband into one file per polarization; "
-       "if 0, write only those with signal detected.")
+       "if 0, write only those with signal detected. ")
     ;
     operation_option.add_options()
       ("dm,dedisperse_measurement", boost::program_options::value<std::string>(),
-       "Target dispersion measurement for coherent dedispersion.")
+       "Target dispersion measurement for coherent dedispersion. ")
       ("fft_fftw_wisdom_path", boost::program_options::value<std::string>(),
-       "Location to save fftw wisdom.")
+       "Location to save fftw wisdom. ")
       ("mitigate_rfi_average_method_threshold", boost::program_options::value<std::string>(),
        "Temporary threshold for RFI mitigation. Frequency channels with signal "
        "stronger than (this threshold * average strength) will be set to 0")
@@ -196,12 +196,14 @@ inline void evaluate_and_apply_changed_config(const std::string& name,
               << parsed_value << srtb::endl;                    \
     config.target_name = parsed_value;                          \
   } else
+
 #define SRTB_ASSIGN(target_name)                                         \
   if (name == #target_name) {                                            \
     SRTB_LOGI << " [program_options] " << #target_name << " = " << value \
               << srtb::endl;                                             \
     config.target_name = value;                                          \
   } else
+
 #define SRTB_SPLIT_PARSE(target_name, delimiter)                           \
   if (name == #target_name) {                                              \
     using target_type = typename decltype(config.target_name)::value_type; \
@@ -218,6 +220,7 @@ inline void evaluate_and_apply_changed_config(const std::string& name,
               << srtb::endl;                                               \
     config.target_name = sub_values;                                       \
   } else
+
 #define SRTB_SPLIT_ASSIGN(target_name, delimiter)                       \
   if (name == #target_name) {                                           \
     std::vector<std::string> sub_strings;                               \
@@ -260,6 +263,7 @@ inline void evaluate_and_apply_changed_config(const std::string& name,
               << "Unrecognized config: name = " << '\"' << name << '\"' << ", "
               << "value = " << '\"' << value << '\"' << srtb::endl;
   }
+
 #undef SRTB_PARSE
 #undef SRTB_ASSIGN
 #undef SRTB_SPLIT_PARSE
