@@ -112,17 +112,27 @@ class udp_receiver_worker {
     udp_packet_counter_type first_counter = 0;
     bool first_counter_set = false;
 
-    // copy reserved data to the beginning of current data buffer
-    if (reserved_data_buffer.size() >
-        data_buffer_capacity - data_buffer_content_size) {
-      SRTB_LOGW << " [udp receiver worker] "
-                << "requested buffer too small, not reserving data"
-                << srtb::endl;
-    } else {
-      std::copy(reserved_data_buffer.begin(), reserved_data_buffer.end(),
-                /* -> */ data_buffer_ptr + data_buffer_content_size);
-      data_buffer_content_size += reserved_data_buffer.size();
+    // check if lost too many packets; if so, restart
+    if (zeros_need_to_be_filled > data_buffer_capacity) [[unlikely]] {
+      // discard reserved data
       reserved_data_buffer.clear();
+      zeros_need_to_be_filled = zeros_need_to_be_filled % data_buffer_capacity;
+      SRTB_LOGW << " [udp receiver worker] "
+                << "too many packets lost, restart" << srtb::endl;
+    } else [[likely]] {
+      // copy reserved data to the beginning of current data buffer
+      const size_t data_buffer_available_length =
+          data_buffer_capacity - data_buffer_content_size;
+      if (reserved_data_buffer.size() > data_buffer_available_length) {
+        SRTB_LOGW << " [udp receiver worker] "
+                  << "requested buffer too small, not reserving data"
+                  << srtb::endl;
+      } else {
+        std::copy(reserved_data_buffer.begin(), reserved_data_buffer.end(),
+                  /* -> */ data_buffer_ptr + data_buffer_content_size);
+        data_buffer_content_size += reserved_data_buffer.size();
+        reserved_data_buffer.clear();
+      }
     }
 
     // wait until work size reached
