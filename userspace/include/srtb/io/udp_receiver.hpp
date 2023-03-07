@@ -16,7 +16,9 @@
 
 #include <algorithm>
 #include <array>
-#include <boost/asio.hpp>
+#include <boost/asio/buffer.hpp>
+#include <boost/asio/io_service.hpp>
+#include <boost/asio/ip/udp.hpp>
 #include <chrono>
 #include <cstring>
 #include <iostream>
