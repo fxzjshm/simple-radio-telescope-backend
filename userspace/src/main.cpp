@@ -133,6 +133,7 @@ int main(int argc, char** argv) {
   cudaSetDeviceFlags(cudaDeviceScheduleYield);
 #endif
 
+  // TODO: maybe multiple file input or something else
   const size_t input_pipe_count =
       std::max(std::max(srtb::config.udp_receiver_sender_address.size(),
                         srtb::config.udp_receiver_sender_port.size()),

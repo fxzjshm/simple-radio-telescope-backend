@@ -101,10 +101,21 @@ inline std::atomic<size_t> running_pipe_count = 0;
 /**
  * @brief expected running pipe count, set in main(), 
  *        used by input pipes (signal sources) to determine when to start
+ * @note see expected_input_pipe_count
  */
 inline size_t expected_running_pipe_count = -233;
-/** @brief expected input pipe (udp_receiver, file_reader, etc.) count */
-inline size_t expected_input_pipe_count = -233;
+/** 
+ * @brief expected input pipe (udp_receiver, file_reader, etc.) count
+ * 
+ * @note initial value must be larger than expected_running_pipe_count because
+ *       there is data race between started pipe's thread & main() 
+ *       (main() set these values after pipe has started but number here is
+ *        count of started pipes, so...... )
+ *       set initial expected_input_pipe_count larger so initially
+ *           expected_running_pipe_count - expected_input_pipe_count
+ *       is a large arbitary number.
+ */
+inline size_t expected_input_pipe_count = -42;
 
 // used for end of pipeline to send a signal to start of the pipeline,
 // currently enabled only when input source is a file
