@@ -77,6 +77,11 @@ struct hipfft_common_trait {
   static inline decltype(auto) fftSetStream(Args&&... args) {
     return hipfftSetStream(std::forward<Args>(args)...);
   }
+
+  template <typename... Args>
+  static inline decltype(auto) fftSetWorkArea(Args&&... args) {
+    return hipfftSetWorkArea(std::forward<Args>(args)...);
+  }
 };
 
 template <>

@@ -40,6 +40,12 @@ template <std::floating_point T, sycl::backend backend>
 struct cufft_like_trait;
 
 inline std::mutex cufft_like_mutex;
+#ifdef SRTB_FFT_SHARE_WORK_AREA
+// TODO: this seem ugly, re-design this
+inline std::shared_ptr<std::byte> cufft_like_shared_work_area;
+inline size_t cufft_like_shared_work_area_size = 0;
+inline std::atomic<size_t> cufft_like_shared_work_area_users = 0;
+#endif  // SRTB_FFT_SHARE_WORK_AREA
 
 /** @brief common wrapper for different vendor's FFT libraries that has a cufft-like API design. */
 template <sycl::backend backend, srtb::fft::type fft_type,
@@ -129,18 +135,51 @@ class cufft_like_1d_wrapper
       SRTB_CHECK_CUFFT_LIKE(ret_val);
     }
 
+    set_queue_impl(q);
+
+#ifdef SRTB_FFT_SHARE_WORK_AREA
+    const size_t required_work_area_bytes = workSize;
+    if (required_work_area_bytes > cufft_like_shared_work_area_size) {
+      // TODO: is this thread-safe ?
+      cufft_like_shared_work_area_size = 0;
+      cufft_like_shared_work_area.reset();
+      cufft_like_shared_work_area =
+          srtb::device_allocator.allocate_shared<std::byte>(
+              required_work_area_bytes);
+      cufft_like_shared_work_area_size = required_work_area_bytes;
+    }
+    cufft_like_shared_work_area_users++;
+    // set this first, so internal buffer is destroyed
+    // will re-set each execution in case it changes (TODO: does this affect performance ?)
+    set_work_area_impl(
+        reinterpret_cast<void*>(cufft_like_shared_work_area.get()));
+#endif  // SRTB_FFT_SHARE_WORK_AREA
+
     SRTB_LOGI << " [cufft_like_wrapper] "
               << "plan finished. workSize = " << workSize << srtb::endl;
-    set_queue_impl(q);
   }
 
-  void destroy_impl() { SRTB_CHECK_CUFFT_LIKE(trait::fftDestroy(plan)); }
+  void destroy_impl() {
+    SRTB_CHECK_CUFFT_LIKE(trait::fftDestroy(plan));
+#ifdef SRTB_FFT_SHARE_WORK_AREA
+    cufft_like_shared_work_area_users--;
+    if (cufft_like_shared_work_area_users == 0) {
+      cufft_like_shared_work_area_size = 0;
+      cufft_like_shared_work_area.reset();
+    }
+#endif  // SRTB_FFT_SHARE_WORK_AREA
+  }
 
   // enable only if fft_type_ == srtb::fft::type::R2C_1D
   template <typename..., srtb::fft::type fft_type_ = fft_type,
             typename std::enable_if<(fft_type_ == srtb::fft::type::R2C_1D),
                                     int>::type = 0>
   void process_impl(T* in, C* out) {
+#ifdef SRTB_FFT_SHARE_WORK_AREA
+    std::lock_guard lock{srtb::fft::cufft_like_mutex};
+    set_work_area_impl(
+        reinterpret_cast<void*>(cufft_like_shared_work_area.get()));
+#endif  // SRTB_FFT_SHARE_WORK_AREA
     SRTB_CHECK_CUFFT_LIKE(trait::fftExecR2C(
         (*this).plan, static_cast<real*>(in), reinterpret_cast<complex*>(out)));
 
@@ -156,6 +195,11 @@ class cufft_like_1d_wrapper
     constexpr auto direction = (fft_type == srtb::fft::type::C2C_1D_BACKWARD)
                                    ? trait::BACKWARD
                                    : trait::FORWARD;
+#ifdef SRTB_FFT_SHARE_WORK_AREA
+    std::lock_guard lock{srtb::fft::cufft_like_mutex};
+    set_work_area_impl(
+        reinterpret_cast<void*>(cufft_like_shared_work_area.get()));
+#endif  // SRTB_FFT_SHARE_WORK_AREA
     SRTB_CHECK_CUFFT_LIKE(
         trait::fftExecC2C((*this).plan, reinterpret_cast<complex*>(in),
                           reinterpret_cast<complex*>(out), direction));
@@ -167,6 +211,11 @@ class cufft_like_1d_wrapper
             typename std::enable_if<(fft_type_ == srtb::fft::type::C2R_1D),
                                     int>::type = 0>
   void process_impl(C* in, T* out) {
+#ifdef SRTB_FFT_SHARE_WORK_AREA
+    std::lock_guard lock{srtb::fft::cufft_like_mutex};
+    set_work_area_impl(
+        reinterpret_cast<void*>(cufft_like_shared_work_area.get()));
+#endif  // SRTB_FFT_SHARE_WORK_AREA
     SRTB_CHECK_CUFFT_LIKE(trait::fftExecC2R(
         (*this).plan, reinterpret_cast<complex*>(in), static_cast<real*>(out)));
     flush();
@@ -202,6 +251,10 @@ class cufft_like_1d_wrapper
 #warning cufft_like_wrapper::set_queue_impl uses default stream
     stream = nullptr;
 #endif  // SYCL_IMPLEMENTATION_ONEAPI or __HIPSYCL__
+  }
+
+  void set_work_area_impl(void* work_area) {
+    SRTB_CHECK_CUFFT_LIKE(trait::fftSetWorkArea(plan, work_area));
   }
 
   void flush() {

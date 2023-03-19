@@ -50,6 +50,10 @@ using complex = std::complex<T>;
 // option to use managed/unified memory as device memory
 #define SRTB_USE_USM_SHARED_MEMORY
 
+// option to share work area between FFT plans
+// may reduce VRAM usage but increase latency
+#define SRTB_FFT_SHARE_WORK_AREA
+
 /**
  * @brief initial capacity of srtb::work_queue
  */
