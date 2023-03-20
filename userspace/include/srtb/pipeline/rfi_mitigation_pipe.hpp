@@ -106,7 +106,7 @@ class rfi_mitigation_pipe : public pipe<rfi_mitigation_pipe> {
     out_work.timestamp = rfi_mitigation_work.timestamp;
     out_work.baseband_freq_low = srtb::config.baseband_freq_low;
     out_work.baseband_sample_rate = srtb::config.baseband_sample_rate;
-    out_work.channel_count = srtb::config.ifft_channel_count;
+    out_work.channel_count = srtb::config.refft_length;
     out_work.dm = srtb::config.dm;
     SRTB_PUSH_WORK_OR_RETURN(" [rfi mitigation pipe] ",
                              srtb::dedisperse_and_channelize_queue, out_work,

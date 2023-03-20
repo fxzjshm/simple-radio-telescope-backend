@@ -183,7 +183,7 @@ int main(int argc, char** argv) {
   std::jthread rfi_mitigation_thread =
       srtb::pipeline::rfi_mitigation_pipe::start();
 
-  //srtb::pipeline::dedisperse_and_channelize_pipe::start();
+  //std::jthread dedisperse_and_channelize_thread = srtb::pipeline::dedisperse_and_channelize_pipe::start();
   std::jthread dedisperse_thread = srtb::pipeline::dedisperse_pipe::start();
 
   std::jthread ifft_1d_c2c_thread = srtb::pipeline::ifft_1d_c2c_pipe::start();
@@ -213,6 +213,7 @@ int main(int argc, char** argv) {
   threads.push_back(std::move(unpack_thread));
   threads.push_back(std::move(fft_1d_r2c_thread));
   threads.push_back(std::move(rfi_mitigation_thread));
+  //threads.push_back(std::move(dedisperse_and_channelize_thread));
   threads.push_back(std::move(dedisperse_thread));
   threads.push_back(std::move(ifft_1d_c2c_thread));
   threads.push_back(std::move(refft_1d_c2c_thread));

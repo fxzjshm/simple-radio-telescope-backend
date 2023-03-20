@@ -45,8 +45,8 @@ class dedisperse_and_channelize_pipe
     const size_t N = work.count - 1;
     const size_t M = work.channel_count;
     // supported if N % M == 0;
-    const size_t n = N / M;
-    assert(n * M == N);
+    const size_t L = N / M;
+    assert(L * M == N);
     // TODO: check this
     // baseband_sample_rate is samples/second, delta_freq is in MHz
     // assume Nyquist sample rate here
@@ -59,19 +59,34 @@ class dedisperse_and_channelize_pipe
     auto d_out = d_out_shared.get();
     const srtb::real f_min = work.baseband_freq_low,
                      f_c = f_min + srtb::config.baseband_bandwidth;
-    srtb::coherent_dedispersion_and_frequency_domain_filterbank(
-        d_in, d_out, f_min, f_c, df, work.dm, M, N, q);
+    //srtb::coherent_dedispersion_and_frequency_domain_filterbank(
+    //    d_in, d_out, f_min, f_c, df, work.dm, M, N, q);
+
+    srtb::coherent_dedispersion::coherent_dedispertion(d_in, N, f_min, f_c, df,
+                                                       work.dm, q);
+    srtb::frequency_domain_filterbank::frequency_domain_filterbank(d_in, d_out,
+                                                                   N, M, q);
 
     d_in = nullptr;
     d_in_shared.reset();
 
-    //srtb::work::refft_1d_c2c_work refft_1d_c2c_work;
-    //refft_1d_c2c_work.ptr = d_out_shared;
-    //refft_1d_c2c_work.count = n;
-    //refft_1d_c2c_work.timestamp = work.timestamp;
-    //refft_1d_c2c_work.refft_length = std::min(N, srtb::config.refft_length);
-    //SRTB_PUSH_WORK_OR_RETURN(" [dedisperse & channelize pipe] ", srtb::refft_1d_c2c_queue,
-    //               refft_1d_c2c_work, stop_token);
+    srtb::work::refft_1d_c2c_work refft_1d_c2c_work;
+    refft_1d_c2c_work.ptr = d_out_shared;
+    refft_1d_c2c_work.count = N;
+    refft_1d_c2c_work.timestamp = work.timestamp;
+    SRTB_PUSH_WORK_OR_RETURN(" [dedisperse & channelize pipe] ", srtb::refft_1d_c2c_queue,
+                   refft_1d_c2c_work, stop_token);
+
+
+    //srtb::work::signal_detect_work signal_detect_work;
+    //signal_detect_work.ptr = d_out_shared;
+    //signal_detect_work.count = M;
+    //signal_detect_work.batch_size = L;
+    //signal_detect_work.timestamp = work.timestamp;
+    //SRTB_PUSH_WORK_OR_RETURN(" [dedisperse & channelize_pipe] ",
+    //                         srtb::signal_detect_queue, signal_detect_work,
+    //                         stop_token);
+    
   }
 };
 

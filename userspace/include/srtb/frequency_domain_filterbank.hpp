@@ -26,31 +26,47 @@ namespace frequency_domain_filterbank {
  * Chun Zhang and Zhihua Wang, "A fast frequency domain filter bank realization algorithm," WCC 2000 - ICSP 2000.
  * https://www.researchgate.net/publication/3881652_A_fast_frequency_domain_filter_bank_realization_algorithm 
  * 
- * @param input device pointer of input, which should be FFT-ed baseband of length N
- * @param output device pointer of output, which should be L * M matrix,
- *               where L = N/M will be down sampled time sample length after IFFT,
- *               and output[(m-1)*L] ~ output[m*L-1] is the m-th channel, 1 <= m <= M
+ * @param d_in device pointer of input, which should be FFT-ed baseband of length N
+ * @param d_out device pointer of output, which should be L * M matrix,
+ *              where L = N/M will be down sampled time sample length after IFFT,
+ *              and output[(m-1)*L] ~ output[m*L-1] is the m-th channel, 1 <= m <= M
  * @param N length of input
  * @param M channel count. If N % 2M != 0, behaviour is undefined/unknown.
  */
-template <typename T, typename C = srtb::complex<T> >
-inline void frequency_domain_filterbank(T* input, T* output, size_t N, size_t M,
+template <typename T>
+inline void frequency_domain_filterbank(T* d_in, T* d_out, size_t N, size_t M,
                                         sycl::queue& q) {
-  std::vector<sycl::event> events(M * 2);
+  //std::vector<sycl::event> events(M * 2);
   const size_t L = N / M, L_2 = L / 2 /* == N / 2M */;
-  for (size_t m = 1; m <= M; ++m) {
-    const auto event =
-        q.copy(input + (m - 1) * L_2, output + (m - 1) * L_2, L_2);
-    events.push_back(event);
-  }
-  for (size_t m = M; m >= 1; --m) {
-    const auto event = q.copy(input + N - L * m, output + (m - 1) * L + L_2);
-    events.push_back(event);
-  }
-  //q.wait(events);
-  for (auto event : events) {
-    event.wait();
-  }
+  //for (size_t m = 1; m <= M; ++m) {
+  //  const auto event = q.copy(d_in + (m - 1) * L_2, d_out + (m - 1) * L, L_2);
+  //  events.push_back(event);
+  //}
+  //for (size_t m = M; m >= 1; --m) {
+  //  const auto event = q.copy(d_in + N - L * m, d_out + (m - 1) * L + L_2, L_2);
+  //  events.push_back(event);
+  //}
+  ////q.wait(events);
+  //for (auto event : events) {
+  //  event.wait();
+  //}
+
+  // Alternative implementation
+  q.parallel_for(sycl::range<1>{N}, [=](sycl::item<1> id) {
+     const size_t i = id.get_id(0);
+     const size_t m = i / L + 1;
+     const size_t k = i - (m - 1) * L;
+     SRTB_ASSERT_IN_KERNEL(1 <= m && m <= M);
+     T val;
+     if (0 <= k && k <= L_2 - 1) {
+       val = d_in[k + L_2 * (m - 1)];
+     } else {
+       val = d_in[k + N - L * m];
+     }
+     //d_out[(m - 1) * L + k] = val;
+     // transposed
+     d_out[k * M + (m - 1)] = val;
+   }).wait();
 }
 
 }  // namespace frequency_domain_filterbank
@@ -85,7 +101,7 @@ inline void coherent_dedispersion_and_frequency_domain_filterbank_item(
   // TODO: does pre-computing delta_phi saves time?
   const T f = f_min + df * i;
   const auto factor = srtb::codd::coherent_dedispersion_factor(f, f_c, dm);
-  const decltype(factor) in = input[i], out = in * factor;
+  const C in = input[i], out = in * factor;
   output[j] = out;
 }
 
