@@ -11,15 +11,16 @@
  ******************************************************************************/
 
 #pragma once
-#ifndef __SRTB_PIPELINE_DEDISPERSE_AND_CHANNELIZE_PIPE__
-#define __SRTB_PIPELINE_DEDISPERSE_AND_CHANNELIZE_PIPE__
+#ifndef __SRTB_PIPELINE_DEDISPERSE_PIPE__
+#define __SRTB_PIPELINE_DEDISPERSE_PIPE__
 
 #include "srtb/coherent_dedispersion.hpp"
-#include "srtb/frequency_domain_filterbank.hpp"
 #include "srtb/pipeline/pipe.hpp"
 
 namespace srtb {
 namespace pipeline {
+
+#if 0
 
 /**
  * @brief codd = coherent dedispersion, fdfb = frequency domain filterbank
@@ -90,23 +91,23 @@ class dedisperse_and_channelize_pipe
   }
 };
 
+#endif  // 0
+
 /**
- * @brief codd = coherent dedispersion, fdfb = frequency domain filterbank
- *        this pipe applies coherent dedispertion and frequency domain filterbank
- *        to FFT-ed data.
+ * @brief codd = coherent dedispersion
+ *        this pipe applies coherent dedispertion to FFT-ed data.
  * @note the highest frequency channel is dropped
  */
 class dedisperse_pipe : public pipe<dedisperse_pipe> {
   friend pipe<dedisperse_pipe>;
 
  public:
-  dedisperse_pipe() {}
+  dedisperse_pipe() = default;
 
  protected:
   void run_once_impl(std::stop_token stop_token) {
-    srtb::work::dedisperse_and_channelize_work work;
-    SRTB_POP_WORK_OR_RETURN(" [dedisperse pipe] ",
-                            srtb::dedisperse_and_channelize_queue, work,
+    srtb::work::dedisperse_work work;
+    SRTB_POP_WORK_OR_RETURN(" [dedisperse pipe] ", srtb::dedisperse_queue, work,
                             stop_token);
     // drop the highest frequency point
     // *Drop*  -- LinusTechTips
@@ -143,4 +144,4 @@ class dedisperse_pipe : public pipe<dedisperse_pipe> {
 }  // namespace pipeline
 }  // namespace srtb
 
-#endif  // __SRTB_PIPELINE_DEDISPERSE_AND_CHANNELIZE_PIPE__
+#endif  // __SRTB_PIPELINE_DEDISPERSE_PIPE__

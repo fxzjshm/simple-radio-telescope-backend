@@ -100,17 +100,15 @@ class rfi_mitigation_pipe : public pipe<rfi_mitigation_pipe> {
     //SRTB_PUSH_WORK_OR_RETURN(" [rfi mitigation pipe] ", srtb::simplify_spectrum_queue,
     //               simplify_spectrum_work);
 
-    srtb::work::dedisperse_and_channelize_work out_work;
+    srtb::work::dedisperse_work out_work;
     out_work.ptr = d_in_shared;
     out_work.count = in_count;
     out_work.timestamp = rfi_mitigation_work.timestamp;
     out_work.baseband_freq_low = srtb::config.baseband_freq_low;
     out_work.baseband_sample_rate = srtb::config.baseband_sample_rate;
-    out_work.channel_count = srtb::config.refft_length;
     out_work.dm = srtb::config.dm;
-    SRTB_PUSH_WORK_OR_RETURN(" [rfi mitigation pipe] ",
-                             srtb::dedisperse_and_channelize_queue, out_work,
-                             stop_token);
+    SRTB_PUSH_WORK_OR_RETURN(" [rfi mitigation pipe] ", srtb::dedisperse_queue,
+                             out_work, stop_token);
   }
 };
 

@@ -149,12 +149,10 @@ using rfi_mitigation_work =
 
 /**
  * @brief contains a piece of @c srtb::complex<srtb::real> to be coherently dedispersed
- *        (and channelized if kernel fused)
  */
-struct dedisperse_and_channelize_work
+struct dedisperse_work
     : public srtb::work::work<std::shared_ptr<srtb::complex<srtb::real> > > {
   srtb::real dm;
-  size_t channel_count;
   srtb::real baseband_freq_low;
   srtb::real baseband_sample_rate;
 };

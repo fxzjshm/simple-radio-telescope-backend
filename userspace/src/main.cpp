@@ -22,11 +22,10 @@
 
 #include "srtb/coherent_dedispersion.hpp"
 #include "srtb/commons.hpp"
-#include "srtb/frequency_domain_filterbank.hpp"
 #include "srtb/gui/gui.hpp"
 #include "srtb/io/udp_receiver.hpp"
 #include "srtb/pipeline/baseband_output_pipe.hpp"
-#include "srtb/pipeline/dedisperse_and_channelize_pipe.hpp"
+#include "srtb/pipeline/dedisperse_pipe.hpp"
 #include "srtb/pipeline/fft_pipe.hpp"
 #include "srtb/pipeline/read_file_pipe.hpp"
 #include "srtb/pipeline/rfi_mitigation_pipe.hpp"
@@ -183,7 +182,6 @@ int main(int argc, char** argv) {
   std::jthread rfi_mitigation_thread =
       srtb::pipeline::rfi_mitigation_pipe::start();
 
-  //std::jthread dedisperse_and_channelize_thread = srtb::pipeline::dedisperse_and_channelize_pipe::start();
   std::jthread dedisperse_thread = srtb::pipeline::dedisperse_pipe::start();
 
   std::jthread ifft_1d_c2c_thread = srtb::pipeline::ifft_1d_c2c_pipe::start();
@@ -213,7 +211,6 @@ int main(int argc, char** argv) {
   threads.push_back(std::move(unpack_thread));
   threads.push_back(std::move(fft_1d_r2c_thread));
   threads.push_back(std::move(rfi_mitigation_thread));
-  //threads.push_back(std::move(dedisperse_and_channelize_thread));
   threads.push_back(std::move(dedisperse_thread));
   threads.push_back(std::move(ifft_1d_c2c_thread));
   threads.push_back(std::move(refft_1d_c2c_thread));

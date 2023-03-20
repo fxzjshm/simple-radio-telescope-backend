@@ -201,12 +201,6 @@ struct configs {
   size_t spectrum_sum_count = 1;
 
   /**
-   * @brief channel count / batch size when performing inverse FFT, also M in frequency domain filterbank
-   * @note now set to 1 so frequency domain filterbank is not used.
-   */
-  size_t ifft_channel_count = 1;
-
-  /**
    * @brief Length of FFT for re-constructing signals after coherent dedispersion,
    *        of complex numbers, so <= baseband_input_count / 2
    */
