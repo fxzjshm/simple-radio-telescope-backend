@@ -144,6 +144,9 @@ function(srtb_add_dependency target_name)
     # add dependency
     target_link_libraries(${target_name} PUBLIC fftw3_threads fftw3 fftw3f_threads fftw3f Threads::Threads) # TODO maybe findFFTW
     target_link_libraries(${target_name} PUBLIC Boost::program_options Boost::iostreams)
+    # https://stackoverflow.com/questions/52583544/boost-stack-trace-not-showing-function-names-and-line-numbers/71027489#71027489
+    target_compile_definitions(${target_name} PRIVATE BOOST_STACKTRACE_LINK)
+    target_link_libraries(${target_name} PUBLIC boost_stacktrace_backtrace)
     target_link_libraries(${target_name} PUBLIC hwloc)
     target_link_libraries(${target_name} PUBLIC stdc++ m)  # TODO: this shouldn't be needed
     target_link_libraries(${target_name} PUBLIC dl)
