@@ -18,6 +18,7 @@
 #include <vector>
 
 #include "srtb/commons.hpp"
+#include "srtb/pipeline/exit_handler.hpp"
 
 // Qt related things
 // some macro defined in Qt may conflict with some STL class, especially C++11 or newer ones
@@ -31,6 +32,7 @@ namespace gui {
  * @brief this class requests every thread to stop and wait for them
  *        when the program is about to (normally) exit.
  * @note Q_OBJECT does not support template class, so std::array is not used here.
+ * @note moved to srtb::pipeline::on_exit() for no-GUI usage
  * @see srtb::termination_handler for handler of unexpected exit
  */
 class ExitHandler : public QObject {
@@ -45,23 +47,7 @@ class ExitHandler : public QObject {
 
  public Q_SLOTS:
   void onExit() {
-    for (size_t i = 0; i < threads.size(); i++) {
-      threads.at(i).request_stop();
-    }
-    size_t last_count = 0;
-    while (srtb::pipeline::running_pipe_count != 0) {
-      // sometimes program may stuck here due to deadlock,
-      // but it's safe to Crrl+C, at least better than nothing
-      std::this_thread::sleep_for(
-          std::chrono::nanoseconds(srtb::config.thread_query_work_wait_time));
-
-      // deallocate memory early, in case some thread stucks
-      const size_t current_count = srtb::pipeline::running_pipe_count;
-      if (last_count != current_count) {
-        srtb::device_allocator.deallocate_all_free_ptrs();
-        srtb::host_allocator.deallocate_all_free_ptrs();
-      }
-    }
+    srtb::pipeline::on_exit(std::move(threads));
   }
 };
 

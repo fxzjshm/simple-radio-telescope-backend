@@ -10,10 +10,12 @@
  * See the Mulan PubL v2 for more details.
  ******************************************************************************/
 
+#if SRTB_ENABLE_GUI
 // Qt's keywords like signals and slots are annoying
 #ifndef QT_NO_KEYWORDS
 #define QT_NO_KEYWORDS
-#endif
+#endif  // QT_NO_KEYWORDS
+#endif  // SRTB_ENABLE_GUI
 
 #include <chrono>
 #include <filesystem>
@@ -22,19 +24,22 @@
 
 #include "srtb/coherent_dedispersion.hpp"
 #include "srtb/commons.hpp"
-#include "srtb/gui/gui.hpp"
 #include "srtb/io/udp_receiver.hpp"
 #include "srtb/pipeline/baseband_output_pipe.hpp"
 #include "srtb/pipeline/dedisperse_pipe.hpp"
+#include "srtb/pipeline/exit_handler.hpp"
 #include "srtb/pipeline/fft_pipe.hpp"
 #include "srtb/pipeline/read_file_pipe.hpp"
 #include "srtb/pipeline/rfi_mitigation_pipe.hpp"
 #include "srtb/pipeline/signal_detect_pipe.hpp"
-#include "srtb/pipeline/spectrum_pipe.hpp"
 #include "srtb/pipeline/udp_receiver_pipe.hpp"
 #include "srtb/pipeline/unpack_pipe.hpp"
 #include "srtb/program_options.hpp"
-#include "srtb/spectrum/simplify_spectrum.hpp"
+
+#if SRTB_ENABLE_GUI
+#include "srtb/gui/gui.hpp"
+#include "srtb/pipeline/spectrum_pipe.hpp"
+#endif  // SRTB_ENABLE_GUI
 
 namespace srtb {
 namespace main {
@@ -95,17 +100,22 @@ inline void allocate_memory_regions(size_t input_pipe_count) {
           sizeof(srtb::complex<srtb::real>) * srtb::config.refft_length));
     }
 
-    // host & device side waterfall
-    ptrs.push_back(srtb::device_allocator.allocate_shared<std::byte>(
-        sizeof(srtb::real) *
-        (srtb::config.baseband_input_count - srtb::codd::nsamps_reserved()) /
-        srtb::config.refft_length / 2 * srtb::gui::spectrum::width));
-    for (size_t i = 0; i < 5; i++) {
-      ptrs.push_back(srtb::host_allocator.allocate_shared<std::byte>(
+#if SRTB_ENABLE_GUI
+    if (srtb::config.gui_enable) {
+      // host & device side waterfall
+      ptrs.push_back(srtb::device_allocator.allocate_shared<std::byte>(
           sizeof(srtb::real) *
           (srtb::config.baseband_input_count - srtb::codd::nsamps_reserved()) /
           srtb::config.refft_length / 2 * srtb::gui::spectrum::width));
+      for (size_t i = 0; i < 5; i++) {
+        ptrs.push_back(srtb::host_allocator.allocate_shared<std::byte>(
+            sizeof(srtb::real) *
+            (srtb::config.baseband_input_count -
+             srtb::codd::nsamps_reserved()) /
+            srtb::config.refft_length / 2 * srtb::gui::spectrum::width));
+      }
     }
+#endif  // SRTB_ENABLE_GUI
 
     // misc value holders
     for (size_t i = 0; i < 2; i++) {
@@ -175,6 +185,21 @@ int main(int argc, char** argv) {
     }
   }
 
+  // init matplotlib
+  {
+    namespace plt = matplotlibcpp;
+    // no GUI is used to show plot, so using Agg backend
+    // some backend may crash because Py_Finalize is called too late
+    // ref: https://github.com/lava/matplotlib-cpp/issues/248
+    plt::backend("Agg");
+    // plot something here to trigger creation of some resources
+    // so that it can be released later in this thread
+    std::vector<srtb::real> points(srtb::config.baseband_input_count /
+                                   srtb::config.refft_length / 2);
+    plt::plot(points);
+    plt::cla();
+  }
+
   std::jthread unpack_thread = srtb::pipeline::unpack_pipe::start();
 
   std::jthread fft_1d_r2c_thread = srtb::pipeline::fft_1d_r2c_pipe::start();
@@ -203,8 +228,12 @@ int main(int argc, char** argv) {
         /* continuous_write = */ false>::start();
   }
 
-  std::jthread simplify_spectrum_thread =
-      srtb::pipeline::simplify_spectrum_pipe::start();
+  std::jthread simplify_spectrum_thread;
+#if SRTB_ENABLE_GUI
+  if (srtb::config.gui_enable) {
+    simplify_spectrum_thread = srtb::pipeline::simplify_spectrum_pipe::start();
+  }
+#endif  // SRTB_ENABLE_GUI
 
   std::vector<std::jthread> threads;
   threads = std::move(input_thread);
@@ -218,10 +247,35 @@ int main(int argc, char** argv) {
   threads.push_back(std::move(baseband_output_thread));
   threads.push_back(std::move(simplify_spectrum_thread));
 
-  srtb::pipeline::expected_running_pipe_count = threads.size();
+  // assuming pipe threads are joinable
+  srtb::pipeline::expected_running_pipe_count =
+      std::count_if(threads.begin(), threads.end(),
+                    [](std::jthread& thread) { return thread.joinable(); });
   srtb::pipeline::expected_input_pipe_count = input_pipe_count;
 
-  return srtb::gui::show_gui(argc, argv, std::move(threads));
+  int return_value;
+
+#if SRTB_ENABLE_GUI
+  return_value = srtb::gui::show_gui(argc, argv, std::move(threads));
+#else
+  // NOTE: read_available() here may not safe, check this
+  while (!(srtb::pipeline::no_more_work &&
+           srtb::baseband_output_queue.read_available() == 0)) {
+    std::this_thread::sleep_for(
+        std::chrono::nanoseconds(srtb::config.thread_query_work_wait_time));
+  }
+  srtb::pipeline::on_exit(std::move(threads));
+  return_value = EXIT_SUCCESS;
+#endif  // SRTB_ENABLE_GUI
+
+  SRTB_LOGI << " [main] "
+            << "Exiting." << srtb::endl;
+
+  // de-init matplotlibcpp
+  // https://stackoverflow.com/questions/67533541/py-finalize-resulting-in-segmentation-fault-for-python-3-9-but-not-for-python
+  matplotlibcpp::detail::_interpreter::kill();
+
+  return return_value;
 }
 
 }  // namespace main

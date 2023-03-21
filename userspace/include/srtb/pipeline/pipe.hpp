@@ -69,7 +69,6 @@ class pipe {
 #else
 #warning not setting thread name of pipe (TODO)
 #endif
-    jthread.detach();
     return jthread;
   }
 

@@ -98,6 +98,8 @@ class baseband_output_pipe</* continuous_write = */ true>
     file_output_stream.write(
         ptr,
         write_count * sizeof(decltype(baseband_output_work.ptr)::element_type));
+
+    srtb::pipeline::notify();
   }
 };
 
@@ -263,6 +265,8 @@ class baseband_output_pipe</* continuous_write = */ false>
                   << srtb::endl;
       }
     }
+
+    srtb::pipeline::notify();
   }
 };
 

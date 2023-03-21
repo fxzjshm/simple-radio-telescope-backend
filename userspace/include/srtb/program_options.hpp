@@ -46,6 +46,7 @@ namespace program_options {
       all_option("Options");
   /* clang-format off */
     /*
+      template:
       ("config_name", boost::program_options::value<std::string>(),
        "decsription")
     */
@@ -60,6 +61,10 @@ namespace program_options {
       ("thread_query_work_wait_time", boost::program_options::value<std::string>(),
        "Wait time in naneseconds for a thread to sleep if it fails to get work. "
        "Trade off between CPU usage (most are wasted) and pipeline latency. ")
+#if SRTB_ENABLE_GUI
+       ("gui_enable", boost::program_options::value<std::string>(),
+       "Runtime configuration to enable GUI")
+#endif
     ;
     baseband_option.add_options()
       ("baseband_input_count", boost::program_options::value<std::string>(),

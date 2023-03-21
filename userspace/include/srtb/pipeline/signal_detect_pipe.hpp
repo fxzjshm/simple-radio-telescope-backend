@@ -74,7 +74,7 @@ class signal_detect_pipe : public pipe<signal_detect_pipe> {
       q.copy(d_zero_count, &zero_count, 1).wait();
     }
 
-    {
+    if (SRTB_ENABLE_GUI && srtb::config.gui_enable) {
       // temporary work: spectrum analyzer
       srtb::work::simplify_spectrum_work simplify_spectrum_work;
       simplify_spectrum_work.ptr = d_in_shared;

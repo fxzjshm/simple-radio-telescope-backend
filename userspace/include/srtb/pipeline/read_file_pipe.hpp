@@ -137,6 +137,7 @@ class read_file_pipe : public pipe<read_file_pipe> {
                 srtb::config.baseband_input_bits,
                 srtb::config.input_file_offset_bytes, q, stop_token);
       has_read = true;
+      srtb::pipeline::no_more_work = true;
     } else {
       // nothing to do ...
       // NOTE: here is 1000x sleep time, because thread_query_work_wait_time is of nanosecond

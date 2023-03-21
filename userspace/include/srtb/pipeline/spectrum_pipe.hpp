@@ -93,8 +93,6 @@ class simplify_spectrum_pipe : public pipe<simplify_spectrum_pipe> {
         success = srtb::draw_spectrum_queue.push(draw_spectrum_work);
       } while (!success);
     }
-
-    srtb::pipeline::notify();
   }
 };
 

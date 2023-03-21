@@ -233,6 +233,11 @@ struct configs {
    *        Trade off between CPU usage (most are wasted) and pipeline latency.
    */
   size_t thread_query_work_wait_time = 1000;
+
+  /**
+   * @brief Runtime configuration to enable GUI
+   */
+  bool gui_enable = SRTB_ENABLE_GUI;
 };
 
 }  // namespace srtb

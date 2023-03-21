@@ -128,8 +128,19 @@ find_package(Python3 COMPONENTS NumPy)
 include_directories(SYSTEM "3rdparty/")
 include_directories(SYSTEM "3rdparty/matplotlib-cpp/")
 include_directories(SYSTEM "3rdparty/SyclParallelSTL/include/")
-find_package(Qt5 COMPONENTS Quick Gui REQUIRED)
-
+## ref: https://doc.qt.io/qt-6/cmake-qt5-and-qt6-compatibility.html
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Core)
+message(STATUS "QT_VERSION_MAJOR = ${QT_VERSION_MAJOR}")
+find_package(Qt${QT_VERSION_MAJOR} COMPONENTS Core Quick Gui)
+option(SRTB_ENABLE_GUI "option to enable GUI" ${Qt${QT_VERSION_MAJOR}_FOUND})
+message(STATUS "SRTB_ENABLE_GUI = ${SRTB_ENABLE_GUI}")
+if(SRTB_ENABLE_GUI)
+    add_compile_definitions(SRTB_ENABLE_GUI=true)
+    # Qt's keywords like signals and slots are annoying
+    add_compile_definitions(QT_NO_KEYWORDS)
+else()
+    add_compile_definitions(SRTB_ENABLE_GUI=false)
+endif()
 
 function(srtb_add_dependency target_name)
     # add SYCL to targets
@@ -160,8 +171,9 @@ function(srtb_add_dependency target_name)
         target_link_libraries(${target_name} PUBLIC amdhip64)
     endif()
 
-    # Qt's keywords like signals and slots are annoying
-    target_compile_definitions(${target_name} PRIVATE QT_NO_KEYWORDS)
+    if(SRTB_ENABLE_GUI)
+        target_link_libraries(${target_name} PRIVATE Qt${QT_VERSION_MAJOR}::Gui Qt${QT_VERSION_MAJOR}::Quick)
+    endif()
 endfunction()
 
 include_directories("include")
