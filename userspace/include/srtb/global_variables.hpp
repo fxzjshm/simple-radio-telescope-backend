@@ -72,7 +72,7 @@ inline srtb::memory::cached_allocator<
 #endif
 
 // work queues
-
+// TODO: global work queues seem ugly (no extensibility), better ideas ?
 inline srtb::work_queue<srtb::work::unpack_work> unpack_queue;
 inline srtb::work_queue<srtb::work::fft_1d_r2c_work> fft_1d_r2c_queue;
 inline srtb::work_queue<srtb::work::rfi_mitigation_work> rfi_mitigation_queue;

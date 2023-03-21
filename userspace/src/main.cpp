@@ -140,7 +140,7 @@ int main(int argc, char** argv) {
 // why always have to do something special for CUDA ???
 #ifdef SRTB_ENABLE_CUDA_INTEROP
   cudaSetDeviceFlags(cudaDeviceScheduleYield);
-#endif
+#endif  // SRTB_ENABLE_CUDA_INTEROP
 
   // TODO: maybe multiple file input or something else
   const size_t input_pipe_count =

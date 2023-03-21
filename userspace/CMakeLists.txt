@@ -11,7 +11,7 @@ endif()
 ## CUDA, SRTB_CUDA_ARCH required if with hipSYCL and optional with intal-llvm
 find_package(CUDAToolkit QUIET)
 option(SRTB_ENABLE_CUDA "option to enable CUDA backend" ${CUDAToolkit_FOUND})
-message("SRTB_ENABLE_CUDA=${SRTB_ENABLE_CUDA}")
+message(STATUS "SRTB_ENABLE_CUDA = ${SRTB_ENABLE_CUDA}")
 ## ROCm/HIP, SRTB_ROCM_ARCH required
 list(APPEND CMAKE_PREFIX_PATH /opt/rocm/hip /opt/rocm)
 find_package(hip QUIET)
@@ -23,7 +23,7 @@ else()
     set(SRTB_ROCM_BACKEND_REQUIREMENT_MET FALSE)
 endif()
 option(SRTB_ENABLE_ROCM "option to enable ROCm backend" ${SRTB_ROCM_BACKEND_REQUIREMENT_MET})
-message("SRTB_ENABLE_ROCM=${SRTB_ENABLE_ROCM}")
+message(STATUS "SRTB_ENABLE_ROCM = ${SRTB_ENABLE_ROCM}")
 if(SRTB_ENABLE_ROCM AND NOT DEFINED SRTB_ROCM_ARCH)
     message(FATAL_ERROR "ROCm backend enabled, but compiling for ROCm/HIP backend requires SRTB_ROCM_ARCH, e.g. gfx906")
 endif()
@@ -49,14 +49,14 @@ if(SRTB_SYCL_IMPLEMENTATION STREQUAL "hipSYCL")
         set(SRTB_HIPSYCL_TARGETS "${SRTB_HIPSYCL_TARGETS}hip:${SRTB_ROCM_ARCH};")
     endif()
     set(SRTB_HIPSYCL_TARGETS "${SRTB_HIPSYCL_TARGETS}omp")
-    message("HIPSYCL_TARGETS set to ${SRTB_HIPSYCL_TARGETS}")  # e.g. HIPSYCL_TARGETS=cuda:sm_86;hip:gfx906;omp
+    message(STATUS "HIPSYCL_TARGETS = ${SRTB_HIPSYCL_TARGETS}")  # e.g. HIPSYCL_TARGETS=cuda:sm_86;hip:gfx906;omp
     set(HIPSYCL_TARGETS ${SRTB_HIPSYCL_TARGETS})
     find_package(hipSYCL CONFIG REQUIRED)
 elseif(SRTB_SYCL_IMPLEMENTATION STREQUAL "intel-llvm")
     # e.g. 
     # CUDA: clang -fsycl -fsycl-targets=nvptx64-nvidia-cuda -Xsycl-target-backend -cuda-gpu-arch=sm_86
     # ROCm: clang -fsycl -fsycl-targets=amdgcn-amd-amdhsa -Xsycl-target-backend --offload-arch=gfx906
-    message("Make sure this compiler supports SYCL")
+    message(WARNING "Make sure this compiler supports SYCL")
     if(SRTB_ENABLE_CUDA AND SRTB_ENABLE_ROCM)
         message(FATAL_ERROR "don't know how to compile for both CUDA and ROCm on intel/llvm (TODO)")
     endif()
@@ -71,7 +71,7 @@ elseif(SRTB_SYCL_IMPLEMENTATION STREQUAL "intel-llvm")
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsycl-targets=amdgcn-amd-amdhsa -Xsycl-target-backend --offload-arch=${SRTB_ROCM_ARCH} ")
     endif()
     # if sycl-targets not set, use default
-    message("CMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS}")
+    message(STATUS "CMAKE_CXX_FLAGS = ${CMAKE_CXX_FLAGS}")
 else()
     message(FATAL_ERROR "Sorry, unknown/untested/un-adapted SYCL implementation " ${SRTB_SYCL_IMPLEMENTATION})
 endif()
@@ -92,7 +92,7 @@ check_ipo_supported(RESULT SRTB_IPO_SUPPORTED OUTPUT SRTB_IPO_CHECK_OUTPUT)
 if(SRTB_IPO_SUPPORTED)
   set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
 else()
-  message(WARNING "Inter-Procedural Optimization is not supported: ${SRTB_IPO_CHECK_OUTPUT}")
+  message(WARNING "Inter-Procedural Optimization is not supported, output: ${SRTB_IPO_CHECK_OUTPUT}")
 endif()
 
 # add extra flags
