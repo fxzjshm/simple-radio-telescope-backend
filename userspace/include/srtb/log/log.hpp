@@ -17,7 +17,6 @@
 #include <chrono>
 #include <iostream>
 #include <sstream>
-#include <syncstream>
 
 #include "srtb/global_variables.hpp"
 #include "srtb/log/sync_ostream_wrapper.hpp"
