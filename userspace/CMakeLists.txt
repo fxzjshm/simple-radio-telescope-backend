@@ -9,14 +9,19 @@ endif()
 
 # detect backends
 ## CUDA, SRTB_CUDA_ARCH required if with hipSYCL and optional with intal-llvm
-find_package(CUDAToolkit QUIET)
+find_package(CUDAToolkit)
 option(SRTB_ENABLE_CUDA "option to enable CUDA backend" ${CUDAToolkit_FOUND})
 message(STATUS "SRTB_ENABLE_CUDA = ${SRTB_ENABLE_CUDA}")
 ## ROCm/HIP, SRTB_ROCM_ARCH required
-list(APPEND CMAKE_PREFIX_PATH /opt/rocm/hip /opt/rocm)
-find_package(hip QUIET)
-find_package(rocfft QUIET)
-find_package(hipfft QUIET)
+if(DEFINED ROCM_PATH)
+    set(SRTB_ROCM_PATH ${ROCM_PATH})
+else()
+    set(SRTB_ROCM_PATH "/opt/rocm")
+endif()
+list(APPEND CMAKE_PREFIX_PATH ${SRTB_ROCM_PATH}/hip ${SRTB_ROCM_PATH})
+find_package(hip)
+find_package(rocfft)
+find_package(hipfft)
 if(hip_FOUND AND rocfft_FOUND AND hipfft_FOUND)
     set(SRTB_ROCM_BACKEND_REQUIREMENT_MET TRUE)
 else()
@@ -26,6 +31,9 @@ option(SRTB_ENABLE_ROCM "option to enable ROCm backend" ${SRTB_ROCM_BACKEND_REQU
 message(STATUS "SRTB_ENABLE_ROCM = ${SRTB_ENABLE_ROCM}")
 if(SRTB_ENABLE_ROCM AND NOT DEFINED SRTB_ROCM_ARCH)
     message(FATAL_ERROR "ROCm backend enabled, but compiling for ROCm/HIP backend requires SRTB_ROCM_ARCH, e.g. gfx906")
+endif()
+if(SRTB_ENABLE_ROCM)
+    link_directories("${ROCM_PATH}/lib")
 endif()
 
 # export(?) backend selection to macros
@@ -115,21 +123,22 @@ endif()
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -fno-optimize-sibling-calls ")
 
 # dependency
+## Boost
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 find_package(Boost COMPONENTS program_options iostreams REQUIRED)
 include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
-if(SRTB_ENABLE_ROCM)
-    link_directories("/opt/rocm/lib")
-endif()
+## Python, for matplotlib-cpp
 ## ref: https://github.com/lava/matplotlib-cpp/blob/master/CMakeLists.txt
 find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
 find_package(Python3 COMPONENTS NumPy)
+## 3rdparty
 include_directories(SYSTEM "3rdparty/")
 include_directories(SYSTEM "3rdparty/matplotlib-cpp/")
 include_directories(SYSTEM "3rdparty/SyclParallelSTL/include/")
-## ref: https://doc.qt.io/qt-6/cmake-qt5-and-qt6-compatibility.html
-find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Core)
+## Qt (optional)
+### ref: https://doc.qt.io/qt-6/cmake-qt5-and-qt6-compatibility.html
+find_package(QT NAMES Qt6 Qt5 COMPONENTS Core)
 message(STATUS "QT_VERSION_MAJOR = ${QT_VERSION_MAJOR}")
 find_package(Qt${QT_VERSION_MAJOR} COMPONENTS Core Quick Gui)
 option(SRTB_ENABLE_GUI "option to enable GUI" ${Qt${QT_VERSION_MAJOR}_FOUND})
