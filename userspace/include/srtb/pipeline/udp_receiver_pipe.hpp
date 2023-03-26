@@ -153,8 +153,12 @@ class udp_receiver_pipe : public pipe<udp_receiver_pipe> {
     sycl::event host_to_devive_copy_event =
         q.copy(h_ptr.get(), /* -> */ d_ptr.get(), baseband_input_bytes);
 
-    uint64_t timestamp = first_counter;
-    {
+    // choose first counter of new packet in this segment of data as time stamp
+    // TODO: better ideas?
+    const uint64_t timestamp = first_counter;
+
+    // no need to process data if just recording baseband data & not showing spectrum
+    if (!(srtb::config.baseband_write_all && (!srtb::config.gui_enable))) {
       srtb::work::unpack_work unpack_work;
       unpack_work.ptr = d_ptr;
       unpack_work.h_ptr = h_ptr;

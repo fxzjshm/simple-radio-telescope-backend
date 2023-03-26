@@ -17,6 +17,7 @@
 #include <functional>
 #include <thread>
 #include <type_traits>
+#include <stop_token>
 
 #if __has_include(<pthread.h>)
 #include <pthread.h>
