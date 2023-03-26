@@ -154,11 +154,10 @@ class udp_receiver_pipe : public pipe<udp_receiver_pipe> {
         q.copy(h_ptr.get(), /* -> */ d_ptr.get(), baseband_input_bytes);
 
     uint64_t timestamp = first_counter;
-    // here don't worry about that h_ptr may be deallocated before host to device copy is finished
-    // because h_ptr is pushed into baseband_output_pipe, and will not be deallocated until signal_detect_pipe gives result.
     {
       srtb::work::unpack_work unpack_work;
       unpack_work.ptr = d_ptr;
+      unpack_work.h_ptr = h_ptr;
       unpack_work.count = baseband_input_bytes;
       unpack_work.baseband_input_bits = baseband_input_bits;
       unpack_work.timestamp = timestamp;

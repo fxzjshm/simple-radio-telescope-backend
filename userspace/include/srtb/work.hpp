@@ -131,6 +131,10 @@ struct unpack_work : public srtb::work::work<std::shared_ptr<std::byte> > {
    *        May be empty for other data sources that is not real-time.
    */
   sycl::event host_to_device_copy_event;
+  /**
+   * @brief host pointer of data to be copied, @see host_to_device_copy_event
+   */
+  std::shared_ptr<std::byte> h_ptr;
 };
 
 /**

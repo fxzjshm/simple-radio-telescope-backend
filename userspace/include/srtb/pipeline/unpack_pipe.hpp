@@ -61,6 +61,7 @@ class unpack_pipe : public pipe<unpack_pipe> {
 
     // wait for host to device copy complete
     unpack_work.host_to_device_copy_event.wait();
+    unpack_work.h_ptr.reset();
 
     auto& d_in_shared = unpack_work.ptr;
     // size += 2 because fft_pipe may operate in-place
