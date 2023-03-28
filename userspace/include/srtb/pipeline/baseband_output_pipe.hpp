@@ -25,6 +25,9 @@
 // https://stackoverflow.com/questions/676787/how-to-do-fsync-on-an-ofstream
 #include <boost/iostreams/device/file_descriptor.hpp>
 #include <boost/iostreams/stream.hpp>
+// -- divide line for clang-format --
+#include <boost/asio/impl/post.hpp>
+#include <boost/asio/thread_pool.hpp>
 #include <fstream>
 #include <vector>
 
@@ -110,6 +113,10 @@ class baseband_output_pipe</* continuous_write = */ false>
     : public pipe<baseband_output_pipe<false> > {
   friend pipe<baseband_output_pipe<false> >;
   std::vector<srtb::real> time_series_buffer;
+  boost::asio::thread_pool baseband_output_thread_pool;
+  // CPython interpretor is not thread-safe, so only one thread can access it.
+  // Actually just don't want to introduce another pipe...
+  boost::asio::thread_pool time_series_plot_thread_pool{1};
 
  public:
   baseband_output_pipe() {
@@ -172,102 +179,121 @@ class baseband_output_pipe</* continuous_write = */ false>
 
       const std::string file_name_no_extension =
           srtb::config.baseband_output_file_prefix + std::to_string(timestamp);
-      const std::string baseband_file_path = file_name_no_extension + ".bin";
 
-      boost::iostreams::stream<boost::iostreams::file_descriptor_sink>
-          baseband_output_stream{baseband_file_path,
-                                 BOOST_IOS::binary | BOOST_IOS::out};
+      boost::asio::post(
+          baseband_output_thread_pool,
+          [=, baseband_output_work = std::move(baseband_output_work)]() {
+            // write original baseband data
+            const std::string baseband_file_path =
+                file_name_no_extension + ".bin";
+            boost::iostreams::stream<boost::iostreams::file_descriptor_sink>
+                baseband_output_stream{baseband_file_path,
+                                       BOOST_IOS::binary | BOOST_IOS::out};
+            const char* baseband_ptr =
+                reinterpret_cast<char*>(baseband_output_work.ptr.get());
+            const size_t baseband_write_count = baseband_output_work.count;
+            baseband_output_stream.write(
+                baseband_ptr,
+                baseband_write_count *
+                    sizeof(decltype(baseband_output_work.ptr)::element_type));
+            baseband_output_stream.flush();
 
-      // write original baseband data
-      const char* baseband_ptr =
-          reinterpret_cast<char*>(baseband_output_work.ptr.get());
-      const size_t baseband_write_count = baseband_output_work.count;
-      baseband_output_stream.write(
-          baseband_ptr,
-          baseband_write_count *
-              sizeof(decltype(baseband_output_work.ptr)::element_type));
-      baseband_output_stream.flush();
-
-      // iterate over all time series, assumed with signal
-      for (auto time_series_holder : signal_detect_result.time_series) {
-        const auto boxcar_length = time_series_holder.boxcar_length;
-        const std::string time_series_file_path =
-            file_name_no_extension + "." + std::to_string(boxcar_length) +
-            ".tim";
-        const std::string time_series_picture_file_path =
-            time_series_file_path + ".pdf";
-
-        boost::iostreams::stream<boost::iostreams::file_descriptor_sink>
-            time_series_output_stream{time_series_file_path,
-                                      BOOST_IOS::binary | BOOST_IOS::out};
-
-        // wait until data copy completed
-        time_series_holder.transfer_event.wait();
-
-        // write time series
-        const auto time_series_ptr = time_series_holder.h_time_series.get();
-        const size_t time_series_length = time_series_holder.time_series_length;
-        time_series_output_stream.write(
-            reinterpret_cast<const char*>(time_series_ptr),
-            time_series_length *
-                sizeof(
-                    decltype(time_series_holder.h_time_series)::element_type));
-        time_series_output_stream.flush();
-
-        // draw time series using matplotlib cpp
-        try {
-          namespace plt = matplotlibcpp;
-          time_series_buffer.resize(time_series_length);
-          std::copy(time_series_ptr, time_series_ptr + time_series_length,
-                    time_series_buffer.begin());
-          plt::named_plot(time_series_file_path, time_series_buffer);
-          plt::save(time_series_picture_file_path);
-          plt::cla();
-        } catch (const std::runtime_error& error) {
-          SRTB_LOGW << " [baseband_output_pipe] "
-                    << "Failed to plot time series: " << error.what()
-                    << srtb::endl;
-        }
-
-        // check handle of time series data
-        if (time_series_output_stream) [[likely]] {
-#ifdef _POSIX_VERSION
+            // check handle of baseband data
+            if (baseband_output_stream) [[likely]] {
           // sometimes file is not fully written, so force syncing it
-          const int err = ::fdatasync(time_series_output_stream->handle());
-          if (err != 0) [[unlikely]] {
-            SRTB_LOGW << " [baseband_output_pipe] "
-                      << "Failed to call ::fdatasync" << srtb::endl;
-          }
-#endif
-        } else [[unlikely]] {
-          SRTB_LOGW << " [baseband_output_pipe] "
-                    << "Failed to write baseband data! timestamp = "
-                    << timestamp << srtb::endl;
-        }
-      }
-
-      // check handle of baseband data
-      if (baseband_output_stream) [[likely]] {
 #ifdef _POSIX_VERSION
-        // sometimes file is not fully written, so force syncing it
-        const int err = ::fdatasync(baseband_output_stream->handle());
-        if (err != 0) [[unlikely]] {
-          SRTB_LOGW << " [baseband_output_pipe] "
-                    << "Failed to call ::fdatasync" << srtb::endl;
-        }
+              if constexpr (std::is_same_v<
+                                decltype(baseband_output_stream->handle()),
+                                int>) {
+                const int err = ::fdatasync(baseband_output_stream->handle());
+                if (err != 0) [[unlikely]] {
+                  SRTB_LOGW << " [baseband_output_pipe] "
+                            << "Failed to call ::fdatasync" << srtb::endl;
+                }
+              }
 #endif
-        SRTB_LOGI << " [baseband_output_pipe] "
-                  << "Finished writing baseband data, timestamp = " << timestamp
-                  << srtb::endl;
-      } else [[unlikely]] {
-        SRTB_LOGW << " [baseband_output_pipe] "
-                  << "Failed to write baseband data! timestamp = " << timestamp
-                  << srtb::endl;
-      }
-    }
+              SRTB_LOGI << " [baseband_output_pipe] "
+                        << "Finished writing baseband data, timestamp = "
+                        << timestamp << srtb::endl;
+            } else [[unlikely]] {
+              SRTB_LOGW << " [baseband_output_pipe] "
+                        << "Failed to write baseband data! timestamp = "
+                        << timestamp << srtb::endl;
+            }
+          });
 
-    srtb::pipeline::notify();
-  }
+      boost::asio::post(
+          time_series_plot_thread_pool,
+          [=, signal_detect_result = std::move(signal_detect_result)]() {
+            // iterate over all time series, assumed with signal
+            for (auto time_series_holder : signal_detect_result.time_series) {
+              const auto boxcar_length = time_series_holder.boxcar_length;
+              const std::string time_series_file_path =
+                  file_name_no_extension + "." + std::to_string(boxcar_length) +
+                  ".tim";
+              const std::string time_series_picture_file_path =
+                  time_series_file_path + ".pdf";
+
+              boost::iostreams::stream<boost::iostreams::file_descriptor_sink>
+                  time_series_output_stream{time_series_file_path,
+                                            BOOST_IOS::binary | BOOST_IOS::out};
+
+              // wait until data copy completed
+              time_series_holder.transfer_event.wait();
+
+              // write time series
+              const auto time_series_ptr =
+                  time_series_holder.h_time_series.get();
+              const size_t time_series_length =
+                  time_series_holder.time_series_length;
+              time_series_output_stream.write(
+                  reinterpret_cast<const char*>(time_series_ptr),
+                  time_series_length *
+                      sizeof(decltype(time_series_holder
+                                          .h_time_series)::element_type));
+              time_series_output_stream.flush();
+
+              // draw time series using matplotlib cpp
+              try {
+                namespace plt = matplotlibcpp;
+                time_series_buffer.resize(time_series_length);
+                std::copy(time_series_ptr, time_series_ptr + time_series_length,
+                          time_series_buffer.begin());
+                plt::backend("Agg");
+                plt::named_plot(time_series_file_path, time_series_buffer);
+                plt::save(time_series_picture_file_path);
+                plt::cla();
+              } catch (const std::runtime_error& error) {
+                SRTB_LOGW << " [baseband_output_pipe] "
+                          << "Failed to plot time series: " << error.what()
+                          << srtb::endl;
+              }
+
+              // check handle of time series data
+              if (time_series_output_stream) [[likely]] {
+            // sometimes file is not fully written, so force syncing it
+#ifdef _POSIX_VERSION
+                if constexpr (std::is_same_v<
+                                  decltype(time_series_output_stream->handle()),
+                                  int>) {
+                  const int err =
+                      ::fdatasync(time_series_output_stream->handle());
+                  if (err != 0) [[unlikely]] {
+                    SRTB_LOGW << " [baseband_output_pipe] "
+                              << "Failed to call ::fdatasync" << srtb::endl;
+                  }
+                }
+#endif
+              } else [[unlikely]] {
+                SRTB_LOGW << " [baseband_output_pipe] "
+                          << "Failed to write baseband data! timestamp = "
+                          << timestamp << srtb::endl;
+              }
+            }
+          });
+
+    }  // if(has_signal)
+  }    // void run_once_inpl()
 };
 
 }  // namespace pipeline
