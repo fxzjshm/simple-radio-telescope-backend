@@ -28,6 +28,7 @@
 // -- divide line for clang-format --
 #include <boost/asio/impl/post.hpp>
 #include <boost/asio/thread_pool.hpp>
+#include <ctime>
 #include <fstream>
 #include <vector>
 
@@ -120,8 +121,25 @@ class baseband_output_pipe</* continuous_write = */ false>
 
  public:
   baseband_output_pipe() {
+    // check if directory is writable, also record start time
+    std::string check_file_path = srtb::config.baseband_output_file_prefix +
+                                  "begin_" + generate_time_tag();
+    try {
+      boost::iostreams::stream<boost::iostreams::file_descriptor_sink>
+          baseband_output_stream{check_file_path,
+                                 BOOST_IOS::binary | BOOST_IOS::out};
+    } catch (const boost::wrapexcept<std::ios_base::failure>& error) {
+      SRTB_LOGE << " [baseband_output_pipe] "
+                << "cannot open file " << check_file_path << srtb::endl;
+      throw error;
+    }
+  }
+
+  ~baseband_output_pipe() {
+    // record end time
+    // TODO: log file
     std::string check_file_path =
-        srtb::config.baseband_output_file_prefix + "check";
+        srtb::config.baseband_output_file_prefix + "end_" + generate_time_tag();
     try {
       boost::iostreams::stream<boost::iostreams::file_descriptor_sink>
           baseband_output_stream{check_file_path,
@@ -134,6 +152,16 @@ class baseband_output_pipe</* continuous_write = */ false>
   }
 
  protected:
+  auto generate_time_tag() -> std::string {
+    // modified from example from https://en.cppreference.com/w/cpp/chrono/c/strftime
+    std::time_t time = std::time({});
+    // '\0' should included in string literal
+    char time_string[std::size("yyyymmdd_hhmmss")];
+    std::strftime(std::data(time_string), std::size(time_string),
+                  "%Y%m%d_%H%M%S", std::gmtime(&time));
+    return std::string{time_string};
+  }
+
   void run_once_impl(std::stop_token stop_token) {
     srtb::work::baseband_output_work baseband_output_work;
     srtb::work::signal_detect_result signal_detect_result;
