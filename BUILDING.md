@@ -1,15 +1,15 @@
 # Building
 ## Dependency
 * a C++ compiler that supports at least C++20
-* a SYCL 2020 implementation, such as [Open SYCL](https://github.com/OpenSYCL/OpenSYCL) (formerly hipSYCL) and [intel/llvm](https://github.com/intel/llvm/)
-  * if use hipSYCL, refer to [this guide](https://github.com/OpenSYCL/OpenSYCL/blob/develop/doc/installing.md)
+* a SYCL 2020 implementation, such as [hipSYCL](https://github.com/illuhad/hipSYCL) and [intel/llvm](https://github.com/intel/llvm/)
+  * if use hipSYCL, refer to [this guide](https://github.com/illuhad/hipSYCL/blob/develop/doc/installing.md)
   * if use intel/llvm, version newer than `998fd91` (2022.11.07) is needed. Refer to [this guide](https://github.com/intel/llvm/blob/sycl/sycl/doc/GetStartedGuide.md) for installation.
 * Boost libraries
   * the version of Boost libraries required may be newer than that provided by system package manager (see below "BOOST_INLINE and HIP conflicts")
 * hwloc
 * FFTW 3
 * Qt 5
-  * maybe Qt 6 can also work, but not tested yet
+  * Qt 6 may work, but not tested yet
 * Python 3 with development headers & matplotlib
 
 if ROCm backend enabled, additional dependencies:
@@ -20,6 +20,15 @@ if ROCm backend enabled, additional dependencies:
 if CUDA backend enabled, additional dependencies:
 * CUDA toolkit
 * cufft
+
+## Compiler requirements
+SYCL compilers used should support these C++ / SYCL features:
+* C++ 20, for concept, `std::identity`, etc.
+* unified address part of SYCL USM 
+  * i.e. managed / shared memory is not required, but may useful for device with limited VRAM
+* `parallel_for` with `nd_range`
+  * for emulation of `sycl::reduction` using modified SYCL Parallel STL
+* ... maybe others
 
 ## Building System
 This project uses CMake 3. 

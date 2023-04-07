@@ -10,10 +10,10 @@ Future plans include DPDK integration, search of disperse measurements, correcti
 Due to vendor neutrality and API complexity,
 [SYCL 2020](https://www.khronos.org/sycl/) from Khronos Group is chosen as target API.
 Although say so, currently only CPU (OpenMP, on amd64), ROCm and CUDA backends are tested, due to limited device types available.
-Mainly used SYCL implementations are [Open SYCL](https://github.com/OpenSYCL/OpenSYCL) (formerly hipSYCL) and [intel/llvm](https://github.com/intel/llvm/)
+Mainly used SYCL implementations are [hipSYCL](https://github.com/illuhad/hipSYCL) and [intel/llvm](https://github.com/intel/llvm/)
 
 This is only an undergraduate "research" project written by a newbie of radio astronomy, so many things are naively implemented. 
-Corrections or suggestions are very appreciated!
+Corrections and suggestions are very appreciated!
 
 ## Building
 Note that this repository has submodule for dependency management, don't forget to add `--recursive` when cloning this git repo, or use
@@ -23,6 +23,37 @@ git submodule update --init
 if you have cloned this repo.
 
 Then please refer to [BUILDING.md](BUILDING.md)
+
+### Example Setup
+Tested setup:
+* AMD laptop CPU @ 2022 + AMD consumer GPU (gfx906; gfx1035)
+  * with hipSYCL HIP backend & intel/llvm HIP backend
+  * hipfft interop disabled for gfx1035 due to Segmentation Fault (as it is unsupported hardware)
+* Intel server CPU @ 2021 + NVIDIA server GPU (GA102; GA104)
+  * with hipSYCL CUDA backend & intel/llvm CUDA backend
+* Intel server CPU @ 2021
+  * with hipSYCL CPU backend (CBS enabled)
+  * may extended to any CPU with C++ support
+* AMD laptop CPU @ 2022
+  * same as above
+  * also with intel/llvm OpenCL SPIR-V backend + [intel/opencl-intercept-layer](https://github.com/intel/opencl-intercept-layer) + [PoCL](http://portablecl.org/) CPU backend
+    * intel/opencl-intercept-layer for USM -> SVM emulation:
+```bash
+export LD_PRELOAD=/opt/opencl-intercept-layer/lib/libOpenCL.so
+export CLI_Emulate_cl_intel_unified_shared_memory=1
+export CLI_SuppressLogging=1
+```
+* [DATA EXPUNGED] server CPU @ ████ + [DATA EXPUNGED] ([DATA EXPUNGED])
+  * with [DATA EXPUNGED]
+
+To be tested:
+* mesa rusticl!
+* Intel/AMD server/laptop CPU + [DATA EXPUNGED]
+
+Tested NOT supported:
+* Codeplay ComputeCpp Experimental 2.11
+  * header not compatible with C++20
+  * segmentation fault in runtime library, not open-source so no way to debug
 
 ## Usage
 Beside compile-time configurations (see [BUILDING.md](BUILDING.md)), 
@@ -146,8 +177,8 @@ sudo numactl --preferred $NODE nice $NICE simple-radio-telescope-backend
 
 * set thread affinity of baseband/IF UDP receiver thread(s), using `udp_receiver_cpu_preferred` option
 
-
 </details>
+
 
 ## Code structure
 ### Pipeline Structure
@@ -206,9 +237,13 @@ graph LR;
 </details>
 
 ## License
-Main part of this program is licensed under [Mulan Public License, Version 2](http://license.coscl.org.cn/MulanPubL-2.0/index.html) .  
+Main part of this program is licensed under [Mulan Public License, Version 2](https://license.coscl.org.cn/MulanPubL-2.0) .  
 
 Please notice that Mulan Public License (MulanPubL) is different from Mulan Permissive License (MulanPSL). The former, which this project uses, is more of GPL-like.
+
+This program comes with ABSOLUTELY NO WARRANTY. 
+A device failure has been encountered during daily observation using Intel server CPU + NVIDIA server GPU setup, although a reboot simply fixed it.
+**Please pay special attention to server cooling before observation.**
 
 ## Credits
 This repo also contains some 3rd-party code:
