@@ -321,6 +321,8 @@ class baseband_output_pipe</* continuous_write = */ false>
           });
 
     }  // if(has_signal)
+
+    srtb::pipeline::notify();
   }    // void run_once_inpl()
 };
 

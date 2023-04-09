@@ -261,6 +261,7 @@ inline void evaluate_and_apply_changed_config(const std::string& name,
   SRTB_PARSE(signal_detect_channel_threshold)
   SRTB_PARSE(signal_detect_max_boxcar_length)
   SRTB_PARSE(thread_query_work_wait_time)
+  SRTB_PARSE(gui_enable)
   /* else */ if (name == "config_file_name") {
     // has been processed earlier
   } else {
