@@ -147,9 +147,13 @@ inline C coherent_dedispersion_factor(const dedisp_real_t f,
   const dedisp_real_t delta_f = f - dedisp_real_t{f_c};
   const dedisp_real_t k =
       D * dm * 1e6 / f * ((delta_f / f_c) * (delta_f / f_c));
-  const T k_modded = sycl::fmod(k, dedisp_real_t{1});
-  const T delta_phi = -T{2 * M_PI} * k_modded;
-  const C factor = C(sycl::cos(delta_phi), sycl::sin(delta_phi));
+  dedisp_real_t k_int;
+  const T k_frac = sycl::modf(k, &k_int);
+  const T delta_phi = -T{2 * M_PI} * k_frac;
+  T cos_delta_phi, sin_delta_phi;
+  // &cos_delta_phi cannot be used here, not in specification
+  sin_delta_phi = sycl::sincos(delta_phi, sycl::private_ptr<T>{&cos_delta_phi});
+  const C factor = C(cos_delta_phi, sin_delta_phi);
   return factor;
 }
 
