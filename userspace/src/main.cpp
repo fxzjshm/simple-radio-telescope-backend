@@ -260,9 +260,8 @@ int main(int argc, char** argv) {
     return_value = srtb::gui::show_gui(argc, argv, std::move(threads));
   } else {
 #endif  // SRTB_ENABLE_GUI
-    // NOTE: read_available() here may not safe, check this
     while (!(srtb::pipeline::no_more_work &&
-             srtb::baseband_output_queue.read_available() == 0)) {
+             srtb::baseband_output_queue.size_approx() == 0)) {
       std::this_thread::sleep_for(
           std::chrono::nanoseconds(srtb::config.thread_query_work_wait_time));
     }

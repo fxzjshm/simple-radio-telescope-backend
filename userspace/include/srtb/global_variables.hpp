@@ -73,7 +73,8 @@ inline srtb::memory::cached_allocator<
 
 // work queues
 // TODO: global work queues seem ugly (no extensibility), better ideas ?
-inline srtb::work_queue<srtb::work::unpack_work> unpack_queue;
+inline srtb::work_queue<srtb::work::unpack_work, /* spsc = */ false>
+    unpack_queue;
 inline srtb::work_queue<srtb::work::fft_1d_r2c_work> fft_1d_r2c_queue;
 inline srtb::work_queue<srtb::work::rfi_mitigation_work> rfi_mitigation_queue;
 inline srtb::work_queue<srtb::work::dedisperse_work> dedisperse_queue;
@@ -88,9 +89,8 @@ inline srtb::work_queue<srtb::work::signal_detect_work> signal_detect_queue;
 // it also acts as a buffer, that is, only when signal_detect_pipe has result
 // can baseband_output_pipe write or drop it,
 // so capacity must be LARGE
-inline srtb::work_queue<srtb::work::baseband_output_work,
-                        /* fixed_size = */ false>
-    baseband_output_queue{1024 * srtb::work_queue_capacity};
+inline srtb::work_queue<srtb::work::baseband_output_work, /* spsc = */ false>
+    baseband_output_queue;
 inline srtb::work_queue<srtb::work::signal_detect_result>
     signal_detect_result_queue;
 

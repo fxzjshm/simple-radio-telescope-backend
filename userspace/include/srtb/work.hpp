@@ -15,10 +15,11 @@
 #define __SRTB_WORK__
 
 #include <boost/lockfree/spsc_queue.hpp>
+#include <memory>
 #include <thread>
 #include <vector>
-#include <memory>
 
+#include "concurrentqueue.h"
 #include "srtb/config.hpp"
 
 #define SRTB_PUSH_WORK_OR_RETURN(tag, work_queue, work, stop_token)        \
@@ -62,23 +63,40 @@ namespace srtb {
 
 // definition of work queue, a container of works to be processed.
 // TODO: check should use spsc_queue or shared queue with mutex here
-template <typename T, bool fixed_size = srtb::work_queue_fixed_size,
+template <typename T, bool spsc = true,
+          bool fixed_size = srtb::work_queue_fixed_size,
           size_t capacity = srtb::work_queue_capacity>
 class work_queue;
 
 template <typename T, size_t capacity>
-class work_queue<T, true, capacity>
+class work_queue<T, true, true, capacity>
     : public boost::lockfree::spsc_queue<T,
                                          boost::lockfree::capacity<capacity> > {
 };
 
 template <typename T, size_t initial_capacity>
-class work_queue<T, false, initial_capacity>
+class work_queue<T, true, false, initial_capacity>
     : public boost::lockfree::spsc_queue<T> {
  public:
   using super_class = boost::lockfree::spsc_queue<T>;
   work_queue(size_t initial_capacity_ = initial_capacity)
       : super_class{initial_capacity_} {}
+};
+
+template <typename T, bool unused_1, size_t unused_2>
+class work_queue<T, false, unused_1, unused_2>
+    : public moodycamel::ConcurrentQueue<T> {
+ public:
+  using super_class = moodycamel::ConcurrentQueue<T>;
+  template <typename... Args>
+  inline decltype(auto) push(Args&&... args) {
+    return super_class::try_enqueue(std::forward<Args>(args)...);
+  }
+
+  template <typename... Args>
+  inline decltype(auto) pop(Args&&... args) {
+    return super_class::try_dequeue(std::forward<Args>(args)...);
+  }
 };
 
 /**

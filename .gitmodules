@@ -4,3 +4,6 @@
 [submodule "userspace/3rdparty/SyclParallelSTL"]
 	path = userspace/3rdparty/SyclParallelSTL
 	url = https://github.com/fxzjshm/SyclParallelSTL
+[submodule "userspace/3rdparty/concurrentqueue"]
+	path = userspace/3rdparty/concurrentqueue
+	url = https://github.com/cameron314/concurrentqueue.git

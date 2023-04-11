@@ -139,6 +139,7 @@ include_directories(SYSTEM "3rdparty/")
 include_directories(SYSTEM "3rdparty/matplotlib-cpp/")
 include_directories(SYSTEM "3rdparty/SyclParallelSTL/include/")
 include_directories(SYSTEM "3rdparty/dsmath/")
+include_directories(SYSTEM "3rdparty/concurrentqueue/")
 ## Qt (optional)
 ### ref: https://doc.qt.io/qt-6/cmake-qt5-and-qt6-compatibility.html
 find_package(QT NAMES Qt6 Qt5 COMPONENTS Core)
