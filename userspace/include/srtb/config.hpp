@@ -54,9 +54,6 @@ using complex = std::complex<T>;
 // may reduce VRAM usage but increase latency
 #define SRTB_FFT_SHARE_WORK_AREA
 
-// option to emulate fp64 using fp32
-//#define SRTB_USE_EMULATED_FP64
-
 /**
  * @brief initial capacity of srtb::work_queue
  */
@@ -73,6 +70,9 @@ inline constexpr bool fft_operate_in_place = true;
 
 /** @brief true: use sycl::reduction; false: use reduction from SYCL Parallel STL */
 inline constexpr bool use_sycl_reduction = false;
+
+/** @brief option to emulate fp64 using fp32 */
+inline constexpr bool use_emulated_fp64 = false;
 
 // TODO: is this necessary or too large?
 inline constexpr size_t MEMORY_ALIGNMENT = 64ul;

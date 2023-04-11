@@ -14,6 +14,7 @@
 #ifndef __SRTB_COHERENT_DEDISPERSION__
 #define __SRTB_COHERENT_DEDISPERSION__
 
+#include "dsmath_sycl.h"
 #include "srtb/commons.hpp"
 
 namespace srtb {
@@ -23,17 +24,31 @@ namespace srtb {
  */
 namespace coherent_dedispersion {
 
+inline namespace detail {
+
+template <bool use_emulated_fp64>
+struct dedispertion_real_trait;
+
+template <>
+struct dedispertion_real_trait<false> {
+  using type = double;
+};
+
+template <>
+struct dedispertion_real_trait<true> {
+  using type = dsmath::df64;
+};
+
+}  // namespace detail
+
 /**
  * @brief type to calculate phase delay of certain frequency channel because of
  *        coherent dedipsersion.
  * @note delta phase of lowerest and highest frequency can be up to 10^9,
  *       while delta phase of adjacent channels is 1~10
  */
-#ifdef SRTB_USE_EMULATED_FP64
-using dedisp_real_t = dsmath::df64;
-#else
-using dedisp_real_t = double;
-#endif  // SRTB_USE_EMULATED_FP64
+using dedisp_real_t =
+    detail::dedispertion_real_trait<srtb::use_emulated_fp64>::type;
 
 using dedisp_real_host_t = double;
 
