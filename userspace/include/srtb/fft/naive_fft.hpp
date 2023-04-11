@@ -61,7 +61,7 @@ inline void bit_reverse_swap(const size_t k, const size_t i,
  * @param output Accessor or pointer or something like that of output buffer
  * @param invert 1 -> forward, -1 -> backward
  */
-template <typename T, typename C = srtb::complex<T>, typename Accessor>
+template <typename T, typename C, typename Accessor>
 inline void fft_1d_c2c_butterfly(const size_t m, const size_t i,
                                  Accessor output,
                                  const int direction) noexcept {
@@ -99,7 +99,7 @@ inline void fft_1d_c2c_butterfly(const size_t m, const size_t i,
  * @param output Accessor or pointer or something like that of output buffer
  * @param direction 1 -> forward, -1 -> backward
  */
-template <typename T, typename C = srtb::complex<T>, typename InputAccessor,
+template <typename T, typename C, typename InputAccessor,
           typename OutputAccessor>
 inline void fft_1d_c2c(const size_t k, InputAccessor input,
                        OutputAccessor output, const int direction,
@@ -122,7 +122,7 @@ inline void fft_1d_c2c(const size_t k, InputAccessor input,
   // normalization is removed to stay in sync with FFTW, cuFFT & hipFFT
 }
 
-template<typename T, typename C = srtb::complex<T> >
+template <typename T, typename C>
 inline constexpr auto reinterpret_as_complex(T* x) -> C* {
   return reinterpret_cast<C*>(x);
 }
@@ -137,13 +137,14 @@ inline constexpr auto reinterpret_as_complex(T* x) -> C* {
  * ref: https://www.cnblogs.com/liam-ji/p/11742941.html
  *      http://www.dspguide.com/ch12/5.htm
  */
-template <typename T, typename C = srtb::complex<T>, typename InputAccessor, typename OutputAccessor>
-inline void fft_1d_r2c(const size_t k, InputAccessor input, OutputAccessor output,
-                       sycl::queue& q) {
+template <typename T, typename C, typename InputAccessor,
+          typename OutputAccessor>
+inline void fft_1d_r2c(const size_t k, InputAccessor input,
+                       OutputAccessor output, sycl::queue& q) {
   const size_t n_real = 1 << k;
   //const size_t n_complex = n_real / 2 + 1;
   const size_t N = n_real / 2;
-  const auto input_as_complex = reinterpret_as_complex(input);
+  const auto input_as_complex = reinterpret_as_complex<T, C>(input);
   fft_1d_c2c<T, C>(k - 1, input_as_complex, output, +1, q);
   const auto H = output;
   q.parallel_for(sycl::range{N / 2 + 1}, [=](sycl::item<1> id) {

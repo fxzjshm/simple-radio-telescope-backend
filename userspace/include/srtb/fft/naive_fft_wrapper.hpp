@@ -65,8 +65,8 @@ class naive_fft_1d_wrapper
     const size_t n_real = n, n_complex = n_real / 2 + 1;
     // compute in reverse direction so no overwriting when batch_size > 1
     for (size_t i = (*this).batch_size - 1; i != static_cast<size_t>(-1); i--) {
-      naive_fft::fft_1d_r2c<T>(k, in + i * n_real, out + i * n_complex,
-                               (*this).q);
+      naive_fft::fft_1d_r2c<T, C>(k, in + i * n_real, out + i * n_complex,
+                                  (*this).q);
     }
   }
 
@@ -81,8 +81,8 @@ class naive_fft_1d_wrapper
     constexpr int direction =
         (fft_type == srtb::fft::type::C2C_1D_BACKWARD) ? -1 : +1;
     for (size_t i = 0; i < (*this).batch_size; i++) {
-      naive_fft::fft_1d_c2c<T>(k, in + i * n, out + i * n, direction,
-                               (*this).q);
+      naive_fft::fft_1d_c2c<T, C>(k, in + i * n, out + i * n, direction,
+                                  (*this).q);
     }
   }
 

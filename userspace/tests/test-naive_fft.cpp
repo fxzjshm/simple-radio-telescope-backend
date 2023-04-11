@@ -110,7 +110,7 @@ int main(int argc, char** argv) {
     auto d_f = d_f_shared.get(), d_g = d_g_shared.get();
     q.copy(h_f, d_f, f.size()).wait();
     naive_fft_start = std::chrono::system_clock::now();
-    naive_fft::fft_1d_c2c<double>(bit, d_f, d_g, 1, q);
+    naive_fft::fft_1d_c2c<double, srtb::complex<double> >(bit, d_f, d_g, 1, q);
     naive_fft_end = std::chrono::system_clock::now();
     q.copy(d_g, h_g, g.size()).wait();
   }
