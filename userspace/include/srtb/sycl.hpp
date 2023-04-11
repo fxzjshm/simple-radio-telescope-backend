@@ -45,7 +45,7 @@
         // no need to define introp macro
     #endif
 #else
-    #error "Unknown SYCL backend"
+    #warning "Unknown SYCL backend, interop disabled"
 #endif
 // clang-format on
 

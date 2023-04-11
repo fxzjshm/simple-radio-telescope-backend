@@ -69,6 +69,9 @@ elseif(SRTB_SYCL_IMPLEMENTATION STREQUAL "intel-llvm")
         message(FATAL_ERROR "don't know how to compile for both CUDA and ROCm on intel/llvm (TODO)")
     endif()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsycl ")
+    ## do not assume id range fit in MAX_INT because baseband_input_count may be very large
+    ## when dealing with very high dispersion measurement
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-sycl-id-queries-fit-in-int ")
     if(SRTB_ENABLE_CUDA)
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsycl-targets=nvptx64-nvidia-cuda ")
         if(DEFINED SRTB_CUDA_ARCH)
@@ -103,6 +106,10 @@ else()
   message(WARNING "Inter-Procedural Optimization is not supported, output: ${SRTB_IPO_CHECK_OUTPUT}")
 endif()
 
+# Position independent code
+## TODO: does this affect performance?
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 # add extra flags
 ## add extra warnings
 ## known SYCL implementations are gcc compatible
@@ -114,11 +121,6 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -fno-omit-frame-pointer ")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -rdynamic ")
 ## optimize flags
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -ftree-vectorize")
-## do not assume id range fit in MAX_INT because baseband_input_count may be very large
-## when dealing with very high dispersion measurement
-if(SRTB_SYCL_IMPLEMENTATION STREQUAL "intel-llvm")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-sycl-id-queries-fit-in-int ")
-endif()
 ## sanitizer, for debug usage
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -fno-optimize-sibling-calls ")
 
@@ -136,6 +138,7 @@ find_package(Python3 COMPONENTS NumPy)
 include_directories(SYSTEM "3rdparty/")
 include_directories(SYSTEM "3rdparty/matplotlib-cpp/")
 include_directories(SYSTEM "3rdparty/SyclParallelSTL/include/")
+include_directories(SYSTEM "3rdparty/dsmath/")
 ## Qt (optional)
 ### ref: https://doc.qt.io/qt-6/cmake-qt5-and-qt6-compatibility.html
 find_package(QT NAMES Qt6 Qt5 COMPONENTS Core)

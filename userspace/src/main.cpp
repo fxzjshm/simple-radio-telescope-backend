@@ -142,11 +142,10 @@ int main(int argc, char** argv) {
   cudaSetDeviceFlags(cudaDeviceScheduleYield);
 #endif  // SRTB_ENABLE_CUDA_INTEROP
 
-  // TODO: maybe multiple file input or something else
-  const size_t input_pipe_count =
-      std::max(std::max(srtb::config.udp_receiver_sender_address.size(),
-                        srtb::config.udp_receiver_sender_port.size()),
-               size_t{1});
+  SRTB_LOGI << " [main] "
+            << "device name = "
+            << srtb::queue.get_device().get_info<sycl::info::device::name>()
+            << srtb::endl;
 
   // trigger JIT
   // some implementations may pack intermediate representation with executable binary
@@ -157,12 +156,13 @@ int main(int argc, char** argv) {
     srtb::queue.single_task([=]() { (*d_out) = srtb::real{42}; }).wait();
   }
 
-  // TODO std::jthread for other pipelines
+  // TODO: maybe multiple file input or something else
+  const size_t input_pipe_count =
+      std::max(std::max(srtb::config.udp_receiver_sender_address.size(),
+                        srtb::config.udp_receiver_sender_port.size()),
+               size_t{1});
 
-  SRTB_LOGI << " [main] "
-            << "device name = "
-            << srtb::queue.get_device().get_info<sycl::info::device::name>()
-            << srtb::endl;
+  // TODO std::jthread for other pipelines
 
   std::vector<std::jthread> input_thread;
   auto input_file_path = srtb::config.input_file_path;
