@@ -71,6 +71,9 @@ using udp_packet_counter_type = uint64_t;
 inline constexpr bool fft_window_precompute = false;
 inline constexpr bool fft_operate_in_place = true;
 
+/** @brief true: use sycl::reduction; false: use reduction from SYCL Parallel STL */
+inline constexpr bool use_sycl_reduction = false;
+
 // TODO: is this necessary or too large?
 inline constexpr size_t MEMORY_ALIGNMENT = 64ul;
 

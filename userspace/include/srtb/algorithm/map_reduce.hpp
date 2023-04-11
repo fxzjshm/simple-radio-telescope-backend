@@ -15,13 +15,15 @@
 #define __SRTB_ALGORITHM_MAP_REDUCE_HPP__
 
 #include "srtb/commons.hpp"
+#include "sycl/execution_policy"
 
 namespace srtb {
 namespace algorithm {
 
 /**
  * @brief Apply func on input, then calculate reduced value of the transformed value.
- *        Just a simple wrapper of sycl APIs.
+ *        Just a simple wrapper of SYCL APIs if srtb::use_sycl_reduction,
+ *          or a simple wrapper of SYCL parallel STL if !(srtb::use_sycl_reduction)
  * @return auto std::shared_pointer of size 1 on the device, containing the final result 
  *         i.e. reduced value of transformed data.
  */
@@ -33,15 +35,31 @@ inline auto map_reduce(DeviceInputAccessor d_in, size_t in_count,
   auto d_reduced_shared =
       srtb::device_allocator.allocate_shared<transformed_type>(1);
   auto d_reduced = d_reduced_shared.get();
-  q.fill<transformed_type>(d_reduced, transformed_type{0}, 1).wait();
-  q.submit([&](sycl::handler& cgh) {
-     auto reduction = sycl::reduction(d_reduced, reduce);
-     cgh.parallel_for(sycl::range<1>{in_count}, reduction,
-                      [=](sycl::id<1> id, auto& reduce) {
-                        const size_t i = id;
-                        reduce.combine(map(i, d_in[i]));
-                      });
-   }).wait();
+  // TODO: make this a parameter?
+  constexpr transformed_type init = 0;
+
+  if constexpr (srtb::use_sycl_reduction) {
+    q.fill<transformed_type>(d_reduced, init, 1).wait();
+    q.submit([&](sycl::handler& cgh) {
+       auto reduction = sycl::reduction(d_reduced, reduce);
+       cgh.parallel_for(sycl::range<1>{in_count}, reduction,
+                        [=](sycl::id<1> id, auto& reduce) {
+                          const size_t i = id;
+                          reduce.combine(map(i, d_in[i]));
+                        });
+     }).wait();
+  } else {
+    // modified from sycl::impl::transform_reduce
+    using input_type =
+        typename std::iterator_traits<DeviceInputAccessor>::value_type;
+    sycl::sycl_execution_policy<> snp{q};
+    auto d = sycl::impl::compute_mapreduce_descriptor(
+        q.get_device(), /* size = */ in_count, sizeof(input_type));
+    transformed_type h_reduced =
+        sycl::impl::buffer_mapreduce(snp, q, d_in, init, d, map, reduce);
+    q.copy(&h_reduced, d_reduced, 1).wait();
+  }
+
   return d_reduced_shared;
 }
 
