@@ -19,9 +19,9 @@ else()
     set(SRTB_ROCM_PATH "/opt/rocm")
 endif()
 list(APPEND CMAKE_PREFIX_PATH ${SRTB_ROCM_PATH}/hip ${SRTB_ROCM_PATH})
-find_package(hip)
-find_package(rocfft)
-find_package(hipfft)
+find_package(hip QUIET)
+find_package(rocfft QUIET)
+find_package(hipfft QUIET)
 if(hip_FOUND AND rocfft_FOUND AND hipfft_FOUND)
     set(SRTB_ROCM_BACKEND_REQUIREMENT_MET TRUE)
 else()
@@ -87,10 +87,6 @@ else()
     message(FATAL_ERROR "Sorry, unknown/untested/un-adapted SYCL implementation " ${SRTB_SYCL_IMPLEMENTATION})
 endif()
 
-# set cmake config for Qt
-set(CMAKE_AUTOMOC ON)
-set(CMAKE_AUTOUIC ON)
-set(CMAKE_AUTORCC ON)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 # set C++ language version requirement
@@ -129,6 +125,12 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -ftree-vectorize")
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 find_package(Boost COMPONENTS program_options iostreams REQUIRED)
+find_package(Boost COMPONENTS stacktrace_backtrace)
+if(Boost_STACKTRACE_BACKTRACE_FOUND)
+  message(STATUS "Found boost_stacktrace_backtrace")
+else()
+  message(WARNING "boost_stacktrace_backtrace not found, stacktrace may not precise")
+endif()
 include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
 ## Python, for matplotlib-cpp
 ## ref: https://github.com/lava/matplotlib-cpp/blob/master/CMakeLists.txt
@@ -151,6 +153,10 @@ if(SRTB_ENABLE_GUI)
     add_compile_definitions(SRTB_ENABLE_GUI=true)
     # Qt's keywords like signals and slots are annoying
     add_compile_definitions(QT_NO_KEYWORDS)
+    # set cmake config for Qt
+    set(CMAKE_AUTOMOC ON)
+    set(CMAKE_AUTOUIC ON)
+    set(CMAKE_AUTORCC ON)
 else()
     add_compile_definitions(SRTB_ENABLE_GUI=false)
 endif()
@@ -168,12 +174,14 @@ function(srtb_add_dependency target_name)
     # add dependency
     target_link_libraries(${target_name} PUBLIC fftw3_threads fftw3 fftw3f_threads fftw3f Threads::Threads) # TODO maybe findFFTW
     target_link_libraries(${target_name} PUBLIC Boost::program_options Boost::iostreams)
-    # https://stackoverflow.com/questions/52583544/boost-stack-trace-not-showing-function-names-and-line-numbers/71027489#71027489
-    target_compile_definitions(${target_name} PRIVATE BOOST_STACKTRACE_LINK)
-    target_link_libraries(${target_name} PUBLIC boost_stacktrace_backtrace)
-    target_link_libraries(${target_name} PUBLIC hwloc)
+    if(Boost_STACKTRACE_BACKTRACE_FOUND)
+      # https://stackoverflow.com/questions/52583544/boost-stack-trace-not-showing-function-names-and-line-numbers/71027489#71027489
+      target_compile_definitions(${target_name} PRIVATE BOOST_STACKTRACE_LINK)
+      target_link_libraries(${target_name} PUBLIC boost_stacktrace_backtrace)
+    endif()
+    target_link_libraries(${target_name} PUBLIC hwloc) 
     target_link_libraries(${target_name} PUBLIC stdc++ m)  # TODO: this shouldn't be needed
-    target_link_libraries(${target_name} PUBLIC dl)
+    target_link_libraries(${target_name} PUBLIC ${CMAKE_DL_LIBS})
     if(SRTB_ENABLE_CUDA)
         # https://cmake.org/cmake/help/latest/module/FindCUDAToolkit.html
         target_link_libraries(${target_name} PUBLIC CUDA::cudart CUDA::cufft)
