@@ -54,6 +54,9 @@ using complex = std::complex<T>;
 // may reduce VRAM usage but increase latency
 #define SRTB_FFT_SHARE_WORK_AREA
 
+// option to emulate fp64 using fp32
+//#define SRTB_USE_EMULATED_FP64
+
 /**
  * @brief initial capacity of srtb::work_queue
  */

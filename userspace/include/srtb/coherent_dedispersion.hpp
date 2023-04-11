@@ -29,8 +29,13 @@ namespace coherent_dedispersion {
  * @note delta phase of lowerest and highest frequency can be up to 10^9,
  *       while delta phase of adjacent channels is 1~10
  */
+#ifdef SRTB_USE_EMULATED_FP64
+using dedisp_real_t = dsmath::df64;
+#else
 using dedisp_real_t = double;
-using dedisp_complex_t = srtb::complex<dedisp_real_t>;
+#endif  // SRTB_USE_EMULATED_FP64
+
+using dedisp_real_host_t = double;
 
 /**
  * @brief dispersion constant in "accurate" value
@@ -54,8 +59,9 @@ inline constexpr dedisp_real_t D = 4.148808e3;
  */
 template <typename T>
 inline T dispersion_delay_time(const T f, const T f_c, const T dm) {
-  return -D * dm *
-         (dedisp_real_t(1.0) / (f * f) - dedisp_real_t(1.0) / (f_c * f_c));
+  return -dedisp_real_host_t{D} * dm *
+         (dedisp_real_host_t(1.0) / (f * f) -
+          dedisp_real_host_t(1.0) / (f_c * f_c));
 }
 
 inline srtb::real max_delay_time() {
@@ -144,11 +150,13 @@ inline C coherent_dedispersion_factor(const dedisp_real_t f,
   //    -T{2 * M_PI} * D * 1e6 * dm * ((delta_f * delta_f) / (f * f_c * f_c));
 
   //// 3)
-  const dedisp_real_t delta_f = f - dedisp_real_t{f_c};
-  const dedisp_real_t k =
-      D * dm * 1e6 / f * ((delta_f / f_c) * (delta_f / f_c));
+  // dedispertion constant D with unit Hz -> MHz corrected
+  // this is explicitly constexpr, wish device compiler won't generate cl_khr_fp64 operations...
+  constexpr dedisp_real_t D_ = D * dedisp_real_t{1e6};
+  const dedisp_real_t delta_f = f - f_c;
+  const dedisp_real_t k = D_ * dm / f * ((delta_f / f_c) * (delta_f / f_c));
   dedisp_real_t k_int;
-  const T k_frac = sycl::modf(k, &k_int);
+  const T k_frac = srtb::modf(k, &k_int);
   const T delta_phi = -T{2 * M_PI} * k_frac;
   T cos_delta_phi, sin_delta_phi;
   // &cos_delta_phi cannot be used here, not in specification
@@ -169,8 +177,9 @@ template <typename T = srtb::real, typename C = srtb::complex<T>,
 inline void coherent_dedispertion_item(Accessor input, Accessor output,
                                        const T f_min, const T f_c, const T df,
                                        const T dm, const size_t i) {
-  const dedisp_real_t f = dedisp_real_t{f_min} + dedisp_real_t{df} * i;
-  const C factor = coherent_dedispersion_factor(f, f_c, dm);
+  const dedisp_real_t f =
+      dedisp_real_t{f_min} + dedisp_real_t{df} * static_cast<dedisp_real_t>(i);
+  const C factor = coherent_dedispersion_factor(f, dedisp_real_t{f_c}, dm);
   const C in = input[i];
   const C out = in * factor;
   output[i] = out;

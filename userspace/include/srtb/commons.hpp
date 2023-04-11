@@ -26,6 +26,7 @@
 #include <boost/core/demangle.hpp>
 #endif
 
+#include "dsmath_sycl.h"
 #include "srtb/sycl.hpp"
 
 // ------ dividing line for clang-format ------
@@ -72,6 +73,27 @@ inline constexpr T abs(const T x) noexcept {
     return sycl::abs(x);
   } else if constexpr (std::is_floating_point_v<T>) {
     return sycl::fabs(x);
+  }
+}
+
+template <typename T>
+inline constexpr T modf(const T x, T* iptr) noexcept {
+  if constexpr (std::is_floating_point_v<T>) {
+    return sycl::modf(x, sycl::private_ptr<T>{iptr});
+  } else if constexpr (std::is_same_v<T, dsmath::df64>) {
+    float xi, xf, yi, yf;
+    xf = sycl::modf(x.x, sycl::private_ptr<float>{&xi});
+    yf = sycl::modf(x.y, sycl::private_ptr<float>{&yi});
+    dsmath::df64 i, f;
+    i = dsmath::df64{xi} + dsmath::df64{yi};
+    f = dsmath::df64{xf} + dsmath::df64{yf};
+    constexpr dsmath::df64 one = 1.0f;
+    if (f.x > 1.0f) {
+      f = f - one;
+      i = i + one;
+    }
+    *iptr = i;
+    return f;
   }
 }
 
