@@ -83,7 +83,7 @@ inline void allocate_memory_regions(size_t input_pipe_count) {
     for (size_t i = 0; i < 3; i++) {
       ptrs.push_back(srtb::device_allocator.allocate_shared<std::byte>(
           sizeof(srtb::real) * srtb::config.baseband_input_count /
-          srtb::config.refft_length / 2));
+          srtb::config.spectrum_channel_count / 2));
     }
 
     // host side time series for a segment of baseband
@@ -91,13 +91,13 @@ inline void allocate_memory_regions(size_t input_pipe_count) {
          w *= 2) {
       ptrs.push_back(srtb::host_allocator.allocate_shared<std::byte>(
           sizeof(srtb::real) * srtb::config.baseband_input_count /
-          srtb::config.refft_length / 2));
+          srtb::config.spectrum_channel_count / 2));
     }
 
     // device side STFT buffer, for spectrural kurtosis & mean value
     for (size_t i = 0; i < 2; i++) {
       ptrs.push_back(srtb::device_allocator.allocate_shared<std::byte>(
-          sizeof(srtb::complex<srtb::real>) * srtb::config.refft_length));
+          sizeof(srtb::complex<srtb::real>) * srtb::config.spectrum_channel_count));
     }
 
 #if SRTB_ENABLE_GUI
@@ -106,13 +106,13 @@ inline void allocate_memory_regions(size_t input_pipe_count) {
       ptrs.push_back(srtb::device_allocator.allocate_shared<std::byte>(
           sizeof(srtb::real) *
           (srtb::config.baseband_input_count - srtb::codd::nsamps_reserved()) /
-          srtb::config.refft_length / 2 * srtb::gui::spectrum::width));
+          srtb::config.spectrum_channel_count / 2 * srtb::gui::spectrum::width));
       for (size_t i = 0; i < 5; i++) {
         ptrs.push_back(srtb::host_allocator.allocate_shared<std::byte>(
             sizeof(srtb::real) *
             (srtb::config.baseband_input_count -
              srtb::codd::nsamps_reserved()) /
-            srtb::config.refft_length / 2 * srtb::gui::spectrum::width));
+            srtb::config.spectrum_channel_count / 2 * srtb::gui::spectrum::width));
       }
     }
 #endif  // SRTB_ENABLE_GUI
@@ -195,7 +195,7 @@ int main(int argc, char** argv) {
     // plot something here to trigger creation of some resources
     // so that it can be released later in this thread
     std::vector<srtb::real> points(srtb::config.baseband_input_count /
-                                   srtb::config.refft_length / 2);
+                                   srtb::config.spectrum_channel_count / 2);
     plt::plot(points);
     plt::cla();
   }

@@ -229,7 +229,7 @@ class refft_1d_c2c_pipe : public pipe<refft_1d_c2c_pipe> {
     } else {
       input_count = baseband_input_count_complex - nsamps_reserved_complex;
     }
-    size_t refft_length = srtb::config.refft_length;
+    size_t refft_length = srtb::config.spectrum_channel_count;
     size_t refft_batch_size = input_count / refft_length;
     if (refft_batch_size == 0) [[unlikely]] {
       SRTB_LOGW << " [refft 1d c2c pipe] "
@@ -251,7 +251,7 @@ class refft_1d_c2c_pipe : public pipe<refft_1d_c2c_pipe> {
 
     auto& refft_dispatcher = opt_refft_dispatcher.value();
     const size_t refft_length =
-        std::min(srtb::config.refft_length, input_count);
+        std::min(srtb::config.spectrum_channel_count, input_count);
     const size_t refft_batch_size = input_count / refft_length;
 
     // reset FFT plan if mismatch

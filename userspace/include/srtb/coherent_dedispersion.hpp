@@ -98,7 +98,7 @@ inline srtb::real max_delay_time() {
   *                   xxxxx..........xxxxx
   * hence nsamps_reserved = 2 * max delayed samples.
   * @note Additional requirement: accurate time samples (i.e. not reserved for next round)
-  *       should be a multiple of 2 * refft_length , so that refft can be done in correct batch size.
+  *       should be a multiple of 2 * spectrum_channel_count so that refft can be done in correct size.
   * TODO: check this
   */
 inline auto nsamps_reserved() -> size_t {
@@ -110,11 +110,12 @@ inline auto nsamps_reserved() -> size_t {
   const size_t minimal_reserve_count =
       2 * std::round(srtb::coherent_dedispersion::max_delay_time() *
                      srtb::config.baseband_sample_rate);
-  const size_t refft_length_real = srtb::config.refft_length * 2;
+  const size_t real_time_samples_per_bin =
+      srtb::config.spectrum_channel_count * 2;
   const size_t baseband_input_count = srtb::config.baseband_input_count;
   const ssize_t refft_total_size =
       static_cast<ssize_t>(baseband_input_count - minimal_reserve_count) /
-      refft_length_real * refft_length_real;
+      real_time_samples_per_bin * real_time_samples_per_bin;
   const size_t nsamps_may_reserved = baseband_input_count - refft_total_size;
   if (refft_total_size > 0) {
     return nsamps_may_reserved;

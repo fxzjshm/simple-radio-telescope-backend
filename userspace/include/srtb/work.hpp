@@ -187,7 +187,7 @@ using ifft_1d_c2c_work =
 
 /**
  * @brief contains complex dedispersed baseband data of total length @c count
- *        to be reFFT-ed with length @c refft_length to get spectrum with
+ *        to be reFFT-ed with length @c spectrum_channel_count to get spectrum with
  *        much higher time resolution.
  */
 using refft_1d_c2c_work =

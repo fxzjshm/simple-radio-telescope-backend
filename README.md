@@ -139,10 +139,10 @@ Operation Options:
   --mitigate_rfi_freq_list arg          list of frequency pairs to zap/remove, 
                                         format: 11-12, 15-90, 233-235, 
                                         1176-1177 (arbitary values)
-  --refft_length arg                    Length of FFT for re-constructing 
-                                        signals after coherent dedispersion, of
-                                        complex numbers, so refft_length <= 
-                                        baseband_input_count / 2
+  --spectrum_channel_count arg          Count of channels (complex numbers) in 
+                                        spectrum. Time resolution for one bin 
+                                        is 2 * spectrum_channel_count / 
+                                        baseband_sample_rate
   --signal_detect_signal_noise_threshold arg
                                         threshold for signal detect, target 
                                         signal / noise ratio

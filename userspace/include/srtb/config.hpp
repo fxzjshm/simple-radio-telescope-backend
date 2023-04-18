@@ -210,7 +210,7 @@ struct configs {
    * @brief Length of FFT for re-constructing signals after coherent dedispersion,
    *        of complex numbers, so <= baseband_input_count / 2
    */
-  size_t refft_length = 1 << 15;
+  size_t spectrum_channel_count = 1 << 15;
 
   /**
    * @brief signal noise ratio threshold for signal detect,

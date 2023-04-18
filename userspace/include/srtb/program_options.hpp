@@ -114,9 +114,9 @@ namespace program_options {
       ("mitigate_rfi_freq_list", boost::program_options::value<std::string>(),
        "list of frequency pairs to zap/remove, "
        "format: 11-12, 15-90, 233-235, 1176-1177 (arbitary values)")
-      ("refft_length", boost::program_options::value<std::string>(),
-       "Length of FFT for re-constructing signals after coherent dedispersion, "
-       "of complex numbers, so refft_length <= baseband_input_count / 2")
+      ("spectrum_channel_count", boost::program_options::value<std::string>(),
+       "Count of channels (complex numbers) in spectrum. "
+       "Time resolution for one bin is 2 * spectrum_channel_count / baseband_sample_rate")
       ("signal_detect_signal_noise_threshold", boost::program_options::value<std::string>(),
        "threshold for signal detect, target signal / noise ratio")
       ("signal_detect_channel_threshold", boost::program_options::value<std::string>(),
@@ -256,7 +256,7 @@ inline void evaluate_and_apply_changed_config(const std::string& name,
   SRTB_PARSE(mitigate_rfi_average_method_threshold)
   SRTB_PARSE(mitigate_rfi_spectral_kurtosis_threshold)
   SRTB_ASSIGN(mitigate_rfi_freq_list)
-  SRTB_PARSE(refft_length)
+  SRTB_PARSE(spectrum_channel_count)
   SRTB_PARSE(signal_detect_signal_noise_threshold)
   SRTB_PARSE(signal_detect_channel_threshold)
   SRTB_PARSE(signal_detect_max_boxcar_length)
