@@ -26,15 +26,15 @@ Then please refer to [BUILDING.md](BUILDING.md)
 
 ### Example Setup
 Tested setup:
-* AMD laptop CPU @ 2022 + AMD consumer GPU (gfx906; gfx1035)
+* AMD Rembrandt CPU + AMD GPU (gfx906 (dGPU); gfx1035 (APU))
   * with hipSYCL HIP backend & intel/llvm HIP backend
   * hipfft interop disabled for gfx1035 due to Segmentation Fault (as it is unsupported hardware)
-* Intel server CPU @ 2021 + NVIDIA server GPU (GA102; GA104)
+* Intel Ice Lake CPU + NVIDIA GPU (GA102; GA104)
   * with hipSYCL CUDA backend & intel/llvm CUDA backend
-* Intel server CPU @ 2021
+* Intel Ice Lake CPU
   * with hipSYCL CPU backend (CBS enabled)
   * may extended to any CPU with C++ support
-* AMD laptop CPU @ 2022
+* AMD Rembrandt CPU
   * same as above
   * also with intel/llvm OpenCL SPIR-V backend + [intel/opencl-intercept-layer](https://github.com/intel/opencl-intercept-layer) + [PoCL](http://portablecl.org/) CPU backend
     * intel/opencl-intercept-layer for USM -> SVM emulation:
@@ -43,8 +43,7 @@ export LD_PRELOAD=/opt/opencl-intercept-layer/lib/libOpenCL.so
 export CLI_Emulate_cl_intel_unified_shared_memory=1
 export CLI_SuppressLogging=1
 ```
-* [DATA EXPUNGED] server CPU @ ████ + [DATA EXPUNGED] ([DATA EXPUNGED])
-  * with [DATA EXPUNGED]
+* [DATA EXPUNGED] CPU + [DATA EXPUNGED] ([DATA EXPUNGED])
 
 To be tested:
 * mesa rusticl!
@@ -83,6 +82,7 @@ General Options:
                                         to sleep if it fails to get work. Trade
                                         off between CPU usage (most are wasted)
                                         and pipeline latency. 
+  --gui_enable arg                      Runtime configuration to enable GUI
 
 Baseband Options:
   --baseband_input_count arg            Count of data to be transferred to GPU 
