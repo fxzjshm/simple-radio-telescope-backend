@@ -146,10 +146,11 @@ auto simplify_spectrum_normalize_with_average_value(
   auto d_avg_val = d_avg_val_shared.get();
   T h_avg_val;
   q.copy(d_avg_val, /* -> */ &h_avg_val, 1).wait();
+  const T coeff = T{1.0} / (h_avg_val * 2);
   if (h_avg_val > std::numeric_limits<T>::epsilon()) [[likely]] {
     q.parallel_for(sycl::range<1>{in_count}, [=](sycl::item<1> id) {
        const size_t i = id.get_id(0);
-       d_in[i] /= (*d_avg_val) * 2;
+       d_in[i] *= coeff;
      }).wait();
   }
   return h_avg_val;

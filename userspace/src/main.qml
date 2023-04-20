@@ -14,6 +14,7 @@ Window {
         width: parent.width
         height: parent.height
         source: "image://spectrum-image-provider/spectrum"
+        smooth: false
     }
 
     function update_spectrum(counter) {

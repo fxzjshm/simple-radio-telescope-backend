@@ -124,10 +124,9 @@ struct work {
    */
   size_t count;
   /**
-   * @brief time stamp of these data, currectly 64-bit unix timestamp.
+   * @brief time stamp of these data, currectly 64-bit unix timestamp or UDP packet counter
    */
   uint64_t timestamp;
-  // TODO: udp_packet_counter_type counter;
 };
 
 /**
