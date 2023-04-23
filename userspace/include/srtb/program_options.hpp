@@ -113,9 +113,9 @@ namespace program_options {
        "Frequency channels with spectral kurtosis larger than this threshold will be set to 0")
       ("mitigate_rfi_freq_list", boost::program_options::value<std::string>(),
        "list of frequency pairs to zap/remove, "
-       "format: 11-12, 15-90, 233-235, 1176-1177 (arbitary values)")
+       "format: 11-12, 15-90, 233-235, 1176-1177 (arbitrary values)")
       ("spectrum_channel_count", boost::program_options::value<std::string>(),
-       "Count of channels (complex numbers) in spectrum. "
+       "Count of channels (complex numbers) in spectrum waterfall. "
        "Time resolution for one bin is 2 * spectrum_channel_count / baseband_sample_rate")
       ("signal_detect_signal_noise_threshold", boost::program_options::value<std::string>(),
        "threshold for signal detect, target signal / noise ratio")

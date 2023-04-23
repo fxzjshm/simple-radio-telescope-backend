@@ -138,10 +138,10 @@ Operation Options:
                                         will be set to 0
   --mitigate_rfi_freq_list arg          list of frequency pairs to zap/remove, 
                                         format: 11-12, 15-90, 233-235, 
-                                        1176-1177 (arbitary values)
+                                        1176-1177 (arbitrary values)
   --spectrum_channel_count arg          Count of channels (complex numbers) in 
-                                        spectrum. Time resolution for one bin 
-                                        is 2 * spectrum_channel_count / 
+                                        spectrum waterfall. Time resolution for
+                                        one bin is 2 * spectrum_channel_count /
                                         baseband_sample_rate
   --signal_detect_signal_noise_threshold arg
                                         threshold for signal detect, target 

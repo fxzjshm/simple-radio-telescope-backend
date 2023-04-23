@@ -112,7 +112,7 @@ inline size_t expected_running_pipe_count = -233;
  *        count of started pipes, so...... )
  *       set initial expected_input_pipe_count larger so initially
  *           expected_running_pipe_count - expected_input_pipe_count
- *       is a large arbitary number.
+ *       is a large arbitrary number.
  */
 inline size_t expected_input_pipe_count = -42;
 

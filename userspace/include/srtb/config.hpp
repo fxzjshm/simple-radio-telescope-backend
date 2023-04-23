@@ -196,7 +196,7 @@ struct configs {
   /**
    * @brief list of frequency pairs to zap/remove,
    *        format: 11-12, 15-90, 233-235, 1176-1177
-   *                (arbitary values)
+   *                (arbitrary values)
    */
   std::string mitigate_rfi_freq_list = "";
 
@@ -207,8 +207,7 @@ struct configs {
   size_t spectrum_sum_count = 1;
 
   /**
-   * @brief Length of FFT for re-constructing signals after coherent dedispersion,
-   *        of complex numbers, so <= baseband_input_count / 2
+   * @brief Count of channels (complex numbers) in spectrum waterfall.
    */
   size_t spectrum_channel_count = 1 << 15;
 
