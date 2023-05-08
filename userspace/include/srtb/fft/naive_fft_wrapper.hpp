@@ -63,8 +63,12 @@ class naive_fft_1d_wrapper
     const size_t n = (*this).n;
     check_size(n);
     const size_t n_real = n, n_complex = n_real / 2 + 1;
-    // compute in reverse direction so no overwriting when batch_size > 1
-    for (size_t i = (*this).batch_size - 1; i != static_cast<size_t>(-1); i--) {
+    if (batch_size > 1 && static_cast<void*>(in) == static_cast<void*>(out)) {
+      // result will overlap, which cannot handle now
+      throw std::runtime_error(
+          "[naive_fft_wrapper]: in-place batched R2C is not supported now.");
+    }
+    for (size_t i = 0; i < batch_size; i++) {
       naive_fft::fft_1d_r2c<T, C>(k, in + i * n_real, out + i * n_complex,
                                   (*this).q);
     }
