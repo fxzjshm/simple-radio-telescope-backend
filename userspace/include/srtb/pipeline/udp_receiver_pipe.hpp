@@ -153,9 +153,7 @@ class udp_receiver_pipe : public pipe<udp_receiver_pipe> {
     sycl::event host_to_devive_copy_event =
         q.copy(h_ptr.get(), /* -> */ d_ptr.get(), baseband_input_bytes);
 
-    // choose first counter of new packet in this segment of data as time stamp
-    // TODO: better ideas?
-    const uint64_t timestamp = first_counter;
+    const uint64_t timestamp = std::chrono::system_clock::now().time_since_epoch().count();
 
     // no need to process data if just recording baseband data & not showing spectrum
     if (!(srtb::config.baseband_write_all && (!srtb::config.gui_enable))) {
@@ -165,6 +163,7 @@ class udp_receiver_pipe : public pipe<udp_receiver_pipe> {
       unpack_work.count = baseband_input_bytes;
       unpack_work.baseband_input_bits = baseband_input_bits;
       unpack_work.timestamp = timestamp;
+      unpack_work.udp_packet_counter = first_counter;
       unpack_work.host_to_device_copy_event = host_to_devive_copy_event;
       SRTB_PUSH_WORK_OR_RETURN(" [udp receiver pipe] ", srtb::unpack_queue,
                                unpack_work, stop_token);
@@ -175,6 +174,7 @@ class udp_receiver_pipe : public pipe<udp_receiver_pipe> {
       baseband_output_work.ptr = h_ptr;
       baseband_output_work.count = baseband_input_bytes;
       baseband_output_work.timestamp = timestamp;
+      baseband_output_work.udp_packet_counter = first_counter;
       SRTB_PUSH_WORK_OR_RETURN(" [udp receiver pipe] ",
                                srtb::baseband_output_queue,
                                baseband_output_work, stop_token);

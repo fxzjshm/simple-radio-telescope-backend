@@ -120,6 +120,7 @@ class unpack_pipe : public pipe<unpack_pipe> {
     fft_1d_r2c_work.ptr = d_out_shared;
     fft_1d_r2c_work.count = out_count;
     fft_1d_r2c_work.timestamp = unpack_work.timestamp;
+    fft_1d_r2c_work.udp_packet_counter = unpack_work.udp_packet_counter;
     SRTB_PUSH_WORK_OR_RETURN(" [unpack pipe] ", srtb::fft_1d_r2c_queue,
                              fft_1d_r2c_work, stop_token);
   }

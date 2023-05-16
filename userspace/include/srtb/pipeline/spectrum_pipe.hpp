@@ -81,6 +81,8 @@ class simplify_spectrum_pipe : public pipe<simplify_spectrum_pipe> {
     draw_spectrum_work.count = out_count;
     draw_spectrum_work.batch_size = batch_size;
     draw_spectrum_work.timestamp = simplify_spectrum_work.timestamp;
+    draw_spectrum_work.udp_packet_counter =
+        simplify_spectrum_work.udp_packet_counter;
     // same as SRTB_PUSH_WORK_OR_RETURN(), but supressed logs
     {
       bool success = false;

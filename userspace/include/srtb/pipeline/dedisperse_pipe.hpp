@@ -63,6 +63,7 @@ class dedisperse_pipe : public pipe<dedisperse_pipe> {
     ifft_1d_c2c_work.ptr = d_in_shared;
     ifft_1d_c2c_work.count = N;
     ifft_1d_c2c_work.timestamp = work.timestamp;
+    ifft_1d_c2c_work.udp_packet_counter = work.udp_packet_counter;
     SRTB_PUSH_WORK_OR_RETURN(" [dedisperse pipe] ", srtb::ifft_1d_c2c_queue,
                              ifft_1d_c2c_work, stop_token);
   }

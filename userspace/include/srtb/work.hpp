@@ -124,9 +124,17 @@ struct work {
    */
   size_t count;
   /**
-   * @brief time stamp of these data, currectly 64-bit unix timestamp or UDP packet counter
+   * @brief time stamp of these data, currectly 64-bit unix timestamp from server time
    */
   uint64_t timestamp;
+  /**
+   * @brief counter of correspond first new UDP packet, == no_udp_packet_counter means no value.
+   */
+  uint64_t udp_packet_counter;
+  /**
+   * @brief dummy value if no udp_packet_counter is available
+   */
+  static constexpr uint64_t no_udp_packet_counter = static_cast<uint64_t>(-1);
 };
 
 /**

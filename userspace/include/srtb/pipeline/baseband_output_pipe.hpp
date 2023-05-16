@@ -200,13 +200,17 @@ class baseband_output_pipe</* continuous_write = */ false>
 
     const bool has_signal = (signal_detect_result.time_series.size() > 0);
     if (has_signal) {
-      auto timestamp = baseband_output_work.timestamp;
+      auto file_counter = baseband_output_work.udp_packet_counter;
+      if (file_counter == baseband_output_work.no_udp_packet_counter) {
+        file_counter = baseband_output_work.timestamp;
+      }
       SRTB_LOGI << " [baseband_output_pipe] "
-                << "Begin writing baseband data, timestamp = " << timestamp
-                << srtb::endl;
+                << "Begin writing baseband data, file_counter = "
+                << file_counter << srtb::endl;
 
       const std::string file_name_no_extension =
-          srtb::config.baseband_output_file_prefix + std::to_string(timestamp);
+          srtb::config.baseband_output_file_prefix +
+          std::to_string(file_counter);
 
       boost::asio::post(
           baseband_output_thread_pool,
@@ -241,18 +245,18 @@ class baseband_output_pipe</* continuous_write = */ false>
               }
 #endif
               SRTB_LOGI << " [baseband_output_pipe] "
-                        << "Finished writing baseband data, timestamp = "
-                        << timestamp << srtb::endl;
+                        << "Finished writing baseband data, file_counter = "
+                        << file_counter << srtb::endl;
             } else [[unlikely]] {
               SRTB_LOGW << " [baseband_output_pipe] "
-                        << "Failed to write baseband data! timestamp = "
-                        << timestamp << srtb::endl;
+                        << "Failed to write baseband data! file_counter = "
+                        << file_counter << srtb::endl;
             }
           });
 
       boost::asio::post(
           time_series_plot_thread_pool,
-          [=, signal_detect_result = std::move(signal_detect_result)]() {
+          [=, this, signal_detect_result = std::move(signal_detect_result)]() {
             // iterate over all time series, assumed with signal
             for (auto time_series_holder : signal_detect_result.time_series) {
               const auto boxcar_length = time_series_holder.boxcar_length;
@@ -314,8 +318,8 @@ class baseband_output_pipe</* continuous_write = */ false>
 #endif
               } else [[unlikely]] {
                 SRTB_LOGW << " [baseband_output_pipe] "
-                          << "Failed to write baseband data! timestamp = "
-                          << timestamp << srtb::endl;
+                          << "Failed to write time series! file_counter = "
+                          << file_counter << srtb::endl;
               }
             }
           });
@@ -323,7 +327,7 @@ class baseband_output_pipe</* continuous_write = */ false>
     }  // if(has_signal)
 
     srtb::pipeline::notify();
-  }    // void run_once_inpl()
+  }  // void run_once_inpl()
 };
 
 }  // namespace pipeline

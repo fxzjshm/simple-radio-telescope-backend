@@ -96,6 +96,7 @@ class rfi_mitigation_pipe : public pipe<rfi_mitigation_pipe> {
     //simplify_spectrum_work.ptr = d_in_shared;
     //simplify_spectrum_work.count = in_count;
     //simplify_spectrum_work.timestamp = rfi_mitigation_work.timestamp;
+    //simplify_spectrum_work.udp_packet_counter = rfi_mitigation_work.udp_packet_counter;
     //simplify_spectrum_work.batch_size = 1;
     //SRTB_PUSH_WORK_OR_RETURN(" [rfi mitigation pipe] ", srtb::simplify_spectrum_queue,
     //               simplify_spectrum_work);
@@ -104,6 +105,7 @@ class rfi_mitigation_pipe : public pipe<rfi_mitigation_pipe> {
     out_work.ptr = d_in_shared;
     out_work.count = in_count;
     out_work.timestamp = rfi_mitigation_work.timestamp;
+    out_work.udp_packet_counter = rfi_mitigation_work.udp_packet_counter;
     out_work.baseband_freq_low = srtb::config.baseband_freq_low;
     out_work.baseband_sample_rate = srtb::config.baseband_sample_rate;
     out_work.dm = srtb::config.dm;

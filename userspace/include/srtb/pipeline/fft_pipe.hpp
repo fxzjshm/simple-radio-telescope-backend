@@ -78,6 +78,7 @@ class fft_1d_r2c_pipe : public pipe<fft_1d_r2c_pipe> {
     rfi_mitigation_work.ptr = d_out_shared;
     rfi_mitigation_work.count = out_count;
     rfi_mitigation_work.timestamp = fft_1d_r2c_work.timestamp;
+    rfi_mitigation_work.udp_packet_counter = fft_1d_r2c_work.udp_packet_counter;
     SRTB_PUSH_WORK_OR_RETURN(" [fft 1d r2c pipe] ", srtb::rfi_mitigation_queue,
                              rfi_mitigation_work, stop_token);
   }
@@ -178,6 +179,7 @@ class ifft_1d_c2c_pipe : public pipe<ifft_1d_c2c_pipe> {
     refft_1d_c2c_work.ptr = d_out_shared;
     refft_1d_c2c_work.count = output_count;
     refft_1d_c2c_work.timestamp = ifft_1d_c2c_work.timestamp;
+    refft_1d_c2c_work.udp_packet_counter = ifft_1d_c2c_work.udp_packet_counter;
     SRTB_PUSH_WORK_OR_RETURN(" [ifft 1d c2c pipe] ", srtb::refft_1d_c2c_queue,
                              refft_1d_c2c_work, stop_token);
   }
@@ -296,6 +298,7 @@ class refft_1d_c2c_pipe : public pipe<refft_1d_c2c_pipe> {
     signal_detect_work.count = refft_length;
     signal_detect_work.batch_size = refft_batch_size;
     signal_detect_work.timestamp = refft_1d_c2c_work.timestamp;
+    signal_detect_work.udp_packet_counter = refft_1d_c2c_work.udp_packet_counter;
     SRTB_PUSH_WORK_OR_RETURN(" [refft 1d c2c pipe] ", srtb::signal_detect_queue,
                              signal_detect_work, stop_token);
   }
