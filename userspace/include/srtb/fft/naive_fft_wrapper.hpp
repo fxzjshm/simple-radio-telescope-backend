@@ -61,6 +61,7 @@ class naive_fft_1d_wrapper
                                     int>::type = 0>
   void process_impl(T* in, C* out) {
     const size_t n = (*this).n;
+    const size_t batch_size = (*this).batch_size;
     check_size(n);
     const size_t n_real = n, n_complex = n_real / 2 + 1;
     if (batch_size > 1 && static_cast<void*>(in) == static_cast<void*>(out)) {
