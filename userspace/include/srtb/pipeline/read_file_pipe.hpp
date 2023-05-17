@@ -83,23 +83,14 @@ class read_file_pipe : public pipe<read_file_pipe> {
         srtb::work::unpack_work unpack_work;
         unpack_work.ptr = std::reinterpret_pointer_cast<std::byte>(d_in_shared);
         unpack_work.count = time_sample_bytes;
+        unpack_work.baseband_data = {
+            std::reinterpret_pointer_cast<std::byte>(h_in_shared),
+            time_sample_bytes};
         unpack_work.timestamp = timestamp;
         unpack_work.udp_packet_counter = unpack_work.no_udp_packet_counter;
         unpack_work.baseband_input_bits = baseband_input_bits;
         SRTB_PUSH_WORK_OR_RETURN(" [read_file] ", srtb::unpack_queue,
                                  unpack_work, stop_token);
-      }
-
-      {
-        srtb::work::baseband_output_work baseband_output_work;
-        baseband_output_work.ptr =
-            std::reinterpret_pointer_cast<std::byte>(h_in_shared);
-        baseband_output_work.count = time_sample_bytes;
-        baseband_output_work.timestamp = timestamp;
-        baseband_output_work.udp_packet_counter =
-            baseband_output_work.no_udp_packet_counter;
-        SRTB_PUSH_WORK_OR_RETURN(" [read_file] ", srtb::baseband_output_queue,
-                                 baseband_output_work, stop_token);
       }
 
       // reserved some samples for next round

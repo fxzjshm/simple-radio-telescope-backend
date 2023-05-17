@@ -188,7 +188,6 @@ graph LR;
   recorded_baseband_file[recorded <br/> baseband <br/> file];
   udp_receiver_pipe(udp <br/> receiver <br/> pipe);
   read_file_pipe(read <br/> file <br/> pipe);
-  host_buffer{host <br/> buffer};
   unpack_pipe(unpack <br/> pipe);
   fft_1d_r2c_pipe(fft <br/> 1d r2c <br/> pipe);
   rfi_mitigation_pipe(rfi <br/> mitigation <br/> pipe);
@@ -204,11 +203,7 @@ graph LR;
 
   UDP_packets --> udp_receiver_pipe --> unpack_pipe;
   recorded_baseband_file --> read_file_pipe --> unpack_pipe;
-  udp_receiver_pipe --> host_buffer;
-  read_file_pipe --> host_buffer;
-  host_buffer --> baseband_output_pipe
-  unpack_pipe --> fft_1d_r2c_pipe --> rfi_mitigation_pipe --> dedisperse_pipe --> ifft_1d_c2c_pipe --> refft_1d_c2c_pipe;
-  refft_1d_c2c_pipe --> signal_detect_pipe;
+  unpack_pipe --> fft_1d_r2c_pipe --> rfi_mitigation_pipe --> dedisperse_pipe --> ifft_1d_c2c_pipe --> refft_1d_c2c_pipe --> signal_detect_pipe;
   signal_detect_pipe --> simplify_spectrum_pipe;
   signal_detect_pipe --> baseband_output_pipe;
   baseband_output_pipe --> baseband_file_with_signal_candidate

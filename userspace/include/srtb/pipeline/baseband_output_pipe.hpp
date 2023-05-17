@@ -63,12 +63,6 @@ class baseband_output_pipe</* continuous_write = */ true>
                             srtb::baseband_output_queue, baseband_output_work,
                             stop_token);
 
-    // since writing all baseband, ignore signal detect result
-    while (!srtb::signal_detect_result_queue.empty()) {
-      signal_detect_result_queue.pop();
-      // drop()
-    }
-
     // file name need time stamp, so cannot create early
     if (!file_output_stream) [[unlikely]] {
       std::string file_path = srtb::config.baseband_output_file_prefix +
@@ -82,8 +76,10 @@ class baseband_output_pipe</* continuous_write = */ true>
       }
     }
 
-    const char* ptr = reinterpret_cast<char*>(baseband_output_work.ptr.get());
-    const size_t baseband_input_count = baseband_output_work.count;
+    const char* ptr = reinterpret_cast<char*>(
+        baseband_output_work.baseband_data.baseband_ptr.get());
+    const size_t baseband_input_count =
+        baseband_output_work.baseband_data.baseband_input_bytes;
     size_t write_count;
 
     // reserved some samples for next round
@@ -115,6 +111,7 @@ template <>
 class baseband_output_pipe</* continuous_write = */ false>
     : public pipe<baseband_output_pipe<false> > {
   friend pipe<baseband_output_pipe<false> >;
+  /** @brief temporary memory lent to time_series_plot_thread_pool for using matplotlib-cpp */
   std::vector<srtb::real> time_series_buffer;
   boost::asio::thread_pool baseband_output_thread_pool;
   // CPython interpretor is not thread-safe, so only one thread can access it.
@@ -166,41 +163,11 @@ class baseband_output_pipe</* continuous_write = */ false>
 
   void run_once_impl(std::stop_token stop_token) {
     srtb::work::baseband_output_work baseband_output_work;
-    srtb::work::signal_detect_result signal_detect_result;
     SRTB_POP_WORK_OR_RETURN(" [baseband_output_pipe] ",
                             srtb::baseband_output_queue, baseband_output_work,
                             stop_token);
-    SRTB_POP_WORK_OR_RETURN(" [baseband_output_pipe] ",
-                            srtb::signal_detect_result_queue,
-                            signal_detect_result, stop_token);
-    while (baseband_output_work.timestamp != signal_detect_result.timestamp)
-        [[unlikely]] {
-      if (baseband_output_work.timestamp < signal_detect_result.timestamp) {
-        SRTB_LOGW << " [baseband_output_pipe] "
-                  << "baseband_output_work.timestamp = "
-                  << baseband_output_work.timestamp << " < "
-                  << "signal_detect_result.timestamp = "
-                  << signal_detect_result.timestamp << srtb::endl;
-        SRTB_POP_WORK_OR_RETURN(" [baseband_output_pipe] ",
-                                srtb::baseband_output_queue,
-                                baseband_output_work, stop_token);
-      } else if (baseband_output_work.timestamp >
-                 signal_detect_result.timestamp) {
-        SRTB_LOGW << " [baseband_output_pipe] "
-                  << "baseband_output_work.timestamp = "
-                  << baseband_output_work.timestamp << " > "
-                  << "signal_detect_result.timestamp = "
-                  << signal_detect_result.timestamp << srtb::endl;
-        SRTB_POP_WORK_OR_RETURN(" [baseband_output_pipe] ",
-                                srtb::signal_detect_result_queue,
-                                signal_detect_result, stop_token);
-      } else {
-        SRTB_LOGE << " [baseband_output_pipe] "
-                  << "Logic error. Something must be wrong." << srtb::endl;
-      }
-    }
 
-    const bool has_signal = (signal_detect_result.time_series.size() > 0);
+    const bool has_signal = (baseband_output_work.time_series.size() > 0);
     if (has_signal) {
       auto file_counter = baseband_output_work.udp_packet_counter;
       if (file_counter == baseband_output_work.no_udp_packet_counter) {
@@ -216,7 +183,7 @@ class baseband_output_pipe</* continuous_write = */ false>
 
       boost::asio::post(
           baseband_output_thread_pool,
-          [=, baseband_output_work = std::move(baseband_output_work)]() {
+          [=, baseband_data = std::move(baseband_output_work.baseband_data)]() {
             // write original baseband data
             const std::string baseband_file_path =
                 file_name_no_extension + ".bin";
@@ -224,12 +191,13 @@ class baseband_output_pipe</* continuous_write = */ false>
                 baseband_output_stream{baseband_file_path,
                                        BOOST_IOS::binary | BOOST_IOS::out};
             const char* baseband_ptr =
-                reinterpret_cast<char*>(baseband_output_work.ptr.get());
-            const size_t baseband_write_count = baseband_output_work.count;
+                reinterpret_cast<char*>(baseband_data.baseband_ptr.get());
+            const size_t baseband_write_count =
+                baseband_data.baseband_input_bytes;
             baseband_output_stream.write(
                 baseband_ptr,
                 baseband_write_count *
-                    sizeof(decltype(baseband_output_work.ptr)::element_type));
+                    sizeof(decltype(baseband_data.baseband_ptr)::element_type));
             baseband_output_stream.flush();
 
             // check handle of baseband data
@@ -258,9 +226,10 @@ class baseband_output_pipe</* continuous_write = */ false>
 
       boost::asio::post(
           time_series_plot_thread_pool,
-          [=, this, signal_detect_result = std::move(signal_detect_result)]() {
+          [=, this,
+           time_series = std::move(baseband_output_work.time_series)]() {
             // iterate over all time series, assumed with signal
-            for (auto time_series_holder : signal_detect_result.time_series) {
+            for (auto time_series_holder : time_series) {
               const auto boxcar_length = time_series_holder.boxcar_length;
               const std::string time_series_file_path =
                   file_name_no_extension + "." + std::to_string(boxcar_length) +

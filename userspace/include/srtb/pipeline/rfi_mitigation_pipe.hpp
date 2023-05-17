@@ -95,6 +95,7 @@ class rfi_mitigation_pipe : public pipe<rfi_mitigation_pipe> {
     //srtb::work::simplify_spectrum_work simplify_spectrum_work;
     //simplify_spectrum_work.ptr = d_in_shared;
     //simplify_spectrum_work.count = in_count;
+    //simplify_spectrum_work.baseband_data = std::move(rfi_mitigation_work.baseband_data);
     //simplify_spectrum_work.timestamp = rfi_mitigation_work.timestamp;
     //simplify_spectrum_work.udp_packet_counter = rfi_mitigation_work.udp_packet_counter;
     //simplify_spectrum_work.batch_size = 1;
@@ -104,6 +105,7 @@ class rfi_mitigation_pipe : public pipe<rfi_mitigation_pipe> {
     srtb::work::dedisperse_work out_work;
     out_work.ptr = d_in_shared;
     out_work.count = in_count;
+    out_work.baseband_data = std::move(rfi_mitigation_work.baseband_data);
     out_work.timestamp = rfi_mitigation_work.timestamp;
     out_work.udp_packet_counter = rfi_mitigation_work.udp_packet_counter;
     out_work.baseband_freq_low = srtb::config.baseband_freq_low;

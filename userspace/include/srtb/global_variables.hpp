@@ -84,15 +84,7 @@ inline srtb::work_queue<srtb::work::simplify_spectrum_work>
     simplify_spectrum_queue;
 inline srtb::work_queue<srtb::work::draw_spectrum_work> draw_spectrum_queue;
 inline srtb::work_queue<srtb::work::signal_detect_work> signal_detect_queue;
-
-// data of this queue are on host memory, so resource is not very restricted.
-// it also acts as a buffer, that is, only when signal_detect_pipe has result
-// can baseband_output_pipe write or drop it,
-// so capacity must be LARGE
-inline srtb::work_queue<srtb::work::baseband_output_work, /* spsc = */ false>
-    baseband_output_queue;
-inline srtb::work_queue<srtb::work::signal_detect_result>
-    signal_detect_result_queue;
+inline srtb::work_queue<srtb::work::baseband_output_work> baseband_output_queue;
 
 namespace pipeline {
 

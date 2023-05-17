@@ -60,8 +60,7 @@ class unpack_pipe : public pipe<unpack_pipe> {
     }
 
     // wait for host to device copy complete
-    unpack_work.host_to_device_copy_event.wait();
-    unpack_work.h_ptr.reset();
+    unpack_work.copy_event.wait();
 
     auto& d_in_shared = unpack_work.ptr;
     // size += 2 because fft_pipe may operate in-place
@@ -119,6 +118,7 @@ class unpack_pipe : public pipe<unpack_pipe> {
     srtb::work::fft_1d_r2c_work fft_1d_r2c_work;
     fft_1d_r2c_work.ptr = d_out_shared;
     fft_1d_r2c_work.count = out_count;
+    fft_1d_r2c_work.baseband_data = std::move(unpack_work.baseband_data);
     fft_1d_r2c_work.timestamp = unpack_work.timestamp;
     fft_1d_r2c_work.udp_packet_counter = unpack_work.udp_packet_counter;
     SRTB_PUSH_WORK_OR_RETURN(" [unpack pipe] ", srtb::fft_1d_r2c_queue,

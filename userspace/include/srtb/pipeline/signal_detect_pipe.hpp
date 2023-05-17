@@ -122,8 +122,15 @@ class signal_detect_pipe : public pipe<signal_detect_pipe> {
     }
     // time series is now available
 
-    srtb::work::signal_detect_result signal_detect_result{
-        .timestamp = signal_detect_work.timestamp};
+    srtb::work::baseband_output_work baseband_output_work;
+    baseband_output_work.ptr = nullptr;  // TODO
+    baseband_output_work.count = 0;
+    baseband_output_work.batch_size = 0;
+    baseband_output_work.baseband_data =
+        std::move(signal_detect_work.baseband_data);
+    baseband_output_work.timestamp = signal_detect_work.timestamp;
+    baseband_output_work.udp_packet_counter =
+        signal_detect_work.udp_packet_counter;
 
     // if too many frequency channels are masked, result is often inaccurate
     if (zero_count <
@@ -145,7 +152,7 @@ class signal_detect_pipe : public pipe<signal_detect_pipe> {
               .time_series_length = time_series_count,
               .boxcar_length = 1,
               .transfer_event = event};
-          signal_detect_result.time_series.push_back(time_series_holder);
+          baseband_output_work.time_series.push_back(time_series_holder);
         }
       }
 
@@ -202,29 +209,29 @@ class signal_detect_pipe : public pipe<signal_detect_pipe> {
                 .time_series_length = boxcared_time_series_count,
                 .boxcar_length = boxcar_length,
                 .transfer_event = event};
-            signal_detect_result.time_series.push_back(time_series_holder);
+            baseband_output_work.time_series.push_back(time_series_holder);
           }
         }
       }
     } else {
-      // signal_detect_result.has_signal = false;
+      // baseband_output_work.has_signal = false;
       // currently represented as time_series.size() == 0
       // that is, do nothing
     }
 
-    const bool has_signal = (signal_detect_result.time_series.size() > 0);
+    const bool has_signal = (baseband_output_work.time_series.size() > 0);
     if (has_signal) {
       SRTB_LOGI << " [signal_detect_pipe] "
                 << " signal detected in "
-                << signal_detect_result.time_series.size() << " time series"
+                << baseband_output_work.time_series.size() << " time series"
                 << srtb::endl;
     } else {
       SRTB_LOGD << " [signal_detect_pipe] "
                 << "no signal detected" << srtb::endl;
     }
     SRTB_PUSH_WORK_OR_RETURN(" [signal_detect_pipe] ",
-                             srtb::signal_detect_result_queue,
-                             signal_detect_result, stop_token);
+                             srtb::baseband_output_queue, baseband_output_work,
+                             stop_token);
   }
 };
 
