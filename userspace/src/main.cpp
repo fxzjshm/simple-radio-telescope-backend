@@ -261,7 +261,7 @@ int main(int argc, char** argv) {
   } else {
 #endif  // SRTB_ENABLE_GUI
     while (!(srtb::pipeline::no_more_work &&
-             srtb::baseband_output_queue.size_approx() == 0)) {
+             srtb::baseband_output_queue.read_available() == 0)) {
       std::this_thread::sleep_for(
           std::chrono::nanoseconds(srtb::config.thread_query_work_wait_time));
     }

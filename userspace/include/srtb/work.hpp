@@ -90,13 +90,17 @@ class work_queue<T, false, unused_1, unused_2>
   using super_class = moodycamel::ConcurrentQueue<T>;
   template <typename... Args>
   inline decltype(auto) push(Args&&... args) {
-    return super_class::try_enqueue(std::forward<Args>(args)...);
+    return super_class::enqueue(std::forward<Args>(args)...);
   }
 
   template <typename... Args>
   inline decltype(auto) pop(Args&&... args) {
     return super_class::try_dequeue(std::forward<Args>(args)...);
   }
+
+  inline size_t read_available() { return super_class::size_approx(); }
+
+  inline bool empty() { return super_class::is_empty(); }
 };
 
 /**
