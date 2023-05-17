@@ -5,12 +5,15 @@ Everything working in progress...
 This is a simple backend of radio telescope. 
 It reads raw "baseband"/"intermediate frequency" voltage data and should be capable of coherent dedispersion, radio frequency interference mitigation and single pulse signal detection in real-time, with spectrum waterfall shown in GUI.
 
-Future plans include DPDK integration, search of disperse measurements, correction of antenna polarizations, pulsar folding backend, etc.
+Possible future plans include DPDK integration, search of disperse measurements, correction of antenna polarizations, pulsar folding backend, etc.
 
-Due to vendor neutrality and API complexity,
+Due to **vendor neutrality** and API complexity,
 [SYCL 2020](https://www.khronos.org/sycl/) from Khronos Group is chosen as target API.
-Although say so, currently only CPU (OpenMP, on amd64), ROCm and CUDA backends are tested, due to limited device types available.
+Although say so, currently only CPU (OpenMP, on amd64), ROCm and CUDA backends are tested, due to limited device types available; another backend is working-in-progress.
 Mainly used SYCL implementations are [hipSYCL](https://github.com/illuhad/hipSYCL) and [intel/llvm](https://github.com/intel/llvm/)
+
+> It is noticed that there has been a tendency to equate GPU with CUDA, especially in HPC and AI.  
+> It must be emphasized that GPU != CUDA, there do exist other vendors that should not be neglected.
 
 This is only an undergraduate "research" project written by a newbie of radio astronomy, so many things are naively implemented. 
 Corrections and suggestions are very appreciated!
@@ -26,7 +29,7 @@ Then please refer to [BUILDING.md](BUILDING.md)
 
 ### Example Setup
 Tested setup:
-* AMD Rembrandt CPU + AMD GPU (gfx906 (dGPU); gfx1035 (APU))
+* AMD Rembrandt CPU + AMD GPU (gfx906; gfx1035)
   * with hipSYCL HIP backend & intel/llvm HIP backend
   * hipfft interop disabled for gfx1035 due to Segmentation Fault (as it is unsupported hardware)
 * Intel Ice Lake CPU + NVIDIA GPU (GA102; GA104)
@@ -37,7 +40,7 @@ Tested setup:
 * AMD Rembrandt CPU
   * same as above
   * also with intel/llvm OpenCL SPIR-V backend + [intel/opencl-intercept-layer](https://github.com/intel/opencl-intercept-layer) + [PoCL](http://portablecl.org/) CPU backend
-    * intel/opencl-intercept-layer for USM -> SVM emulation:
+    * intel/opencl-intercept-layer used for USM -> SVM emulation:
 ```bash
 export LD_PRELOAD=/opt/opencl-intercept-layer/lib/libOpenCL.so
 export CLI_Emulate_cl_intel_unified_shared_memory=1
@@ -236,13 +239,19 @@ Main part of this program is licensed under [Mulan Public License, Version 2](ht
 
 Please notice that Mulan Public License (MulanPubL) is different from Mulan Permissive License (MulanPSL). The former, which this project uses, is more of GPL-like.
 
-This program comes with ABSOLUTELY NO WARRANTY. 
+In accordance with the license, no contributor will be liable for any damaged caused by this program.
 A device failure has been encountered during daily observation using Intel server CPU + NVIDIA server GPU setup, although a reboot simply fixed it.
 **Please pay special attention to server cooling before observation.**
 
 ## Credits
-This repo also contains some 3rd-party code:
+This repo uses some 3rd-party code:
+* a [modified version](https://github.com/fxzjshm/SyclParallelSTL) of [SyclParallelSTL](https://github.com/KhronosGroup/SyclParallelSTL)
+  * modified so that algorithms work direcly on input iterators
+  * refer to its README for detailed modifications
 * `exprgrammar.hpp` from [Suzerain](https://bitbucket.org/RhysU/suzerain) (and [this blog](https://agentzlerich.blogspot.com/2011/06/using-boost-spirit-21-to-evaluate.html)) by RhysU, licensed under [Mozilla Public License, v. 2.0](https://mozilla.org/MPL/2.0/) . 
   * Tiny modification is made to update path of header included.
 * [matplotlib-cpp](https://github.com/lava/matplotlib-cpp) by Benno Evers ("lava"), licensed under the MIT License
 * [code snippet to get unmangled type name](https://bitwizeshift.github.io/posts/2021/03/09/getting-an-unmangled-type-name-at-compile-time/) by bitwizeshift, licensed under the [MIT License](https://github.com/bitwizeshift/bitwizeshift.github.io/blob/source/LICENSE)
+* [Emulated double precision Double single routine header](https://forums.developer.nvidia.com/t/emulated-double-precision-double-single-routine-header/4686) by StickGuy, Norbert Juffa, Reimar, et al. , 
+  * original file is dsmath.h; changes are made to dsmath_sycl.h to integrate into this project.
+
