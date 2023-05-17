@@ -88,15 +88,17 @@ class baseband_output_pipe</* continuous_write = */ true>
 
     // reserved some samples for next round
     const size_t nsamps_reserved = srtb::codd::nsamps_reserved();
+    const size_t nbytes_reserved =
+        nsamps_reserved * srtb::config.baseband_input_bits / srtb::BITS_PER_BYTE;
 
-    if (nsamps_reserved < baseband_input_count) {
-      write_count = baseband_input_count - nsamps_reserved;
+    if (nbytes_reserved < baseband_input_count) {
+      write_count = baseband_input_count - nbytes_reserved;
       SRTB_LOGD << " [baseband_output_pipe] "
-                << "reserved " << nsamps_reserved << " samples" << srtb::endl;
+                << "reserved " << nbytes_reserved << " bytes" << srtb::endl;
     } else {
       SRTB_LOGW << " [baseband_output_pipe] "
                 << "baseband_input_count = " << baseband_input_count
-                << " >= nsamps_reserved = " << nsamps_reserved << srtb::endl;
+                << " >= nbytes_reserved = " << nbytes_reserved << srtb::endl;
       write_count = baseband_input_count;
     }
     file_output_stream.write(
