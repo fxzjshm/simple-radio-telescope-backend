@@ -29,7 +29,9 @@
 #include <boost/asio/post.hpp>
 #include <boost/asio/thread_pool.hpp>
 #include <ctime>
+#include <deque>
 #include <fstream>
+#include <optional>
 #include <vector>
 
 #include "matplotlibcpp.h"
@@ -84,8 +86,9 @@ class baseband_output_pipe</* continuous_write = */ true>
 
     // reserved some samples for next round
     const size_t nsamps_reserved = srtb::codd::nsamps_reserved();
-    const size_t nbytes_reserved =
-        nsamps_reserved * srtb::config.baseband_input_bits / srtb::BITS_PER_BYTE;
+    const size_t nbytes_reserved = nsamps_reserved *
+                                   srtb::config.baseband_input_bits /
+                                   srtb::BITS_PER_BYTE;
 
     if (nbytes_reserved < baseband_input_count) {
       write_count = baseband_input_count - nbytes_reserved;
@@ -111,6 +114,12 @@ template <>
 class baseband_output_pipe</* continuous_write = */ false>
     : public pipe<baseband_output_pipe<false> > {
   friend pipe<baseband_output_pipe<false> >;
+
+  /** @brief local container of recent works with no signal detected (negative) */
+  std::deque<srtb::work::baseband_output_work> recent_negative_works;
+  /** @brief local container of timestamps of recent works with signal detected (positive) */
+  std::deque<uint64_t> recent_positive_timestamps;
+
   /** @brief temporary memory lent to time_series_plot_thread_pool for using matplotlib-cpp */
   std::vector<srtb::real> time_series_buffer;
   boost::asio::thread_pool baseband_output_thread_pool;
@@ -166,12 +175,75 @@ class baseband_output_pipe</* continuous_write = */ false>
     SRTB_POP_WORK_OR_RETURN(" [baseband_output_pipe] ",
                             srtb::baseband_output_queue, baseband_output_work,
                             stop_token);
+    std::optional<srtb::work::baseband_output_work> opt_work_to_write;
 
     const bool has_signal = (baseband_output_work.time_series.size() > 0);
+    const bool real_time_processing = (srtb::config.input_file_path == "");
+    bool overlap_with_recent_positive = false;
+    const double overlap_window = 0.45 * 1e9 *
+                                  srtb::config.baseband_input_count /
+                                  srtb::config.baseband_sample_rate;
+
+    // clean outdated positive results
+    while (real_time_processing && recent_positive_timestamps.size() > 0 &&
+           static_cast<int64_t>(baseband_output_work.timestamp -
+                                recent_positive_timestamps.front()) >
+               5 * overlap_window) {
+      recent_positive_timestamps.pop_front();
+    }
+
+    // 1) this work has signal
     if (has_signal) {
-      auto file_counter = baseband_output_work.udp_packet_counter;
-      if (file_counter == baseband_output_work.no_udp_packet_counter) {
-        file_counter = baseband_output_work.timestamp;
+      recent_positive_timestamps.push_back(baseband_output_work.timestamp);
+      opt_work_to_write = std::move(baseband_output_work);
+    }
+
+    // 2) sometimes signal is detected in only one polarization (which is strange)
+    //    try writing signals if signal in another polarization is detected recently
+    if ((!has_signal) && real_time_processing) {
+      for (auto t : recent_positive_timestamps) {
+        if (std::abs(static_cast<double>(static_cast<int64_t>(
+                baseband_output_work.timestamp - t))) < overlap_window) {
+          overlap_with_recent_positive = true;
+          break;
+        }
+      }
+      if (overlap_with_recent_positive) {
+        opt_work_to_write = std::move(baseband_output_work);
+      }
+    }
+
+    // send this to recent works
+    if (!(has_signal || overlap_with_recent_positive) && real_time_processing) {
+      recent_negative_works.push_back(std::move(baseband_output_work));
+    }
+
+    // 3) check if some recent negative works overlap with recent positive works
+    if (real_time_processing && (!opt_work_to_write.has_value()) &&
+        (recent_negative_works.size() > 0)) {
+      srtb::work::baseband_output_work work_2 =
+          std::move(recent_negative_works.front());
+      recent_negative_works.pop_front();
+
+      bool overlap_with_recent_positive_2 = false;
+      for (auto t : recent_positive_timestamps) {
+        if (std::abs(static_cast<double>(
+                static_cast<int64_t>(work_2.timestamp - t))) < overlap_window) {
+          overlap_with_recent_positive_2 = true;
+          break;
+        }
+      }
+      if (overlap_with_recent_positive_2) {
+        opt_work_to_write = std::move(work_2);
+      }
+    }
+
+    if (opt_work_to_write.has_value()) {
+      srtb::work::baseband_output_work work_to_write =
+          std::move(opt_work_to_write.value());
+      auto file_counter = work_to_write.udp_packet_counter;
+      if (file_counter == work_to_write.no_udp_packet_counter) {
+        file_counter = work_to_write.timestamp;
       }
       SRTB_LOGI << " [baseband_output_pipe] "
                 << "Begin writing baseband data, file_counter = "
@@ -183,7 +255,7 @@ class baseband_output_pipe</* continuous_write = */ false>
 
       boost::asio::post(
           baseband_output_thread_pool,
-          [=, baseband_data = std::move(baseband_output_work.baseband_data)]() {
+          [=, baseband_data = std::move(work_to_write.baseband_data)]() {
             // write original baseband data
             const std::string baseband_file_path =
                 file_name_no_extension + ".bin";
@@ -226,8 +298,7 @@ class baseband_output_pipe</* continuous_write = */ false>
 
       boost::asio::post(
           time_series_plot_thread_pool,
-          [=, this,
-           time_series = std::move(baseband_output_work.time_series)]() {
+          [=, this, time_series = std::move(work_to_write.time_series)]() {
             // iterate over all time series, assumed with signal
             for (auto time_series_holder : time_series) {
               const auto boxcar_length = time_series_holder.boxcar_length;
@@ -294,8 +365,7 @@ class baseband_output_pipe</* continuous_write = */ false>
               }
             }
           });
-
-    }  // if(has_signal)
+    }  // if (opt_work_to_write.has_value())
 
     srtb::pipeline::notify();
   }  // void run_once_inpl()
