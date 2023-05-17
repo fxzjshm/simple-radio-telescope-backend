@@ -14,8 +14,9 @@
 #ifndef __SRTB_NAIVE_FFT__
 #define __SRTB_NAIVE_FFT__
 
+#include <climits>
 #include <cmath>
-#include <concepts>
+#include <type_traits>
 
 #include "srtb/config.hpp"
 #include "srtb/sycl.hpp"
@@ -26,15 +27,61 @@
  */
 namespace naive_fft {
 
-template <std::integral T>
+namespace detail {
+
+template <size_t bit_width>
+struct builtin_bit_reverse {
+  static constexpr bool available = false;
+};
+
+#define SRTB_NAIVE_FFT_BUILTIN_BIT_REVERSE(bit)                 \
+  template <>                                                   \
+  struct builtin_bit_reverse<bit> {                             \
+    static constexpr bool available = true;                     \
+                                                                \
+    template <typename T, typename = typename std::enable_if_t< \
+                              sizeof(T) * CHAR_BIT == bit> >    \
+    constexpr inline auto operator()(T x) const {               \
+      return __builtin_bitreverse##bit(x);                      \
+    }                                                           \
+  };
+
+#if __has_builtin(__builtin_bitreverse8)
+SRTB_NAIVE_FFT_BUILTIN_BIT_REVERSE(8)
+#endif
+
+#if __has_builtin(__builtin_bitreverse16)
+SRTB_NAIVE_FFT_BUILTIN_BIT_REVERSE(16)
+#endif
+
+#if __has_builtin(__builtin_bitreverse32)
+SRTB_NAIVE_FFT_BUILTIN_BIT_REVERSE(32)
+#endif
+
+#if __has_builtin(__builtin_bitreverse64)
+SRTB_NAIVE_FFT_BUILTIN_BIT_REVERSE(64)
+#endif
+
+#undef SRTB_NAIVE_FFT_BUILTIN_BIT_REVERSE
+
+}  // namespace detail
+
+template <typename T>
 inline T bit_reverse(T x, size_t k) {
-  T y = 0;
-  while (k--) {
-    y <<= 1;
-    y |= x & 1;
-    x >>= 1;
+  constexpr auto bit_width = sizeof(T) * CHAR_BIT;
+  using builtin_bit_reverse = detail::builtin_bit_reverse<bit_width>;
+  if constexpr (builtin_bit_reverse::available) {
+    constexpr builtin_bit_reverse functor;
+    return functor(x) >> (bit_width - k);
+  } else {
+    T y = 0;
+    while (k--) {
+      y <<= 1;
+      y |= x & 1;
+      x >>= 1;
+    }
+    return y;
   }
-  return y;
 }
 
 template <typename InputAccessor, typename OutputAccessor>
