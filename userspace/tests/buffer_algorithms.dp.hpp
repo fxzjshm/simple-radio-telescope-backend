@@ -110,7 +110,7 @@ sycl_algorithm_descriptor compute_mapreduce_descriptor(sycl::device device,
 
   const sycl::id<3> max_work_item_sizes =
     device.get_info<
-#if defined(__HIPSYCL__) || defined(__COMPUTECPP__)
+#if defined(__COMPUTECPP__)
       sycl::info::device::max_work_item_sizes
 #else
       sycl::info::device::max_work_item_sizes<3>
@@ -387,7 +387,7 @@ sycl_algorithm_descriptor compute_mapscan_descriptor(sycl::device device,
 
   const sycl::id<3> max_work_item_sizes =
     device.get_info<
-#if defined(__HIPSYCL__) || defined(__COMPUTECPP__)
+#if defined(__COMPUTECPP__)
       sycl::info::device::max_work_item_sizes
 #else
       sycl::info::device::max_work_item_sizes<3>
