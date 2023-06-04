@@ -27,6 +27,7 @@
 #endif
 
 #include "dsmath_sycl.h"
+#include "srtb/math.hpp"
 #include "srtb/sycl.hpp"
 
 // ------ dividing line for clang-format ------
@@ -50,52 +51,6 @@
 #endif
 
 namespace srtb {
-
-template <typename T>
-inline constexpr auto norm(const srtb::complex<T> c) noexcept -> T {
-  return c.real() * c.real() + c.imag() * c.imag();
-}
-
-template <typename T>
-inline constexpr auto conj(const srtb::complex<T> c) noexcept
-    -> srtb::complex<T> {
-  return srtb::complex<T>{c.real(), -c.imag()};
-}
-
-template <typename T>
-inline constexpr auto abs(const srtb::complex<T> c) noexcept -> T {
-  return sycl::sqrt(srtb::norm(c));
-}
-
-template <typename T>
-inline constexpr T abs(const T x) noexcept {
-  if constexpr (std::is_integral_v<T>) {
-    return sycl::abs(x);
-  } else if constexpr (std::is_floating_point_v<T>) {
-    return sycl::fabs(x);
-  }
-}
-
-template <typename T>
-inline constexpr T modf(const T x, T* iptr) noexcept {
-  if constexpr (std::is_floating_point_v<T>) {
-    return sycl::modf(x, sycl::private_ptr<T>{iptr});
-  } else if constexpr (std::is_same_v<T, dsmath::df64>) {
-    float xi, xf, yi, yf;
-    xf = sycl::modf(x.x, sycl::private_ptr<float>{&xi});
-    yf = sycl::modf(x.y, sycl::private_ptr<float>{&yi});
-    dsmath::df64 i, f;
-    i = dsmath::df64{xi} + dsmath::df64{yi};
-    f = dsmath::df64{xf} + dsmath::df64{yf};
-    constexpr dsmath::df64 one = 1.0f;
-    if (f.x > 1.0f) {
-      f = f - one;
-      i = i + one;
-    }
-    *iptr = i;
-    return f;
-  }
-}
 
 #ifdef SRTB_HAS_CONSTEXPR_UNMANGLED_TYPE_NAME
 template <typename T>

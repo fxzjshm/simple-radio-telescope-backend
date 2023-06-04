@@ -7,3 +7,6 @@
 [submodule "userspace/3rdparty/concurrentqueue"]
 	path = userspace/3rdparty/concurrentqueue
 	url = https://github.com/cameron314/concurrentqueue.git
+[submodule "userspace/3rdparty/SyclCPLX"]
+	path = userspace/3rdparty/SyclCPLX
+	url = https://github.com/argonne-lcf/SyclCPLX

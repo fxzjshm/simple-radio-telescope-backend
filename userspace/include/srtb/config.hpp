@@ -20,16 +20,7 @@
 #include <string_view>
 #include <vector>
 
-#include "srtb/sycl.hpp"
-
-#ifdef SYCL_IMPLEMENTATION_ONEAPI
-#ifndef SYCL_EXT_ONEAPI_COMPLEX
-#define SYCL_EXT_ONEAPI_COMPLEX
-#endif  // SYCL_EXT_ONEAPI_COMPLEX
-#include <sycl/ext/oneapi/experimental/sycl_complex.hpp>
-#else
-#include <complex>
-#endif  // SYCL_IMPLEMENTATION_ONEAPI
+#include "srtb/math.hpp"
 
 namespace srtb {
 
@@ -39,13 +30,8 @@ namespace srtb {
 //       float on most GPUs, even most professional cards of SOME VENDOR.
 using real = float;
 
-#ifdef SYCL_IMPLEMENTATION_ONEAPI
 template <typename T>
-using complex = sycl::ext::oneapi::experimental::complex<T>;
-#else
-template <typename T>
-using complex = std::complex<T>;
-#endif  // SYCL_IMPLEMENTATION_ONEAPI
+using complex = sycl::ext::cplx::complex<T>;
 
 // option to use managed/unified memory as device memory
 #define SRTB_USE_USM_SHARED_MEMORY
