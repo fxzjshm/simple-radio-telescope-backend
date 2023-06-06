@@ -5,18 +5,50 @@ Everything working in progress...
 This is a simple backend of radio telescope. 
 It reads raw "baseband"/"intermediate frequency" voltage data and should be capable of coherent dedispersion, radio frequency interference mitigation and single pulse signal detection in real-time, with spectrum waterfall shown in GUI.
 
-Possible future plans include DPDK integration, search of disperse measurements, correction of antenna polarizations, pulsar folding backend, etc.
+![doc/img/result_crab_giant_pulse_spectrum_refresh.avif](doc/img/result_crab_giant_pulse_spectrum_refresh.avif)
+*First giant pulse from crab captured by this software*
+
+Possible future plans include DPDK integration, search of disperse measurements, etc.
 
 Due to **vendor neutrality** and API complexity,
 [SYCL 2020](https://www.khronos.org/sycl/) from Khronos Group is chosen as target API.
-Although say so, currently only CPU (OpenMP, on amd64), ROCm and CUDA backends are tested, due to limited device types available; another backend is working-in-progress.
+Although say so, currently only CPU (OpenMP, on AMD64), ROCm and CUDA backends are tested, due to limited device types available; another backend is working-in-progress.
 Mainly used SYCL implementations are [hipSYCL](https://github.com/illuhad/hipSYCL) and [intel/llvm](https://github.com/intel/llvm/)
 
 > It is noticed that there has been a tendency to equate GPU with CUDA, especially in HPC and AI.  
 > It must be emphasized that GPU != CUDA, there do exist other vendors that should not be neglected.
 
-This is only an undergraduate "research" project written by a newbie of radio astronomy, so many things are naively implemented. 
+This is only an undergraduate "research" project, so many things are naively implemented. 
 Corrections and suggestions are very appreciated!
+
+### Pipeline Structure
+```mermaid
+graph LR;
+  UDP_packets[UDP <br/> packets];
+  recorded_baseband_file[recorded <br/> baseband <br/> file];
+  udp_receiver_pipe(udp <br/> receiver <br/> pipe);
+  read_file_pipe(read <br/> file <br/> pipe);
+  unpack_pipe(unpack <br/> pipe);
+  fft_1d_r2c_pipe(fft <br/> 1d r2c <br/> pipe);
+  rfi_mitigation_pipe(rfi <br/> mitigation <br/> pipe);
+  dedisperse_pipe(dedisperse <br/> pipe);
+  ifft_1d_c2c_pipe(ifft <br/> 1d c2c <br/> pipe);
+  refft_1d_c2c_pipe(refft <br/> 1d c2c <br/> pipe);
+  signal_detect_pipe(signal <br/> detect <br/> pipe);
+  baseband_output_pipe(baseband <br/> output <br/> pipe);
+  simplify_spectrum_pipe(simplify <br/> spectrum <br/> pipe);
+  SpectrumImageProvider(Spectrum <br/> Image <br/> Provider);
+  baseband_file_with_signal_candidate[baseband <br/> file <br/> with <br/> signal <br/> candidate]
+  spectrum_ui[Spectrum <br/> UI]
+
+  UDP_packets --> udp_receiver_pipe --> unpack_pipe;
+  recorded_baseband_file --> read_file_pipe --> unpack_pipe;
+  unpack_pipe --> fft_1d_r2c_pipe --> rfi_mitigation_pipe --> dedisperse_pipe --> ifft_1d_c2c_pipe --> refft_1d_c2c_pipe --> signal_detect_pipe;
+  signal_detect_pipe --> simplify_spectrum_pipe;
+  signal_detect_pipe --> baseband_output_pipe;
+  baseband_output_pipe --> baseband_file_with_signal_candidate
+  simplify_spectrum_pipe --> SpectrumImageProvider --> spectrum_ui
+```
 
 ## Building
 Note that this repository has submodule for dependency management, don't forget to add `--recursive` when cloning this git repo, or use
@@ -40,7 +72,7 @@ Tested setup:
 * AMD Rembrandt CPU
   * same as above
   * also with intel/llvm OpenCL SPIR-V backend + [intel/opencl-intercept-layer](https://github.com/intel/opencl-intercept-layer) + [PoCL](http://portablecl.org/) CPU backend
-    * intel/opencl-intercept-layer used for USM -> SVM emulation:
+    * intel/opencl-intercept-layer used for USM -> SVM emulation (not required now, though):
 ```bash
 export LD_PRELOAD=/opt/opencl-intercept-layer/lib/libOpenCL.so
 export CLI_Emulate_cl_intel_unified_shared_memory=1
@@ -48,9 +80,11 @@ export CLI_SuppressLogging=1
 ```
 * [DATA EXPUNGED] CPU + [DATA EXPUNGED] ([DATA EXPUNGED])
 
+Working in progress:
+* Intel Alder Lake CPU + [DATA EXPUNGED]
+
 To be tested:
 * mesa rusticl!
-* Intel/AMD server/laptop CPU + [DATA EXPUNGED]
 
 Tested NOT supported:
 * Codeplay ComputeCpp Experimental 2.11
@@ -60,12 +94,13 @@ Tested NOT supported:
 ## Usage
 Beside compile-time configurations (see [BUILDING.md](BUILDING.md)), 
 there are also runtime configurations that can be input with priority 
-by command-line > by config file > default value
+"by command-line" > "by config file" > "default value"
 
 An example config file is at `userspace/srtb_config.cfg`; meanings of these
 variables are in `srtb/config.cpp` and `srtb/program_options.hpp`, `--help` option can also be used.
 
-Current output of `--help`:
+<details>
+<summary><b>Current output of <code>--help</code></b></summary>
 
 ```
 ➜  src ./simple-radio-telescope-backend --help
@@ -156,6 +191,8 @@ Operation Options:
 
 ```
 
+</details>
+
 <details>
 <summary><b>Additional steps if operating with UDP packets in real time</b></summary>
 
@@ -171,8 +208,8 @@ net.ipv4.tcp_window_scaling = 1
 net.ipv4.udp_rmem_min = 8388608
 ```
 
-* check MTU setting of NIC
-* move NIC and GPU to same NUMA node, topology can be viewed using tools like `lstopo` from hwloc
+* check MTU setting of network interface
+* move network interface and GPU to same NUMA node, topology can be viewed using tools like `lstopo` from hwloc
 * force running on this NUMA node ("`$NODE`") using `numactl` & set process priority (nice value, "`$NICE`"):
 ```bash
 sudo numactl --preferred $NODE nice $NICE simple-radio-telescope-backend
@@ -184,36 +221,7 @@ sudo numactl --preferred $NODE nice $NICE simple-radio-telescope-backend
 
 
 ## Code structure
-### Pipeline Structure
-```mermaid
-graph LR;
-  UDP_packets[UDP <br/> packets];
-  recorded_baseband_file[recorded <br/> baseband <br/> file];
-  udp_receiver_pipe(udp <br/> receiver <br/> pipe);
-  read_file_pipe(read <br/> file <br/> pipe);
-  unpack_pipe(unpack <br/> pipe);
-  fft_1d_r2c_pipe(fft <br/> 1d r2c <br/> pipe);
-  rfi_mitigation_pipe(rfi <br/> mitigation <br/> pipe);
-  dedisperse_pipe(dedisperse <br/> pipe);
-  ifft_1d_c2c_pipe(ifft <br/> 1d c2c <br/> pipe);
-  refft_1d_c2c_pipe(refft <br/> 1d c2c <br/> pipe);
-  signal_detect_pipe(signal <br/> detect <br/> pipe);
-  baseband_output_pipe(baseband <br/> output <br/> pipe);
-  simplify_spectrum_pipe(simplify <br/> spectrum <br/> pipe);
-  SpectrumImageProvider(Spectrum <br/> Image <br/> Provider);
-  baseband_file_with_signal_candidate[baseband <br/> file <br/> with <br/> signal <br/> candidate]
-  spectrum_ui[Spectrum <br/> UI]
 
-  UDP_packets --> udp_receiver_pipe --> unpack_pipe;
-  recorded_baseband_file --> read_file_pipe --> unpack_pipe;
-  unpack_pipe --> fft_1d_r2c_pipe --> rfi_mitigation_pipe --> dedisperse_pipe --> ifft_1d_c2c_pipe --> refft_1d_c2c_pipe --> signal_detect_pipe;
-  signal_detect_pipe --> simplify_spectrum_pipe;
-  signal_detect_pipe --> baseband_output_pipe;
-  baseband_output_pipe --> baseband_file_with_signal_candidate
-  simplify_spectrum_pipe --> SpectrumImageProvider --> spectrum_ui
-```
-
-### Files
 <details>
 
 * `userspace/include/srtb/`
