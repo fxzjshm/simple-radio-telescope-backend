@@ -49,7 +49,7 @@ struct df64 {
     x = static_cast<float>(b);
     // TODO: cast from unsigned to signed with expected result < 0 is implementation-defined
     y = static_cast<float>(
-        static_cast<std::make_signed<T>::type>(b - static_cast<T>(x)));
+        static_cast<typename std::make_signed<T>::type>(b - static_cast<T>(x)));
   }
 
   constexpr operator float() const {
