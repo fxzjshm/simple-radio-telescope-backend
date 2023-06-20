@@ -165,7 +165,7 @@ inline C coherent_dedispersion_factor(const dedisp_real_t f,
   //const dedisp_real_t delta_phi =
   //    -T{2 * M_PI} * D * 1e6 * dm * ((delta_f * delta_f) / (f * f_c * f_c));
 
-  //// 3)
+  //// 3) optimized from (2)
   // dedispertion constant D with unit Hz -> MHz corrected
   // this is explicitly constexpr, wish device compiler won't generate cl_khr_fp64 operations...
   constexpr dedisp_real_t D_ = D * dedisp_real_t{1e6};

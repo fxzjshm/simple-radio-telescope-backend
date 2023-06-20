@@ -39,11 +39,7 @@ class dedisperse_pipe : public pipe<dedisperse_pipe> {
     // drop the highest frequency point
     // *Drop*  -- LinusTechTips
     const size_t N = work.count - 1;
-    // TODO: check this
-    // baseband_sample_rate is samples/second, delta_freq is in MHz
-    // assume Nyquist sastatic_cast<srtb::real>mple rate here
-    const srtb::real df =
-        static_cast<srtb::real>(work.baseband_sample_rate) / 2 / N / 1e6;
+    const srtb::real df = srtb::config.baseband_bandwidth / N;
     auto& d_in_shared = work.ptr;
     auto d_in = d_in_shared.get();
     const srtb::real f_min = work.baseband_freq_low,
