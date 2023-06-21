@@ -42,7 +42,7 @@ namespace program_options {
       file_io_options("File Input/Output Options"),
       operation_option("Operation Options"),
       cmd_only_options("Command Line Only Options"),
-      in_file_options("Options available in config file"),
+      cfg_file_options("Options available in config file"),
       all_option("Options");
   /* clang-format off */
     /*
@@ -63,7 +63,7 @@ namespace program_options {
        "Trade off between CPU usage (most are wasted) and pipeline latency. ")
 #if SRTB_ENABLE_GUI
        ("gui_enable", boost::program_options::value<std::string>(),
-       "Runtime configuration to enable GUI")
+        "Runtime configuration to enable GUI")
 #endif
     ;
     baseband_option.add_options()
@@ -131,11 +131,11 @@ namespace program_options {
     ;
   /* clang-format on */
   data_io_option.add(udp_receiver_options).add(file_io_options);
-  in_file_options.add(general_option)
+  cfg_file_options.add(general_option)
       .add(baseband_option)
       .add(data_io_option)
       .add(operation_option);
-  all_option.add(cmd_only_options).add(in_file_options);
+  all_option.add(cmd_only_options).add(cfg_file_options);
 
   // ref: https://www.boost.org/doc/libs/1_80_0/libs/program_options/example/multiple_sources.cpp
   // here: command line > config file > default config
@@ -153,10 +153,14 @@ namespace program_options {
     config_file_name = default_config_file_name;
   }
   if (std::filesystem::exists(config_file_name)) {
+    SRTB_LOGI << " [program_options] "
+              << "using config file " << config_file_name << " (absolute path "
+              << std::filesystem::absolute(config_file_name) << ")"
+              << srtb::endl;
     boost::program_options::notify(vm);
     boost::program_options::store(
         boost::program_options::parse_config_file(config_file_name.c_str(),
-                                                  in_file_options),
+                                                  cfg_file_options),
         vm);
     boost::program_options::notify(vm);
   } else {
@@ -272,7 +276,9 @@ inline void evaluate_and_apply_changed_config(const std::string& name,
   } else {
     SRTB_LOGW << " [program_options] "
               << "Unrecognized config: name = " << '\"' << name << '\"' << ", "
-              << "value = " << '\"' << value << '\"' << srtb::endl;
+              << "value = " << '\"' << value << '\"'
+              << ", check option list at " __FILE__ ": " << __LINE__
+              << srtb::endl;
   }
 
 #undef SRTB_PARSE
