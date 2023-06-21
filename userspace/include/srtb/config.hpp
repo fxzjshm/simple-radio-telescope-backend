@@ -34,7 +34,7 @@ template <typename T>
 using complex = sycl::ext::cplx::complex<T>;
 
 // option to use managed/unified memory as device memory
-#define SRTB_USE_USM_SHARED_MEMORY
+//#define SRTB_USE_USM_SHARED_MEMORY
 
 // option to share work area between FFT plans
 // may reduce VRAM usage but increase latency
