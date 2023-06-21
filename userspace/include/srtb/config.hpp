@@ -115,6 +115,13 @@ struct configs {
   srtb::real baseband_sample_rate = 1000 * 1e6;
 
   /**
+   * @brief if 1, baseband data affected by dispersion will be reserved for next segment, 
+   *              i.e. segments will overlap, if possible; 
+   *        if 0, baseband data will not overlap.
+   */
+  bool baseband_reserve_sample = true;
+
+  /**
    * @brief Target dispersion measurement for coherent dedispersion
    * TODO: DM search list for unknown source
    */

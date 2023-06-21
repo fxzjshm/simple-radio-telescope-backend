@@ -147,6 +147,13 @@ int main(int argc, char** argv) {
             << srtb::queue.get_device().get_info<sycl::info::device::name>()
             << srtb::endl;
 
+  {
+    const auto nsamps_reserved = srtb::codd::nsamps_reserved();
+    SRTB_LOGI << " [main] "
+              << "delay time = " << srtb::codd::max_delay_time() << ", "
+              << "nsamps_reserved = " << nsamps_reserved << srtb::endl;
+  }
+
   // trigger JIT
   // some implementations may pack intermediate representation with executable binary
   // and just-in-time compile it into device code when launching first kernel

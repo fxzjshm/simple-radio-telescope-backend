@@ -81,6 +81,10 @@ namespace program_options {
       ("baseband_sample_rate", boost::program_options::value<std::string>(),
        "Baseband sample rate, in samples / second. "
        "Should be 2 * baseband_bandwidth (* 1e6 because of unit) if Nyquist rate. ")
+      ("baseband_reserve_sample", boost::program_options::value<std::string>(),
+       "if 1, baseband data affected by dispersion will be reserved for next segment, "
+       "i.e. segments will overlap, if possible; "
+       "if 0, baseband data will not overlap.")
     ;
     udp_receiver_options.add_options()
       ("udp_receiver_sender_address", boost::program_options::value<std::string>(),
@@ -243,6 +247,7 @@ inline void evaluate_and_apply_changed_config(const std::string& name,
   SRTB_PARSE(baseband_freq_low)
   SRTB_PARSE(baseband_bandwidth)
   SRTB_PARSE(baseband_sample_rate)
+  SRTB_PARSE(baseband_reserve_sample)
   SRTB_PARSE(dm)
   SRTB_SPLIT_ASSIGN(udp_receiver_sender_address, /* delimiter = */ ",")
   SRTB_SPLIT_PARSE(udp_receiver_sender_port, /* delimiter = */ ",")
