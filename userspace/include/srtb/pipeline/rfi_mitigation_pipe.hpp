@@ -87,6 +87,7 @@ class rfi_mitigation_pipe : public pipe<rfi_mitigation_pipe> {
       }
       const auto baseband_freq_low = srtb::config.baseband_freq_low;
       const auto baseband_bandwidth = srtb::config.baseband_bandwidth;
+      // TODO: in_count + 1 ? as highest freq point is not included in in_count
       srtb::spectrum::mitigate_rfi_manual(d_in, in_count, baseband_freq_low,
                                           baseband_bandwidth, rfi_ranges, q);
     }

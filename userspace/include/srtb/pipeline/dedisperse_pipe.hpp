@@ -36,9 +36,7 @@ class dedisperse_pipe : public pipe<dedisperse_pipe> {
     srtb::work::dedisperse_work work;
     SRTB_POP_WORK_OR_RETURN(" [dedisperse pipe] ", srtb::dedisperse_queue, work,
                             stop_token);
-    // drop the highest frequency point
-    // *Drop*  -- LinusTechTips
-    const size_t N = work.count - 1;
+    const size_t N = work.count;
     const srtb::real df = srtb::config.baseband_bandwidth / N;
     auto& d_in_shared = work.ptr;
     auto d_in = d_in_shared.get();

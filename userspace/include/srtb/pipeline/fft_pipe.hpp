@@ -76,8 +76,11 @@ class fft_1d_r2c_pipe : public pipe<fft_1d_r2c_pipe> {
 
     srtb::work::rfi_mitigation_work rfi_mitigation_work;
     rfi_mitigation_work.ptr = d_out_shared;
-    rfi_mitigation_work.count = out_count;
-    rfi_mitigation_work.baseband_data = std::move(fft_1d_r2c_work.baseband_data);
+    // drop the highest frequency point
+    // *Drop*  -- LinusTechTips
+    rfi_mitigation_work.count = out_count - 1;
+    rfi_mitigation_work.baseband_data =
+        std::move(fft_1d_r2c_work.baseband_data);
     rfi_mitigation_work.timestamp = fft_1d_r2c_work.timestamp;
     rfi_mitigation_work.udp_packet_counter = fft_1d_r2c_work.udp_packet_counter;
     SRTB_PUSH_WORK_OR_RETURN(" [fft 1d r2c pipe] ", srtb::rfi_mitigation_queue,
