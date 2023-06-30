@@ -160,6 +160,7 @@ class cufft_like_1d_wrapper
   }
 
   void destroy_impl() {
+    std::lock_guard lock{srtb::fft::cufft_like_mutex};
     SRTB_CHECK_CUFFT_LIKE(trait::fftDestroy(plan));
 #ifdef SRTB_FFT_SHARE_WORK_AREA
     cufft_like_shared_work_area_users--;

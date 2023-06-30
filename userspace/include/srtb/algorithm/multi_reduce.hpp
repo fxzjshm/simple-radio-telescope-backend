@@ -74,7 +74,6 @@ void multi_mapreduce(InputIterator input, size_t count_per_batch,
 
   const sycl::id<3> max_work_item_sizes = device.get_info<
 #if defined(__COMPUTECPP__)
-      // hipSYCL hasn't updated this
       sycl::info::device::max_work_item_sizes
 #else
       sycl::info::device::max_work_item_sizes<3>

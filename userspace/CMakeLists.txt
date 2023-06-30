@@ -1,17 +1,20 @@
 cmake_minimum_required(VERSION 3.12)
 project(simple-radio-telescope-backend_userspace)
 
+
 # select SYCL implemention
 if(NOT DEFINED SRTB_SYCL_IMPLEMENTATION)
     message(WARNING "SRTB_SYCL_IMPLEMENTATION not defined, default to hipSYCL")
     set(SRTB_SYCL_IMPLEMENTATION "hipSYCL")
 endif()
 
+
 # detect backends
 ## CUDA, SRTB_CUDA_ARCH required if with hipSYCL and optional with intal-llvm
 find_package(CUDAToolkit)
 option(SRTB_ENABLE_CUDA "option to enable CUDA backend" ${CUDAToolkit_FOUND})
 message(STATUS "SRTB_ENABLE_CUDA = ${SRTB_ENABLE_CUDA}")
+
 ## ROCm/HIP, SRTB_ROCM_ARCH required
 if(DEFINED ROCM_PATH)
     set(SRTB_ROCM_PATH ${ROCM_PATH})
@@ -87,6 +90,7 @@ else()
     message(FATAL_ERROR "Sorry, unknown/untested/un-adapted SYCL implementation " ${SRTB_SYCL_IMPLEMENTATION})
 endif()
 
+
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 # set C++ language version requirement
@@ -120,6 +124,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -ftree-vectorize")
 ## sanitizer, for debug usage
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -fno-optimize-sibling-calls ")
 
+
 # dependency
 ## Boost
 set(THREADS_PREFER_PTHREAD_FLAG ON)
@@ -132,10 +137,12 @@ else()
   message(WARNING "boost_stacktrace_backtrace not found, code location may absent in stacktrace")
 endif()
 include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
+
 ## Python, for matplotlib-cpp
 ## ref: https://github.com/lava/matplotlib-cpp/blob/master/CMakeLists.txt
 find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
 find_package(Python3 COMPONENTS NumPy)
+
 ## 3rdparty
 include_directories(SYSTEM "3rdparty/")
 include_directories(SYSTEM "3rdparty/matplotlib-cpp/")
@@ -145,6 +152,7 @@ include_directories(SYSTEM "3rdparty/concurrentqueue/")
 include_directories(SYSTEM "3rdparty/SyclCPLX/include/")
 include_directories(SYSTEM "3rdparty/cnpy/")
 add_subdirectory("3rdparty/cnpy")
+
 ## Qt (optional)
 ### ref: https://doc.qt.io/qt-6/cmake-qt5-and-qt6-compatibility.html
 find_package(QT NAMES Qt6 Qt5 COMPONENTS Core)
@@ -163,6 +171,7 @@ if(SRTB_ENABLE_GUI)
 else()
     add_compile_definitions(SRTB_ENABLE_GUI=false)
 endif()
+
 
 function(srtb_add_dependency target_name)
     # add SYCL to targets
