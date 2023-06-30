@@ -143,6 +143,8 @@ include_directories(SYSTEM "3rdparty/SyclParallelSTL/include/")
 include_directories(SYSTEM "3rdparty/dsmath/")
 include_directories(SYSTEM "3rdparty/concurrentqueue/")
 include_directories(SYSTEM "3rdparty/SyclCPLX/include/")
+include_directories(SYSTEM "3rdparty/cnpy/")
+add_subdirectory("3rdparty/cnpy")
 ## Qt (optional)
 ### ref: https://doc.qt.io/qt-6/cmake-qt5-and-qt6-compatibility.html
 find_package(QT NAMES Qt6 Qt5 COMPONENTS Core)

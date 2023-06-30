@@ -100,9 +100,6 @@ class signal_detect_pipe : public pipe<signal_detect_pipe> {
         d_in, count_per_batch, batch_size, d_time_series, map,
         /* reduce = */ sycl::plus<srtb::real>(), q);
 
-    d_in = nullptr;
-    d_in_shared.reset();
-
     const srtb::real snr_threshold =
         srtb::config.signal_detect_signal_noise_threshold;
 
@@ -221,6 +218,9 @@ class signal_detect_pipe : public pipe<signal_detect_pipe> {
 
     const bool has_signal = (baseband_output_work.time_series.size() > 0);
     if (has_signal) {
+      baseband_output_work.ptr = std::move(d_in_shared);
+      baseband_output_work.count =  signal_detect_work.count;
+      baseband_output_work.batch_size = signal_detect_work.batch_size;
       SRTB_LOGI << " [signal_detect_pipe] "
                 << " signal detected in "
                 << baseband_output_work.time_series.size() << " time series"

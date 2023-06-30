@@ -34,6 +34,7 @@
 #include <optional>
 #include <vector>
 
+#include "cnpy.h"
 #include "matplotlibcpp.h"
 #include "srtb/commons.hpp"
 #include "srtb/pipeline/pipe.hpp"
@@ -101,8 +102,8 @@ class baseband_output_pipe</* continuous_write = */ true>
       write_count = baseband_input_count;
     }
     file_output_stream.write(
-        ptr,
-        write_count * sizeof(decltype(baseband_output_work.ptr)::element_type));
+        ptr, write_count * sizeof(decltype(baseband_output_work.baseband_data
+                                               .baseband_ptr)::element_type));
 
     srtb::pipeline::notify();
   }
@@ -238,6 +239,7 @@ class baseband_output_pipe</* continuous_write = */ false>
       }
     }
 
+    // write results
     if (opt_work_to_write.has_value()) {
       srtb::work::baseband_output_work work_to_write =
           std::move(opt_work_to_write.value());
@@ -253,6 +255,7 @@ class baseband_output_pipe</* continuous_write = */ false>
           srtb::config.baseband_output_file_prefix +
           std::to_string(file_counter);
 
+      // write original baseband
       boost::asio::post(
           baseband_output_thread_pool,
           [=, baseband_data = std::move(work_to_write.baseband_data)]() {
@@ -296,6 +299,36 @@ class baseband_output_pipe</* continuous_write = */ false>
             }
           });
 
+      // write spectrum
+      if (work_to_write.ptr.get()) [[likely]] {
+        // boost::asio::post(
+        //     baseband_output_thread_pool,
+        //     [this, file_name_no_extension,
+          auto  d_spectrum_shared = std::move(work_to_write.ptr);
+          auto  count = work_to_write.count;
+          auto  batch_size = work_to_write.batch_size;
+              //]() {
+              const size_t total_count = count * batch_size;
+              auto h_spectrum_unique =
+                  srtb::host_allocator
+                      .allocate_unique<std::complex<srtb::real> >(total_count);
+              auto h_spectrum = h_spectrum_unique.get();
+              auto d_spectrum = d_spectrum_shared.get();
+              static_assert(sizeof(srtb::complex<srtb::real>) ==
+                            sizeof(std::complex<srtb::real>));
+              q.copy(d_spectrum, /* -> */
+                     reinterpret_cast<srtb::complex<srtb::real>*>(h_spectrum),
+                     total_count)
+                  .wait();
+              const std::string spectrum_file_path =
+                  file_name_no_extension + ".npy";
+              // don't forget to check shape order...
+              cnpy::npy_save(spectrum_file_path, h_spectrum,
+                             std::vector<size_t>{batch_size, count});
+            //  });
+      }
+
+      // write time series & plot
       boost::asio::post(
           time_series_plot_thread_pool,
           [=, this, time_series = std::move(work_to_write.time_series)]() {
@@ -341,27 +374,6 @@ class baseband_output_pipe</* continuous_write = */ false>
                 SRTB_LOGW << " [baseband_output_pipe] "
                           << "Failed to plot time series: " << error.what()
                           << srtb::endl;
-              }
-
-              // check handle of time series data
-              if (time_series_output_stream) [[likely]] {
-            // sometimes file is not fully written, so force syncing it
-#ifdef _POSIX_VERSION
-                if constexpr (std::is_same_v<
-                                  decltype(time_series_output_stream->handle()),
-                                  int>) {
-                  const int err =
-                      ::fdatasync(time_series_output_stream->handle());
-                  if (err != 0) [[unlikely]] {
-                    SRTB_LOGW << " [baseband_output_pipe] "
-                              << "Failed to call ::fdatasync" << srtb::endl;
-                  }
-                }
-#endif
-              } else [[unlikely]] {
-                SRTB_LOGW << " [baseband_output_pipe] "
-                          << "Failed to write time series! file_counter = "
-                          << file_counter << srtb::endl;
               }
             }
           });

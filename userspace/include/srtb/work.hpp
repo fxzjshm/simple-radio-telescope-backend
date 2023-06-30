@@ -257,7 +257,7 @@ struct time_series_holder {
  * @brief write baseband data to disk; @c ptr is reserved for future use
  */
 struct baseband_output_work
-    : public srtb::work::work<std::shared_ptr<srtb::real> > {
+    : public srtb::work::work<std::shared_ptr<srtb::complex<srtb::real> > > {
   size_t batch_size;
   std::vector<time_series_holder> time_series;
 };
