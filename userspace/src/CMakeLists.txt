@@ -28,7 +28,7 @@ endif()
 #    <boost/lockfree/spsc_queue.hpp>
 #    <boost/asio.hpp>
 #)
-target_link_libraries(simple-radio-telescope-backend PUBLIC cnpy-static)
+target_link_libraries(simple-radio-telescope-backend PUBLIC cnpy)
 
 if(SRTB_ENABLE_GUI)
   add_executable(test-gui
