@@ -161,6 +161,14 @@ inline C coherent_dedispersion_factor(const dedisp_real_t f,
   //const dedisp_real_t delta_f = f - f_c;
   //const dedisp_real_t delta_phi =
   //    -T{2 * M_PI} * D * 1e6 * dm * ((delta_f * delta_f) / (f * f_c * f_c));
+  //// 2.1)
+  //const C factor = C(sycl::cos(delta_phi), sycl::sin(delta_phi));
+  //// 2.2)
+  //dedisp_real_t cos_delta_phi, sin_delta_phi;
+  //// &cos_delta_phi cannot be used here, not in specification
+  //sin_delta_phi =
+  //    sycl::sincos(delta_phi, sycl::private_ptr<dedisp_real_t>{&cos_delta_phi});
+  //const C factor = C(cos_delta_phi, sin_delta_phi);
 
   //// 3) optimized from (2)
   // dedispertion constant D with unit Hz -> MHz corrected
