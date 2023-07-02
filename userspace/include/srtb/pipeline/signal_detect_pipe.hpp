@@ -52,12 +52,12 @@ class signal_detect_pipe : public pipe<signal_detect_pipe> {
     const size_t count_per_batch = signal_detect_work.count;
     const size_t batch_size = signal_detect_work.batch_size;
 
-    srtb::spectrum::mitigate_rfi_spectural_kurtosis_method(
+    srtb::spectrum::mitigate_rfi_spectral_kurtosis_method(
         d_in, count_per_batch, batch_size,
         srtb::config.mitigate_rfi_spectral_kurtosis_threshold, q);
 
     SRTB_LOGD << " [signal_detect_pipe] "
-              << "mitigate_rfi_spectural_kurtosis_method finished"
+              << "mitigate_rfi_spectral_kurtosis_method finished"
               << srtb::endl;
 
     size_t zero_count = 0;

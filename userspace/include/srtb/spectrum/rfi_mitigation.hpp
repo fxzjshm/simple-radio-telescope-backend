@@ -89,7 +89,6 @@ inline auto eval_rfi_ranges(const std::string& mitigate_rfi_freq_list) {
  * @brief Mitigate radio frequency interference (RFI),
  *        in this method RFI is determined manually
  * @param rfi_ranges frequency range of RFI, set manually
- * TODO: use "spectural kurtosis"
  */
 template <typename T = srtb::real, typename C = srtb::complex<srtb::real>,
           typename DeviceComplexInputAccessor = C*>
@@ -160,7 +159,7 @@ inline void mitigate_rfi_manual(DeviceComplexInputAccessor d_in,
 // ---------------- rfi mitigation using spectrum kutorsis ----------------
 
 /**
- * @brief Mitigate radio frequency interference (RFI), using spectural kurtosis
+ * @brief Mitigate radio frequency interference (RFI), using spectral kurtosis
  * 
  *        frequency
  *       ---------->
@@ -181,7 +180,7 @@ inline void mitigate_rfi_manual(DeviceComplexInputAccessor d_in,
  */
 template <typename T = srtb::real, typename C = srtb::complex<srtb::real>,
           typename DeviceComplexInputAccessor = C*, bool normalization = false>
-inline void mitigate_rfi_spectural_kurtosis_method(
+inline void mitigate_rfi_spectral_kurtosis_method(
     DeviceComplexInputAccessor d_in, size_t fft_bins, size_t time_counts,
     T sk_threshold, sycl::queue& q = srtb::queue) {
   // sometimes float is not enough, change to double if so
