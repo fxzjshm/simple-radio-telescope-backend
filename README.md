@@ -18,6 +18,8 @@ Mainly used SYCL implementations are [hipSYCL](https://github.com/illuhad/hipSYC
 > It is noticed that there has been a tendency to equate GPU with CUDA, especially in HPC and AI.  
 > It must be emphasized that GPU != CUDA, there do exist other vendors that should not be neglected.
 
+Name of this project is inspired by SDDM: Simple Desktop Display Manager.
+
 This is only an undergraduate "research" project, so many things are naively implemented. 
 Corrections and suggestions are very appreciated!
 
@@ -30,25 +32,27 @@ graph LR;
   read_file_pipe(read <br/> file <br/> pipe);
   unpack_pipe(unpack <br/> pipe);
   fft_1d_r2c_pipe(fft <br/> 1d r2c <br/> pipe);
-  rfi_mitigation_pipe(rfi <br/> mitigation <br/> pipe);
+  rfi_mitigation_pipe_stage1(rfi <br/> mitigation <br/> pipe <br/> stage 1);
   dedisperse_pipe(dedisperse <br/> pipe);
   ifft_1d_c2c_pipe(ifft <br/> 1d c2c <br/> pipe);
   refft_1d_c2c_pipe(refft <br/> 1d c2c <br/> pipe);
+  rfi_mitigation_pipe_stage2(rfi <br/> mitigation <br/> pipe <br/> stage 2);
   signal_detect_pipe(signal <br/> detect <br/> pipe);
   baseband_output_pipe(baseband <br/> output <br/> pipe);
   simplify_spectrum_pipe(simplify <br/> spectrum <br/> pipe);
-  SpectrumImageProvider(Spectrum <br/> Image <br/> Provider);
+  SpectrumImageProvider(Spectrum <br/> Image <br/> Provider <br/> & UI);
   baseband_file_with_signal_candidate[baseband <br/> file <br/> with <br/> signal <br/> candidate]
-  spectrum_ui[Spectrum <br/> UI]
 
   UDP_packets --> udp_receiver_pipe --> unpack_pipe;
   recorded_baseband_file --> read_file_pipe --> unpack_pipe;
-  unpack_pipe --> fft_1d_r2c_pipe --> rfi_mitigation_pipe --> dedisperse_pipe --> ifft_1d_c2c_pipe --> refft_1d_c2c_pipe --> signal_detect_pipe;
+  unpack_pipe --> fft_1d_r2c_pipe --> rfi_mitigation_pipe_stage1 --> dedisperse_pipe --> ifft_1d_c2c_pipe --> refft_1d_c2c_pipe --> rfi_mitigation_pipe_stage2 --> signal_detect_pipe;
   signal_detect_pipe --> simplify_spectrum_pipe;
   signal_detect_pipe --> baseband_output_pipe;
   baseband_output_pipe --> baseband_file_with_signal_candidate
-  simplify_spectrum_pipe --> SpectrumImageProvider --> spectrum_ui
+  simplify_spectrum_pipe --> SpectrumImageProvider
 ```
+
+(`rfi_mitigation_pipe_stage2` hasn't been separated from `signal_detect_pipe`)
 
 ## Building
 Note that this repository has submodule for dependency management, don't forget to add `--recursive` when cloning this git repo, or use
