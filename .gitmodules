@@ -9,7 +9,7 @@
 	url = https://github.com/cameron314/concurrentqueue.git
 [submodule "userspace/3rdparty/SyclCPLX"]
 	path = userspace/3rdparty/SyclCPLX
-	url = https://github.com/argonne-lcf/SyclCPLX
+	url = https://github.com/fxzjshm/SyclCPLX
 [submodule "userspace/3rdparty/cnpy"]
 	path = userspace/3rdparty/cnpy
 	url = https://github.com/rogersce/cnpy

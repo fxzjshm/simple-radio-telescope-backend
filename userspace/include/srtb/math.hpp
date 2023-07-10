@@ -17,7 +17,9 @@
 #include <type_traits>
 
 #include "srtb/sycl.hpp"
-// -- line for clang-format --
+
+// defined _SYCL_CPLX_NAMESPACE to avoid namespace conflict
+#define _SYCL_CPLX_NAMESPACE argonne_lcf::sycl_cplx
 #include "sycl_ext_complex.hpp"
 
 namespace srtb {
@@ -27,8 +29,8 @@ inline namespace math {
 template <typename C>
 inline constexpr auto norm(const C c) noexcept {
   using T = decltype(c.real());
-  if constexpr (std::is_same<C, sycl::ext::cplx::complex<T> >::value) {
-    return sycl::ext::cplx::norm(c);
+  if constexpr (std::is_same<C, _SYCL_CPLX_NAMESPACE::complex<T> >::value) {
+    return _SYCL_CPLX_NAMESPACE::norm(c);
   } else {
     return c.real() * c.real() + c.imag() * c.imag();
   }
@@ -37,8 +39,8 @@ inline constexpr auto norm(const C c) noexcept {
 template <typename C>
 inline constexpr auto conj(const C c) noexcept -> C {
   using T = decltype(c.real());
-  if constexpr (std::is_same<C, sycl::ext::cplx::complex<T> >::value) {
-    return sycl::ext::cplx::conj(c);
+  if constexpr (std::is_same<C, _SYCL_CPLX_NAMESPACE::complex<T> >::value) {
+    return _SYCL_CPLX_NAMESPACE::conj(c);
   } else {
     return C{c.real(), -c.imag()};
   }
@@ -47,8 +49,8 @@ inline constexpr auto conj(const C c) noexcept -> C {
 template <typename C>
 inline constexpr auto abs(const C c) noexcept {
   using T = decltype(c.real());
-  if constexpr (std::is_same<C, sycl::ext::cplx::complex<T> >::value) {
-    return sycl::ext::cplx::abs(c);
+  if constexpr (std::is_same<C, _SYCL_CPLX_NAMESPACE::complex<T> >::value) {
+    return _SYCL_CPLX_NAMESPACE::abs(c);
   } else {
     return sycl::hypot(c.real(), c.imag());
   }
