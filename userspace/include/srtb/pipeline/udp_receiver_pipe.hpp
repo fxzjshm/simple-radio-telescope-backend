@@ -18,7 +18,6 @@
 
 #include "srtb/coherent_dedispersion.hpp"
 #include "srtb/io/udp_receiver.hpp"
-#include "srtb/memory/memcpy.hpp"
 #include "srtb/pipeline/pipe.hpp"
 #include "srtb/thread_affinity.hpp"
 

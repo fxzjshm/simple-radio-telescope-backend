@@ -30,7 +30,6 @@ namespace spectrum {
 // TODO: where to put the pixmap?
 inline constexpr int width = 1280;
 inline constexpr int height = 720;
-inline constexpr int max_draw_update_count = 2;
 
 /** @brief common 8-bit color has 2^8 == 256 values*/
 inline constexpr size_t color_value_count = 1 << 8;

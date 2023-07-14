@@ -27,7 +27,6 @@
 #include <vector>
 
 #include "srtb/commons.hpp"
-#include "srtb/memory/memcpy.hpp"
 
 namespace srtb {
 namespace io {

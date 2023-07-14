@@ -59,13 +59,7 @@ class simplify_spectrum_pipe : public pipe<simplify_spectrum_pipe> {
     d_in_shared.reset();
 
     // normalization, so that it can be drawn onto image
-    // choice 1: normalize all together using max value
-    //srtb::spectrum::simplify_spectrum_normalize_with_max_value(
-    //    d_out, total_out_count, 1, q);
-    // choice 2: normalize per spectrum using max value
-    //srtb::spectrum::simplify_spectrum_normalize_with_max_value(d_out, out_count,
-    //                                                           batch_size, q);
-    // choice 3: normalize all together using average value
+    // using average value
     srtb::spectrum::simplify_spectrum_normalize_with_average_value(
         d_out, total_out_count, q);
 
