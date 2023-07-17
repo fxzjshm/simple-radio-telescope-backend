@@ -27,6 +27,12 @@ namespace srtb {
 inline namespace math {
 
 template <typename C>
+concept complex_like = requires(C c) {
+  c.real();
+  c.imag();
+};
+
+template <complex_like C>
 inline constexpr auto norm(const C c) noexcept {
   using T = decltype(c.real());
   if constexpr (std::is_same<C, _SYCL_CPLX_NAMESPACE::complex<T> >::value) {
@@ -36,7 +42,7 @@ inline constexpr auto norm(const C c) noexcept {
   }
 }
 
-template <typename C>
+template <complex_like C>
 inline constexpr auto conj(const C c) noexcept -> C {
   using T = decltype(c.real());
   if constexpr (std::is_same<C, _SYCL_CPLX_NAMESPACE::complex<T> >::value) {
@@ -46,7 +52,7 @@ inline constexpr auto conj(const C c) noexcept -> C {
   }
 }
 
-template <typename C>
+template <complex_like C>
 inline constexpr auto abs(const C c) noexcept {
   using T = decltype(c.real());
   if constexpr (std::is_same<C, _SYCL_CPLX_NAMESPACE::complex<T> >::value) {

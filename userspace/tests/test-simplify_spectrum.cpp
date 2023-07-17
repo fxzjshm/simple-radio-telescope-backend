@@ -48,22 +48,22 @@ bool test_simplify_spectrum(HostContainer1 h_in_original,
   h_out.resize(out_count);
   srtb::spectrum::simplify_spectrum_calculate_norm(d_in, in_count, d_out,
                                                    out_count, 1, q);
-  srtb::spectrum::simplify_spectrum_normalize_with_max_value(d_out, out_count, 1, q);
+  srtb::spectrum::simplify_spectrum_normalize_with_average_value(d_out,
+                                                                 out_count, q);
   q.copy(d_out, /* -> */ &h_out[0], out_count).wait();
   return check_absolute_error(h_out_expected.begin(), h_out_expected.end(),
                               h_out.begin(), srtb::spectrum::eps);
 }
 
-template <typename RealNumberContainer>
-std::vector<srtb::complex<srtb::real> > form_complex_numbers(
+template <typename T, typename RealNumberContainer>
+std::vector<srtb::complex<T> > form_complex_numbers(
     RealNumberContainer in) {
   const size_t in_count = in.size(), out_count = in_count / 2;
-  std::vector<srtb::complex<srtb::real> > out;
+  std::vector<srtb::complex<T> > out;
   out.resize(out_count);
   for (size_t k = 0; k < out_count; k++) {
-    out.at(k) =
-        srtb::complex<srtb::real>{static_cast<srtb::real>(in[2 * k]),
-                                  static_cast<srtb::real>(in[2 * k + 1])};
+    out.at(k) = srtb::complex<T>{static_cast<T>(in[2 * k]),
+                                 static_cast<T>(in[2 * k + 1])};
   }
   return out;
 }
@@ -71,7 +71,7 @@ std::vector<srtb::complex<srtb::real> > form_complex_numbers(
 int main() {
   sycl::queue q;
   {
-    //std::array h_in_original = {1.0, 3.0, 4.0, 0.0, 2.0};
+    //std::array h_in_intensity = {1.0, 3.0, 4.0, 0.0, 2.0};
     std::array h_in_original = {0.6,
                                 0.8,
                                 -0.8 * sycl::sqrt(3.0),
@@ -82,15 +82,18 @@ int main() {
                                 0.0,
                                 0.0,
                                 -sycl::sqrt(2.0)};
-    std::array h_out_expected = {0.6, 1.0, 0.4};
+    // downsampled: {2.0, 5.0, 2.0/3.0}
+    std::array h_out_expected = {9.0/20.0, 15.0/20.0, 6.0/20.0};
     SRTB_CHECK_TEST_SIMPLIFY_SPECTRUM(test_simplify_spectrum(
-        form_complex_numbers(h_in_original), h_out_expected, q));
+        form_complex_numbers<double>(h_in_original), h_out_expected, q));
   }
   {
+    //std::array h_in_intensity = {17.0, 25.0};
     std::array h_in_original = {1.0, 4.0, 5.0, 0.0};
-    std::array h_out_expected = {0.68, 0.84, 1.0};
+    // re-sampled: {34.0/3.0, 14.0, 50.0/3.0}
+    std::array h_out_expected = {17.0/42.0, 21.0/42.0, 25.0/42.0};
     SRTB_CHECK_TEST_SIMPLIFY_SPECTRUM(test_simplify_spectrum(
-        form_complex_numbers(h_in_original), h_out_expected, q));
+        form_complex_numbers<double>(h_in_original), h_out_expected, q));
   }
   return 0;
 }
