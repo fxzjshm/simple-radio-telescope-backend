@@ -11,12 +11,12 @@ It reads raw "baseband"/"intermediate frequency" voltage data and should be capa
 Possible future plans include DPDK integration, search of disperse measurements, etc.
 
 Due to **vendor neutrality** and API complexity,
-[SYCL 2020](https://www.khronos.org/sycl/) from Khronos Group is chosen as target API.
-Although say so, currently only CPU (OpenMP, on AMD64), ROCm and CUDA backends are tested, due to limited device types available; another backend is working-in-progress.
-Mainly used SYCL implementations are [hipSYCL](https://github.com/illuhad/hipSYCL) and [intel/llvm](https://github.com/intel/llvm/)
+[SYCL 2020](https://www.khronos.org/sycl/) from Khronos Group is chosen as target API,
+Mainly used SYCL implementations are [hipSYCL](https://github.com/illuhad/hipSYCL) and [intel/llvm](https://github.com/intel/llvm/).
+Tested setups are listed below.
 
-> It is noticed that there has been a tendency to equate GPU with CUDA, especially in HPC and AI.  
-> It must be emphasized that GPU != CUDA, there do exist other vendors that should not be neglected.
+> It is noticed that there has been a tendency to equate GPGPU with CUDA, especially in HPC and AI.  
+> It must be emphasized that GPGPU != CUDA, although GPGPU is first developed by NVIDIA, for now there do exist other vendors that should not be neglected.
 
 Name of this project is inspired by SDDM: Simple Desktop Display Manager.
 
@@ -64,6 +64,41 @@ if you have cloned this repo.
 Then please refer to [BUILDING.md](BUILDING.md)
 
 ### Example Setup
+
+```mermaid
+mindmap
+  root )SYCL <br/> implementations(
+    hipSYCL / Open SYCL
+      OpenMP
+        any CPU <br/> with OpenMP
+      CUDA
+        NVIDIA GPU
+      ROCm/HIP
+        AMD GPU
+      ["[DATA EXPUNGED]"]
+        ["[DATA EXPUNGED]"]
+    Intel oneAPI DPC++
+      CUDA
+        NVIDIA GPU
+      ROCm/HIP
+        AMD GPU
+      Level Zero
+        Intel GPU ?
+      OpenCL_SPIRV [OpenCL + SPIR-V]
+        PoCL
+        Mesa rusticl ?
+          llvmpipe ?
+          nouveau ?
+          radeonsi ?
+          iris ?
+        clspv + clvk ? <br/> on Vulkan
+        any other devices <br/> with support
+      CCE
+        Huawei Ascend ?
+```
+
+*Schemantic of main SYCL implementations and theirs backends. Devices marked "?" have not been successfully tested.*
+
 Tested setup:
 * AMD Rembrandt CPU + AMD GPU (gfx906; gfx1035)
   * with hipSYCL HIP backend & intel/llvm HIP backend
@@ -71,29 +106,36 @@ Tested setup:
 * Intel Ice Lake CPU + NVIDIA GPU (GA102; GA104)
   * with hipSYCL CUDA backend & intel/llvm CUDA backend
 * Intel Ice Lake CPU
-  * with hipSYCL CPU backend (CBS enabled)
-  * may extended to any CPU with C++ support
+  * with hipSYCL CPU backend (CBS enabled), which may extended to any CPU with C++ support
 * AMD Rembrandt CPU
   * same as above
   * also with intel/llvm OpenCL SPIR-V backend + [intel/opencl-intercept-layer](https://github.com/intel/opencl-intercept-layer) + [PoCL](http://portablecl.org/) CPU backend
-    * intel/opencl-intercept-layer used for USM -> SVM emulation (not required now, though):
+    * intel/opencl-intercept-layer used for SYCL USM -> OpenCL SVM emulation (not required fot PoCL now, though):
 ```bash
 export LD_PRELOAD=/opt/opencl-intercept-layer/lib/libOpenCL.so
 export CLI_Emulate_cl_intel_unified_shared_memory=1
 export CLI_SuppressLogging=1
 ```
-* [DATA EXPUNGED] CPU + [DATA EXPUNGED] ([DATA EXPUNGED])
-
-Working in progress:
+* [DATA EXPUNGED] CPU + [DATA EXPUNGED] ("Device X")
 * Intel Alder Lake CPU + [DATA EXPUNGED]
+  * waiting for optimization of library from this device vendor
 
 To be tested:
-* mesa rusticl!
+* Mesa rusticl!
+  * blocked by SPIR-V -> NIR (`nir_deref_mode_is_in_set` assertion failure), similar issues tracked [here](https://gitlab.freedesktop.org/mesa/mesa/-/issues/9061)
+  * some backends has no SVM support, like radeonsi
+* clspv + clvk
+  * blocked by SVM support...
+* Intel GPU
+  * no device...
+* Huawei Ascend
+  * no compiler & no device...
 
 Tested NOT supported:
 * Codeplay ComputeCpp Experimental 2.11
   * header not compatible with C++20
   * segmentation fault in runtime library, not open-source so no way to debug
+  * didn't & maybe will never support (as it is [winding down](https://codeplay.com/portal/news/2023/07/07/the-future-of-computecpp))
 
 ## Usage
 Beside compile-time configurations (see [BUILDING.md](BUILDING.md)), 
@@ -101,7 +143,7 @@ there are also runtime configurations that can be input with priority
 "by command-line" > "by config file" > "default value"
 
 An example config file is at `userspace/srtb_config.cfg`; meanings of these
-variables are in `srtb/config.cpp` and `srtb/program_options.hpp`, `--help` option can also be used.
+variables are in `--help` option, `srtb/config.cpp` and `srtb/program_options.hpp`.
 
 <details>
 <summary><b>Current output of <code>--help</code></b></summary>
@@ -144,6 +186,11 @@ Baseband Options:
                                         second. Should be 2 * 
                                         baseband_bandwidth (* 1e6 because of 
                                         unit) if Nyquist rate. 
+  --baseband_reserve_sample arg         if 1, baseband data affected by 
+                                        dispersion will be reserved for next 
+                                        segment, i.e. segments will overlap, if
+                                        possible; if 0, baseband data will not 
+                                        overlap.
 
 Data Input/Output Options:
 
@@ -256,14 +303,16 @@ A device failure has been encountered during daily observation using Intel serve
 **Please pay special attention to server cooling before observation.**
 
 ## Credits
-This repo uses some 3rd-party code:
+This repo uses 3rd-party code, including:
 * a [modified version](https://github.com/fxzjshm/SyclParallelSTL) of [SyclParallelSTL](https://github.com/KhronosGroup/SyclParallelSTL)
   * modified so that algorithms work direcly on input iterators
   * refer to its README for detailed modifications
+* [SyclCPLX](https://github.com/argonne-lcf/SyclCPLX), licensed under [Apache License 2.0](https://github.com/argonne-lcf/SyclCPLX/blob/main/LICENSE)
 * `exprgrammar.hpp` from [Suzerain](https://bitbucket.org/RhysU/suzerain) (and [this blog](https://agentzlerich.blogspot.com/2011/06/using-boost-spirit-21-to-evaluate.html)) by RhysU, licensed under [Mozilla Public License, v. 2.0](https://mozilla.org/MPL/2.0/) . 
   * Tiny modification is made to update path of header included.
-* [matplotlib-cpp](https://github.com/lava/matplotlib-cpp) by Benno Evers ("lava"), licensed under the MIT License
-* [code snippet to get unmangled type name](https://bitwizeshift.github.io/posts/2021/03/09/getting-an-unmangled-type-name-at-compile-time/) by bitwizeshift, licensed under the [MIT License](https://github.com/bitwizeshift/bitwizeshift.github.io/blob/source/LICENSE)
 * [Emulated double precision Double single routine header](https://forums.developer.nvidia.com/t/emulated-double-precision-double-single-routine-header/4686) by StickGuy, Norbert Juffa, Reimar, et al. , 
-  * original file is dsmath.h; changes are made to dsmath_sycl.h to integrate into this project.
-
+  * original code in dsmath.h; changes are made and renamed to dsmath_sycl.h to integrate into this project
+* [matplotlib-cpp](https://github.com/lava/matplotlib-cpp) by Benno Evers ("lava"), licensed under [the MIT License](https://github.com/lava/matplotlib-cpp/blob/master/LICENSE)
+* [cnpy](https://github.com/rogersce/cnpy) by rogersce, licensed under [the MIT License](https://github.com/rogersce/cnpy/blob/master/LICENSE)
+* [code snippet to get unmangled type name](https://bitwizeshift.github.io/posts/2021/03/09/getting-an-unmangled-type-name-at-compile-time/) by bitwizeshift, licensed under the [MIT License](https://github.com/bitwizeshift/bitwizeshift.github.io/blob/source/LICENSE).
+* [concurrentqueue](https://github.com/cameron314/concurrentqueue/) by cameron314, licensed under [Simplified BSD License or Boost Software License](https://github.com/cameron314/concurrentqueue/blob/master/LICENSE.md)
