@@ -220,8 +220,13 @@ int main(int argc, char** argv) {
 
   std::jthread refft_1d_c2c_thread = srtb::pipeline::refft_1d_c2c_pipe::start();
 
+  //std::jthread watfft_1d_c2c_thread = srtb::pipeline::watfft_1d_c2c_pipe::start();
+
   std::jthread signal_detect_thread =
       srtb::pipeline::signal_detect_pipe::start();
+  
+  //std::jthread signal_detect_thread =
+  //    srtb::pipeline::signal_detect_pipe_2::start();
 
   std::jthread baseband_output_thread;
   if (srtb::config.baseband_write_all) {
@@ -250,6 +255,7 @@ int main(int argc, char** argv) {
   threads.push_back(std::move(dedisperse_thread));
   threads.push_back(std::move(ifft_1d_c2c_thread));
   threads.push_back(std::move(refft_1d_c2c_thread));
+  //threads.push_back(std::move(watfft_1d_c2c_thread));
   threads.push_back(std::move(signal_detect_thread));
   threads.push_back(std::move(baseband_output_thread));
   threads.push_back(std::move(simplify_spectrum_thread));

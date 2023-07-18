@@ -22,6 +22,7 @@
 // --- divide line for clang-format ---
 #include "srtb/algorithm/map_identity.hpp"
 #include "srtb/algorithm/map_reduce.hpp"
+#include "srtb/algorithm/multi_reduce.hpp"
 
 namespace srtb {
 namespace spectrum {
@@ -170,8 +171,7 @@ inline void mitigate_rfi_manual(DeviceComplexInputAccessor d_in,
  * 
  * ->  xxxx......xxxx
  * 
- * ref: Antoni, 2004 (doi:10.1016/j.ymssp.2004.09.001)
- *      Jiang, 2022
+ * ref: Vrabie, Granjon, and Serviere (2003), Nita (2016), Taylor et al. (2018), and Jiang (2022)
  * 
  * @note current implementation is not efficient if fft_bins is small
  * 
@@ -184,7 +184,7 @@ inline void mitigate_rfi_spectral_kurtosis_method(
     DeviceComplexInputAccessor d_in, size_t fft_bins, size_t time_counts,
     T sk_threshold, sycl::queue& q = srtb::queue) {
   // sometimes float is not enough, change to double if so
-  using sum_real_t = srtb::real;
+  using sum_real_t = T;
   // notice the difference of definition of spectral kurtosis (constant can be -1 or -2)
   // here -1 is picked, and constants are moved into threshold to reduce computation on device
   const size_t M = time_counts;
@@ -270,6 +270,71 @@ inline void mitigate_rfi_spectral_kurtosis_method(
        if (zeroing) {
          d_in[i] = zero;
        }
+     }
+   }).wait();
+}
+
+/**
+ * @brief Mitigate radio frequency interference (RFI), using spectral kurtosis.
+ * 
+ * @note notice different interpretations of axis:
+ *          time
+ *       ---------->
+ *     1111......1111 |                x
+ *     1111......1111 | frequency  ->  x
+ *          ....      |                .
+ *     1111......1111 v                x
+ * 
+ * ref: Vrabie, Granjon, and Serviere (2003), Nita (2016), Taylor et al. (2018), and Jiang (2022)
+ */
+template <typename T = srtb::real, typename C = srtb::complex<srtb::real>,
+          typename DeviceComplexInputAccessor = C*>
+inline void mitigate_rfi_spectral_kurtosis_method_2(
+    DeviceComplexInputAccessor d_in, size_t time_counts, size_t fft_bins,
+    T sk_threshold, sycl::queue& q) {
+  // notice the difference of definition of spectral kurtosis (constant can be -1 or -2)
+  // here -1 is picked, and constants are moved into threshold to reduce computation on device
+  const size_t M = time_counts;
+  const size_t total_size = fft_bins * time_counts;
+  const T M_ = M;
+  T threshold_high = sk_threshold;
+  T threshold_low = 2 - sk_threshold;
+  if (threshold_low > threshold_high) {
+    std::swap(threshold_low, threshold_high);
+  }
+  const T threshold_low_ = threshold_low * ((M_ - 1) / (M_ + 1)) + 1;
+  const T threshold_high_ = threshold_high * ((M_ - 1) / (M_ + 1)) + 1;
+
+  // <x^2, x^4>
+  using power_pair = std::pair<T, T>;
+  auto d_power_pair_unique =
+      srtb::device_allocator.allocate_unique<power_pair>(fft_bins);
+  auto d_power_pair = d_power_pair_unique.get();
+
+  // sum all x^2, x^4
+  srtb::algorithm::multi_mapreduce(
+      d_in, time_counts, fft_bins, d_power_pair,
+      /* map = */
+      []([[maybe_unused]] auto pos, C x) {
+        T x2 = srtb::norm(x), x4 = x2 * x2;
+        return power_pair{x2, x4};
+      },
+      /* reduce = */
+      [](power_pair a, power_pair b) {
+        return power_pair{a.first + b.first, a.second + b.second};
+      },
+      q);
+
+  q.parallel_for(sycl::range<1>(total_size), [=](sycl::item<1> id) {
+     const size_t i = id.get_id(0);
+     const size_t j = (i / time_counts);  // index on frequency axis
+     //const size_t k = i - (j * time_counts);  // index on time axis
+     const auto [s2, s4] = d_power_pair[j];
+     const T sk_ = M * (s4 / (s2 * s2));
+     const bool zeroing = (sk_ > threshold_high_ || sk_ < threshold_low_);
+     constexpr auto zero = C{T{0}, T{0}};
+     if (zeroing) {
+       d_in[i] = zero;
      }
    }).wait();
 }

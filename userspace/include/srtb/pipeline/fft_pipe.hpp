@@ -302,11 +302,115 @@ class refft_1d_c2c_pipe : public pipe<refft_1d_c2c_pipe> {
     signal_detect_work.ptr = d_out_shared;
     signal_detect_work.count = refft_length;
     signal_detect_work.batch_size = refft_batch_size;
-    signal_detect_work.baseband_data = std::move(refft_1d_c2c_work.baseband_data);
+    signal_detect_work.baseband_data =
+        std::move(refft_1d_c2c_work.baseband_data);
     signal_detect_work.timestamp = refft_1d_c2c_work.timestamp;
-    signal_detect_work.udp_packet_counter = refft_1d_c2c_work.udp_packet_counter;
+    signal_detect_work.udp_packet_counter =
+        refft_1d_c2c_work.udp_packet_counter;
     SRTB_PUSH_WORK_OR_RETURN(" [refft 1d c2c pipe] ", srtb::signal_detect_queue,
                              signal_detect_work, stop_token);
+  }
+};
+
+/**
+ * @brief This pipe generates time-frequency spectrum from dedispersed spectrum.
+ * May used to substitute ifft_pipe & refft_pipe, although a transpose may required.
+ * @deprecated Not used now because dedispersed baseband may used for other purposes in the future.
+ */
+class watfft_1d_c2c_pipe : public pipe<watfft_1d_c2c_pipe> {
+  friend pipe<watfft_1d_c2c_pipe>;
+
+ protected:
+  std::optional<srtb::fft::fft_1d_dispatcher<srtb::fft::type::C2C_1D_BACKWARD> >
+      opt_watfft_dispatcher;
+  std::optional<srtb::fft::fft_window_functor_manager<
+      srtb::real, srtb::fft::default_window> >
+      opt_watfft_window_functor_manager;
+
+ public:
+  watfft_1d_c2c_pipe() = default;
+
+ protected:
+  void setup_impl([[maybe_unused]] std::stop_token stop_token) {
+    // divided by 2 because baseband input is real number, but here is complex
+    const size_t baseband_input_count_complex =
+        srtb::config.baseband_input_count / 2;
+    size_t watfft_batch_size = srtb::config.spectrum_channel_count;
+    size_t watfft_length = baseband_input_count_complex / watfft_batch_size;
+    if (watfft_length == 0) [[unlikely]] {
+      SRTB_LOGW << " [watfft 1d c2c pipe] "
+                << "watfft_batch_size too large! Set to input length now.";
+      watfft_batch_size = baseband_input_count_complex;
+      watfft_length = 1;
+    }
+    opt_watfft_dispatcher.emplace(/* n = */ watfft_length,
+                                  /* batch_size = */ watfft_batch_size, q);
+    opt_watfft_window_functor_manager.emplace(srtb::fft::default_window{},
+                                              /* n = */ watfft_length, q);
+  }
+
+  void run_once_impl(std::stop_token stop_token) {
+    srtb::work::ifft_1d_c2c_work ifft_1d_c2c_work;
+    SRTB_POP_WORK_OR_RETURN(" [watfft 1d c2c pipe] ", srtb::ifft_1d_c2c_queue,
+                            ifft_1d_c2c_work, stop_token);
+    const size_t input_count = ifft_1d_c2c_work.count;
+
+    auto& watfft_dispatcher = opt_watfft_dispatcher.value();
+    const size_t watfft_batch_size =
+        std::min(srtb::config.spectrum_channel_count, input_count);
+    const size_t watfft_length = input_count / watfft_batch_size;
+
+    // reset FFT plan if mismatch
+    if (watfft_dispatcher.get_n() != watfft_length ||
+        watfft_dispatcher.get_batch_size() != watfft_batch_size) [[unlikely]] {
+      watfft_dispatcher.set_size(watfft_length, watfft_batch_size);
+      opt_watfft_window_functor_manager.emplace(srtb::fft::default_window{},
+                                                /* n = */ watfft_length, q);
+    }
+
+    auto& d_in_shared = ifft_1d_c2c_work.ptr;
+    auto d_in = d_in_shared.get();
+
+    std::shared_ptr<srtb::complex<srtb::real> > d_out_shared;
+    if constexpr (srtb::fft_operate_in_place) {
+      d_out_shared = d_in_shared;
+    } else {
+      d_out_shared =
+          srtb::device_allocator.allocate_shared<srtb::complex<srtb::real> >(
+              input_count);
+    }
+
+    auto d_out = d_out_shared.get();
+    watfft_dispatcher.process(d_in, d_out);
+
+    // de-apply window function of size watfft_length
+    if constexpr (!std::is_same_v<srtb::fft::default_window,
+                                  srtb::fft::window::rectangle<srtb::real> >) {
+      auto watfft_window =
+          opt_watfft_window_functor_manager.value().get_coefficients();
+      q.parallel_for(sycl::range<1>{input_count}, [=](sycl::item<1> id) {
+         const auto i = id.get_id(0);
+         const auto channel_id = i / watfft_length;
+         const auto j = i - (channel_id * watfft_length);
+         SRTB_ASSERT_IN_KERNEL(j < watfft_length);
+         const auto x = d_in[i];
+         d_in[i] = x / watfft_window[j];
+       }).wait();
+    }
+
+    // TODO: nsamps_reserved
+    //const auto nsamps_reserved_real =
+    //    srtb::coherent_dedispersion::nsamps_reserved();
+    //const auto nsamps_reserved_complex = nsamps_reserved_real / 2;
+
+    srtb::work::signal_detect_work signal_detect_work;
+    signal_detect_work.ptr = d_out_shared;
+    signal_detect_work.count = watfft_length;
+    signal_detect_work.batch_size = watfft_batch_size;
+    signal_detect_work.timestamp = ifft_1d_c2c_work.timestamp;
+    SRTB_PUSH_WORK_OR_RETURN(" [watfft 1d c2c pipe] ",
+                             srtb::signal_detect_queue, signal_detect_work,
+                             stop_token);
   }
 };
 
