@@ -168,7 +168,7 @@ class draw_spectrum_work_holder {
 };
 
 /**
- * @brief draw processed spectrum data onto the pixmap
+ * @brief draw processed spectrum data onto the pixmap, as a scrolling waterfall
  * 
  * ref: https://github.com/Daguerreo/QML-ImageProvider
  *      Gqrx's plotter: https://github.com/gqrx-sdr/gqrx/blob/master/src/qtgui/plotter.cpp
@@ -309,6 +309,99 @@ class SpectrumImageProvider : public QObject, public QQuickImageProvider {
                                      : pixmap.height());
     }
     return pixmap_scaled;
+  }
+};
+
+// ------------------------------------------------------------------------
+
+/**
+ * @brief draw processed spectrum data onto the pixmap
+ */
+class SimpleSpectrumImageProvider : public QObject, public QQuickImageProvider {
+  Q_OBJECT
+
+ protected:
+  QImage image;
+  std::shared_ptr<uint32_t> image_data;
+  // current alpha channel of all color used are FF
+  static constexpr QImage::Format image_format = QImage::Format_RGB32;
+  int spectrum_update_counter = 0;
+
+ public:
+  explicit SimpleSpectrumImageProvider(QObject* parent = nullptr)
+      : QObject{parent},
+        QQuickImageProvider{QQuickImageProvider::Pixmap},
+        image{static_cast<int>(srtb::config.gui_pixmap_width),
+              static_cast<int>(srtb::config.gui_pixmap_height), image_format} {}
+
+ public Q_SLOTS:
+  void update_pixmap() {
+    srtb::work::draw_spectrum_work_2 draw_spectrum_work;
+    const bool got_work = srtb::draw_spectrum_queue_2.pop(draw_spectrum_work);
+    if (!got_work) {
+      return;
+    }
+
+    const int width = draw_spectrum_work.width;
+    const int height = draw_spectrum_work.height;
+    if (image.width() != width || image.height() != height) [[unlikely]] {
+      SRTB_LOGW << " [SimpleSpectrumImageProvider] "
+                << "resizing image from " << image.width() << " x "
+                << image.height() << " to " << width << " x " << height
+                << srtb::endl;
+      image = QImage{width, height, image_format};
+    }
+
+    // moved to device
+    //QPainter painter{&pixmap};
+    //for (int y = 0; y < height; y++) {
+    //  for (int x = 0; x < width; x++) {
+    //    // 'v2' is new value of 'v' in HSV form
+    //    int v2 = static_cast<int>(color_value_count *
+    //                              draw_spectrum_work.ptr.get()[y * width + x]);
+    //    // invalid v2 values should be handled properly in operator[]
+    //    QColor local_color = color_map_holder[v2];
+    //    painter.setPen(local_color);
+    //    painter.drawPoint(x, y);
+    //  }
+    //}
+
+    auto h_image_shared = draw_spectrum_work.ptr;
+    uint32_t* h_image = h_image_shared.get();
+    image =
+        QImage{reinterpret_cast<uchar*>(h_image), width, height, image_format};
+    // TODO: check lifetime of old pixmap data
+    image_data = h_image_shared;
+
+    //SRTB_LOGD << " [SpectrumImageProvider] "
+    //          << "updated pixmap, count = " << update_count << srtb::endl;
+  }
+
+ public:
+  // ref: https://stackoverflow.com/questions/45755655/how-to-correctly-use-qt-qml-image-provider
+  void trigger_update(QObject* object) {
+    // object should be main window
+    QMetaObject::invokeMethod(object, "update_spectrum",
+                              Q_ARG(QVariant, spectrum_update_counter));
+    spectrum_update_counter++;
+    //SRTB_LOGD << " [SpectrumImageProvider] "
+    //          << "trigger update, spectrum_update_counter = "
+    //          << spectrum_update_counter << srtb::endl;
+  }
+
+  QPixmap requestPixmap(const QString& id, QSize* size,
+                        const QSize& requestedSize) override {
+    //SRTB_LOGD << " [SpectrumImageProvider] "
+    //          << "requestPixmap called with id " << id.toStdString()
+    //          << srtb::endl;
+    (void)id;
+    if (size) {
+      *size = QSize(image.width(), image.height());
+    }
+    QImage image_scaled = image.scaled(
+        requestedSize.width() > 0 ? requestedSize.width() : image.width(),
+        requestedSize.height() > 0 ? requestedSize.height() : image.height());
+    return QPixmap::fromImage(image_scaled);
   }
 };
 

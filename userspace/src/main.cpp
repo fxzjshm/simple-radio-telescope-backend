@@ -247,6 +247,8 @@ int main(int argc, char** argv) {
 #if SRTB_ENABLE_GUI
   if (srtb::config.gui_enable) {
     simplify_spectrum_thread = srtb::pipeline::simplify_spectrum_pipe::start();
+    //simplify_spectrum_thread =
+    //    srtb::pipeline::simplify_spectrum_pipe_2::start();
   }
 #endif  // SRTB_ENABLE_GUI
 

@@ -237,6 +237,15 @@ struct draw_spectrum_work
 };
 
 /**
+ * @brief contains ARGB8888 @c uint32_t of width * height, to be drawn onto screen
+ */
+struct draw_spectrum_work_2 {
+  std::shared_ptr<uint32_t> ptr;
+  size_t width;
+  size_t height;
+};
+
+/**
  * @brief contains @c srtb::complex<srtb::real> to be taken norm and summed into
  *        time series, then try tp find signal in it.
  */

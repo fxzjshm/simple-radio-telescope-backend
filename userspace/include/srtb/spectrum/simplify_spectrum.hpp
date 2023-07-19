@@ -16,8 +16,8 @@
 
 #include "srtb/commons.hpp"
 // --- divide line for clang-format ---
-#include "srtb/algorithm/map_reduce.hpp"
 #include "srtb/algorithm/map_identity.hpp"
+#include "srtb/algorithm/map_reduce.hpp"
 
 namespace srtb {
 namespace spectrum {
@@ -64,10 +64,6 @@ void simplify_spectrum_calculate_norm(DeviceInputAccessor d_in, size_t in_count,
                       right_real = sycl::floor(right_accurate);
      const size_t left = static_cast<size_t>(left_real),
                   right = static_cast<size_t>(right_real);
-     for (size_t k = left; k < right; k++) {
-       SRTB_ASSERT_IN_KERNEL(k < in_count);
-       sum += norm(d_in[k + in_offset]);
-     }
      SRTB_ASSERT_IN_KERNEL(left_real >= left_accurate);
      if (left_real - left_accurate > eps) [[likely]] {
        const size_t left_left = left - 1;
@@ -75,6 +71,10 @@ void simplify_spectrum_calculate_norm(DeviceInputAccessor d_in, size_t in_count,
        const size_t left_right = left;
        SRTB_ASSERT_IN_KERNEL(left_left < in_count);
        sum += (left_right - left_accurate) * norm(d_in[left_left + in_offset]);
+     }
+     for (size_t k = left; k < right; k++) {
+       SRTB_ASSERT_IN_KERNEL(k < in_count);
+       sum += norm(d_in[k + in_offset]);
      }
      SRTB_ASSERT_IN_KERNEL(right_accurate >= right_real);
      if (right_accurate - right_real > eps) [[likely]] {
@@ -86,6 +86,178 @@ void simplify_spectrum_calculate_norm(DeviceInputAccessor d_in, size_t in_count,
            (right_accurate - right_left) * norm(d_in[right_left + in_offset]);
      }
      d_out[i + out_offset] = sum;
+   }).wait();
+}
+
+/**
+ * @brief average the norm of input complex numbers in frequency axis and time axis
+ * 
+ * schmantic:
+ * 
+ *  .----------------------------------------------------------------------> t
+ *  | x \           / x ... x \           / x ... ... x \           / x
+ *  | x  \         /  x ... x  \         /  x ... ... x  \         /  x
+ *  | x    \bar{x}    x ... x    \bar{x}    x ... ... x    \bar{x}    x
+ *  | x  /         \  x ... x  /         \  x ... ... x  /         \  x
+ *  | x /           \ x ... x /           \ x ... ... x /           \ x
+ *  |
+ *  | x \           / x ... x \           / x ... ... x \           / x
+ *  | x  \         /  x ... x  \         /  x ... ... x  \         /  x
+ *  | x    \bar{x}    x ... x    \bar{x}    x ... ... x    \bar{x}    x
+ *  | x  /         \  x ... x  /         \  x ... ... x  /         \  x
+ *  | x /           \ x ... x /           \ x ... ... x /           \ x
+ *  |
+ *  | .               . ... .               . ... ... .               .
+ *  | .               . ... .               . ... ... .               .
+ *  | .               . ... .               . ... ... .               .
+ *  |
+ *  | x \           / x ... x \           / x ... ... x \           / x
+ *  | x  \         /  x ... x  \         /  x ... ... x  \         /  x
+ *  | x    \bar{x}    x ... x    \bar{x}    x ... ... x    \bar{x}    x
+ *  | x  /         \  x ... x  /         \  x ... ... x  /         \  x
+ *  | x /           \ x ... x /           \ x ... ... x /           \ x
+ *  |
+ *  v
+ *  f
+ * 
+ * @tparam DeviceInputAccessor e.g. device pointer complex*
+ * @tparam DeviceOutputAccessor e.g. device pointer real*
+ * @param d_in iterator of input complex spectrum, with time as x-axis and frequency as y-axis
+ * @param in_width count in x-axis (time) of d_in
+ * @param in_height count in y-axis (frequency) of d_in
+ * @param d_out iterator of output intensity (real), axis same as d_in
+ * @param out_width count in x-axis (time) of d_out
+ * @param out_height count in y-axis (frequency) of d_out
+ * @param q SYCL queue to submit kernel
+ */
+template <typename DeviceInputAccessor, typename DeviceOutputAccessor>
+inline void resample_spectrum(DeviceInputAccessor d_in, size_t in_width,
+                              size_t in_height, DeviceOutputAccessor d_out,
+                              size_t out_width, size_t out_height,
+                              sycl::queue& q) {
+  const srtb::real in_width_real = static_cast<srtb::real>(in_width);
+  const srtb::real in_height_real = static_cast<srtb::real>(in_height);
+  const srtb::real out_width_real = static_cast<srtb::real>(out_width);
+  const srtb::real out_height_real = static_cast<srtb::real>(out_height);
+
+  q.parallel_for(sycl::range<1>{out_width * out_height}, [=](sycl::item<1> id) {
+     // working for pixel (x2, y2) on output pixmap
+     const size_t idx = id.get_id(0);
+     const size_t y2 = idx / out_width;
+     const size_t x2 = idx - y2 * out_width;
+     SRTB_ASSERT_IN_KERNEL(x2 < out_width && y2 < out_height);
+     SRTB_ASSERT_IN_KERNEL(y2 * out_width + x2 == idx);
+
+     //  // correspond position on input spectrum is (x1, y1)
+     //  const srtb::real x1 =
+     //      static_cast<srtb::real>(x2) / out_width_real * in_width_real;
+     //  //const srtb::real y1 =
+     //  //    static_cast<srtb::real>(y2) / out_height_real * in_height_real;
+     //  /*
+     //     on input spectrum, t axis:
+
+     //     ----|--------|------> t
+     //       left   ^ right
+     //              |
+     //             x_1
+
+     //     ("|" means integer index position)
+     //   */
+     //  const srtb::real left_real = sycl::floor(x1);
+     //  const srtb::real right_real = left_real + 1;
+     //  const size_t left_int = static_cast<size_t>(left_real);
+     //  const size_t right_int = left_int + 1;
+     //  const srtb::real left_portion = right_real - x1;
+     //  const srtb::real right_portion = x1 - left_real;
+     //  SRTB_ASSERT_IN_KERNEL(left_portion >= 0);
+     //  SRTB_ASSERT_IN_KERNEL(right_portion >= 0);
+
+     //  const auto sample = [=](size_t y) {
+     //    return left_portion * srtb::norm(d_in[y * in_width + left_int]) +
+     //           right_portion * srtb::norm(d_in[y * in_width + right_int]);
+     //  };
+
+     const srtb::real left_accurate = x2 / out_width_real * in_width_real;
+     const srtb::real right_accurate =
+         (x2 + 1) / out_width_real * in_width_real;
+     const srtb::real left_real = sycl::ceil(left_accurate);
+     const srtb::real right_real = sycl::floor(right_accurate);
+     const size_t left_int = static_cast<size_t>(left_real);
+     const size_t right_int = static_cast<size_t>(right_real);
+
+     const auto sample = [=](size_t y) {
+       srtb::real sum = 0;
+       SRTB_ASSERT_IN_KERNEL(left_real >= left_accurate);
+       if (left_real > left_accurate) [[likely]] {
+         const size_t left_left = left_int - 1;
+         // left_left == static_cast<size_t>(sycl::floor(left_real)),
+         // const size_t left_right = left;
+         SRTB_ASSERT_IN_KERNEL(left_left < in_width);
+         sum += (left_real - left_accurate) *
+                srtb::norm(d_in[y * in_width + left_left]);
+       }
+       for (size_t x = left_int; x < right_int; x++) {
+         SRTB_ASSERT_IN_KERNEL(x < in_width);
+         sum += srtb::norm(d_in[y * in_width + x]);
+       }
+       SRTB_ASSERT_IN_KERNEL(right_accurate >= right_real);
+       if (right_accurate - right_real > eps) [[likely]] {
+         const size_t right_left = right_int;
+         // const size_t right_right = right + 1;
+         // right_right == static_cast<size_t>(sycl::ceil(right_real));
+         SRTB_ASSERT_IN_KERNEL(right_left < in_width);
+         sum += (right_accurate - right_left) *
+                srtb::norm(d_in[y * in_width + right_left]);
+       }
+       return sum;
+     };
+
+     srtb::real sum = 0;
+     /*
+        on input spectrum, f axis:
+
+        <--- up   |---------------- sum ------------------|          down --->
+          --|--------|--------|---- ... ----|--------|--------|------> f
+            ^     ^  ^                               ^    ^   ^
+            |     |  |                               |    |   |
+            |   up_accurate                          |  down_accurate
+          up_up      |                      down == down_up   |
+                 up == up_down                            down_down
+
+        ("|" means integer index position)
+      */
+     const srtb::real up_accurate = y2 / out_height_real * in_height_real;
+     const srtb::real down_accurate =
+         (y2 + 1) / out_height_real * in_height_real;
+     const srtb::real up_real = sycl::ceil(up_accurate);
+     const srtb::real down_real = sycl::floor(down_accurate);
+     const size_t up_int = static_cast<size_t>(up_real),
+                  down_int = static_cast<size_t>(down_real);
+
+     SRTB_ASSERT_IN_KERNEL(up_real >= up_accurate);
+     if (up_real > up_accurate) [[likely]] {
+       const size_t up_up = up_int - 1;
+       // up_up == static_cast<size_t>(sycl::floor(up_real)),
+       // const size_t up_down = up_int;
+       SRTB_ASSERT_IN_KERNEL(up_up < in_height);
+       sum += (up_real - up_accurate) * sample(up_up);
+     }
+
+     for (size_t y = up_int; y < down_int; y++) {
+       SRTB_ASSERT_IN_KERNEL(y < in_height);
+       sum += sample(y);
+     }
+
+     SRTB_ASSERT_IN_KERNEL(down_accurate >= down_real);
+     if (down_accurate > down_real) [[likely]] {
+       const size_t down_up = down_int;
+       // const size_t down_down = down_int + 1;
+       // down_down == static_cast<size_t>(sycl::ceil(down_real));
+       SRTB_ASSERT_IN_KERNEL(down_up < in_height);
+       sum += (down_accurate - down_real) * sample(down_up);
+     }
+
+     d_out[idx] = sum;
    }).wait();
 }
 
@@ -111,6 +283,91 @@ auto simplify_spectrum_normalize_with_average_value(
      }).wait();
   }
   return h_avg_val;
+}
+
+/**
+ * @brief Extract components of uint32_t represent of ARGB
+ * 
+ * @param argb the value to be extracted
+ * @return extracted chars, alpha, red, green, blue respectively
+ */
+inline constexpr auto getARGB(uint32_t argb)
+    -> std::tuple<unsigned char, unsigned char, unsigned char, unsigned char> {
+  unsigned char a = static_cast<unsigned char>((argb & 0xff000000) >> 24);
+  unsigned char r = static_cast<unsigned char>((argb & 0x00ff0000) >> 16);
+  unsigned char g = static_cast<unsigned char>((argb & 0x0000ff00) >> 8);
+  unsigned char b = static_cast<unsigned char>((argb & 0x000000ff));
+  return std::tuple{a, r, g, b};
+}
+
+/**
+ * @brief combine A, R, G, B components into uint32_t represent of ARGB32
+ * 
+ * @param a value of the alpha channel
+ * @param r value of the red channel
+ * @param g value of the green channel
+ * @param b value of the blue channel
+ * @return uint32_t represent of ARGB32
+ */
+inline constexpr auto getARGB(unsigned char a, unsigned char r, unsigned char g,
+                              unsigned char b) -> uint32_t {
+  return (static_cast<uint32_t>(a) << 24) | (static_cast<uint32_t>(r) << 16) |
+         (static_cast<uint32_t>(g) << 8) | (static_cast<uint32_t>(b));
+}
+
+/**
+ * @brief This function maps input intensity (range [0, 1]) 
+ *        to ARGB32 colors on pixmap (range argb_1 ~ argb_2, or argb_error if out of range)
+ * 
+ * @tparam InputIterator type of d_in, accessor on device, e.g. srtb::real*
+ * @tparam OutputIterator type of d_out, accessor on device, e.g. uint32_t*
+ * @tparam std::enable_if<
+ *           std::is_same<
+ *             typename std::decay<
+ *               typename std::iterator_traits<OutputIterator>::value_type
+ *             >::type, uint32_t
+ *           >::value, void
+ *         >::type 
+ *         this function is enabled only if output type is uint32_t, which can represen ARGB32
+ * 
+ * @param d_in input intensity
+ * @param d_out output pixmap
+ * @param width width of both input and output 2D array
+ * @param height height of both input and output array
+ * @param argb_1 start of color range
+ * @param argb_2 end of color range
+ * @param argb_error color if input out of range
+ * @param q the SYCL queue which to submit kernel to
+ */
+template <typename InputIterator, typename OutputIterator,
+          typename = typename std::enable_if<
+              std::is_same<typename std::decay<typename std::iterator_traits<
+                               OutputIterator>::value_type>::type,
+                           uint32_t>::value,
+              void>::type>
+inline void generate_pixmap(InputIterator d_in, OutputIterator d_out,
+                            size_t width, size_t height, uint32_t argb_1,
+                            uint32_t argb_2, uint32_t argb_error,
+                            sycl::queue& q) {
+  const size_t total_count = width * height;
+  const auto [a1, r1, g1, b1] = getARGB(argb_1);
+  const auto [a2, r2, g2, b2] = getARGB(argb_2);
+  const srtb::real a1f = a1, r1f = r1, g1f = g1, b1f = b1;
+  const srtb::real a2f = a2, r2f = r2, g2f = g2, b2f = b2;
+
+  q.parallel_for(sycl::range<1>{total_count}, [=](sycl::item<1> id) {
+     const size_t i = id.get_id(0);
+     const auto in = d_in[i];
+     uint32_t out;
+     constexpr srtb::real zero = 0, one = 1;
+     if (zero <= in && in <= one) {
+       out = getARGB((one - in) * a1f + in * a2f, (one - in) * r1f + in * r2f,
+                     (one - in) * g1f + in * g2f, (one - in) * b1f + in * b2f);
+     } else {
+       out = argb_error;
+     }
+     d_out[i] = out;
+   }).wait();
 }
 
 }  // namespace spectrum

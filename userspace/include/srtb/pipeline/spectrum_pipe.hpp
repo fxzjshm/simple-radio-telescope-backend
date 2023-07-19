@@ -14,6 +14,8 @@
 #ifndef __SRTB_PIPELINE_SPECTRUM_PIPE__
 #define __SRTB_PIPELINE_SPECTRUM_PIPE__
 
+#include <QColor>
+
 #include "srtb/pipeline/pipe.hpp"
 #include "srtb/spectrum/simplify_spectrum.hpp"
 
@@ -87,6 +89,87 @@ class simplify_spectrum_pipe : public pipe<simplify_spectrum_pipe> {
         std::this_thread::sleep_for(
             std::chrono::nanoseconds(srtb::config.thread_query_work_wait_time));
         success = srtb::draw_spectrum_queue.push(draw_spectrum_work);
+      } while (!success);
+    }
+  }
+};
+
+/**
+ * @brief This temporary pipe reads FFT-ed data and generate thumbnail of the spectrum to draw it on GUI pixmap.
+ */
+class simplify_spectrum_pipe_2 : public pipe<simplify_spectrum_pipe_2> {
+  friend pipe<simplify_spectrum_pipe_2>;
+
+ public:
+  simplify_spectrum_pipe_2() = default;
+
+ protected:
+  void run_once_impl(std::stop_token stop_token) {
+    srtb::work::simplify_spectrum_work simplify_spectrum_work;
+    SRTB_POP_WORK_OR_RETURN(" [simplify spectrum pipe] ",
+                            srtb::simplify_spectrum_queue,
+                            simplify_spectrum_work, stop_token);
+
+    const size_t in_width = simplify_spectrum_work.count;
+    const size_t in_height = simplify_spectrum_work.batch_size;
+    const size_t out_width = srtb::config.gui_pixmap_width;
+    const size_t out_height = srtb::config.gui_pixmap_height;
+    const size_t total_out_count = out_width * out_height;
+    auto& d_in_shared = simplify_spectrum_work.ptr;
+    auto d_out_shared =
+        srtb::device_allocator.allocate_shared<srtb::real>(total_out_count);
+    auto d_in = d_in_shared.get();
+    auto d_out = d_out_shared.get();
+
+    SRTB_LOGD << " [simplify spectrum pipe] "
+              << " start simplifying" << srtb::endl;
+
+    srtb::spectrum::resample_spectrum(d_in, in_width, in_height, d_out,
+                                      out_width, out_height, q);
+    d_in = nullptr;
+    d_in_shared.reset();
+
+    // normalization, so that it can be drawn onto image
+    // using average value
+    srtb::spectrum::simplify_spectrum_normalize_with_average_value(
+        d_out, total_out_count, q);
+
+    const QColor color_1 = QColor{"#1f1e33"};
+    const QColor color_2 = QColor("#33e1f1");
+    const uint32_t argb_error = static_cast<uint32_t>(0xe0e1ccull);
+
+    auto d_image_shared =
+        srtb::device_allocator.allocate_shared<uint32_t>(total_out_count);
+    auto d_image = d_image_shared.get();
+    auto h_image_shared =
+        srtb::host_allocator.allocate_shared<uint32_t>(total_out_count);
+    auto h_image = h_image_shared.get();
+
+    srtb::spectrum::generate_pixmap(d_out, d_image, out_width, out_height,
+                                    color_1.rgba(), color_2.rgba(),
+                                    argb_error, q);
+
+    SRTB_LOGD << " [simplify spectrum pipe] "
+              << " finished simplifying" << srtb::endl;
+
+    q.copy(d_image, /* -> */ h_image, total_out_count).wait();
+    d_out = nullptr;
+    d_out_shared.reset();
+
+    srtb::work::draw_spectrum_work_2 draw_spectrum_work;
+    draw_spectrum_work.ptr = h_image_shared;
+    draw_spectrum_work.width = out_width;
+    draw_spectrum_work.height = out_height;
+    // same as SRTB_PUSH_WORK_OR_RETURN(), but supressed logs
+    {
+      bool success = false;
+      do {
+        if (stop_token.stop_requested()) [[unlikely]] {
+          return;
+        }
+        std::this_thread::sleep_for(
+            std::chrono::nanoseconds(srtb::config.thread_query_work_wait_time));
+        success = srtb::draw_spectrum_queue_2.push(draw_spectrum_work);
       } while (!success);
     }
   }
