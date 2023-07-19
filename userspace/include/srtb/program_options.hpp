@@ -64,6 +64,10 @@ namespace program_options {
 #if SRTB_ENABLE_GUI
        ("gui_enable", boost::program_options::value<std::string>(),
         "Runtime configuration to enable GUI")
+       ("gui_pixmap_width", boost::program_options::value<std::string>(),
+        "Width of GUI spectrum pixmap")
+       ("gui_pixmap_height", boost::program_options::value<std::string>(),
+        "Height of GUI spectrum pixmap")
 #endif
     ;
     baseband_option.add_options()
@@ -271,6 +275,8 @@ inline void evaluate_and_apply_changed_config(const std::string& name,
   SRTB_PARSE(signal_detect_max_boxcar_length)
   SRTB_PARSE(thread_query_work_wait_time)
   SRTB_PARSE(gui_enable)
+  SRTB_PARSE(gui_pixmap_width)
+  SRTB_PARSE(gui_pixmap_height)
   /* else */ if (name == "config_file_name") {
     // has been processed earlier
   } else {

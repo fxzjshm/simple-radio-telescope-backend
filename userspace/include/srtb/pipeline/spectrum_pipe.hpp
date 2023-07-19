@@ -14,7 +14,6 @@
 #ifndef __SRTB_PIPELINE_SPECTRUM_PIPE__
 #define __SRTB_PIPELINE_SPECTRUM_PIPE__
 
-#include "srtb/gui/spectrum_image_provider.hpp"
 #include "srtb/pipeline/pipe.hpp"
 #include "srtb/spectrum/simplify_spectrum.hpp"
 
@@ -38,7 +37,7 @@ class simplify_spectrum_pipe : public pipe<simplify_spectrum_pipe> {
                             simplify_spectrum_work, stop_token);
 
     const size_t in_count = simplify_spectrum_work.count;
-    const size_t out_count = srtb::gui::spectrum::width;
+    const size_t out_count = srtb::config.gui_pixmap_width;
     const size_t batch_size = simplify_spectrum_work.batch_size;
     const size_t total_out_count = out_count * batch_size;
     auto& d_in_shared = simplify_spectrum_work.ptr;

@@ -245,6 +245,16 @@ struct configs {
    * @brief Runtime configuration to enable GUI
    */
   bool gui_enable = SRTB_ENABLE_GUI;
+
+  /**
+   * @brief Width of GUI spectrum pixmap
+   */
+  size_t gui_pixmap_width = 1920;
+
+  /**
+   * @brief Height of GUI spectrum pixmap
+   */
+  size_t gui_pixmap_height = 1080;
 };
 
 }  // namespace srtb

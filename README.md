@@ -167,6 +167,8 @@ General Options:
                                         off between CPU usage (most are wasted)
                                         and pipeline latency. 
   --gui_enable arg                      Runtime configuration to enable GUI
+  --gui_pixmap_width arg                Width of GUI spectrum pixmap
+  --gui_pixmap_height arg               Height of GUI spectrum pixmap
 
 Baseband Options:
   --baseband_input_count arg            Count of data to be transferred to GPU 

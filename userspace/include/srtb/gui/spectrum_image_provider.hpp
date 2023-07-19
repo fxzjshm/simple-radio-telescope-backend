@@ -27,10 +27,6 @@ namespace srtb {
 namespace gui {
 namespace spectrum {
 
-// TODO: where to put the pixmap?
-inline constexpr int width = 1280;
-inline constexpr int height = 720;
-
 /** @brief common 8-bit color has 2^8 == 256 values*/
 inline constexpr size_t color_value_count = 1 << 8;
 
@@ -191,9 +187,8 @@ class SpectrumImageProvider : public QObject, public QQuickImageProvider {
   explicit SpectrumImageProvider(QObject* parent = nullptr)
       : QObject{parent},
         QQuickImageProvider{QQuickImageProvider::Pixmap},
-        pixmap{width, height} {
-    //pixmap.fill(color);
-  }
+        pixmap{static_cast<int>(srtb::config.gui_pixmap_width),
+               static_cast<int>(srtb::config.gui_pixmap_height)} {}
 
  public Q_SLOTS:
   void update_pixmap() {
@@ -231,7 +226,8 @@ class SpectrumImageProvider : public QObject, public QQuickImageProvider {
     // note that at most `height` (of pixmap) lines needed to draw, skip unused lines.
     size_t k = works.size() - 1, lines_to_draw = 0;
     while (1) {
-      if (lines_to_draw + works[k].batch_size < height) {
+      if (lines_to_draw + works[k].batch_size <
+          static_cast<size_t>(pixmap.height())) {
         lines_to_draw += works[k].batch_size;
         if (k == 0) {
           break;
@@ -240,23 +236,24 @@ class SpectrumImageProvider : public QObject, public QQuickImageProvider {
         }
       } else {
         works[k].offset +=
-            works[k].count * (lines_to_draw + works[k].batch_size - height);
-        works[k].batch_size = height - lines_to_draw;
-        lines_to_draw = height;
+            works[k].count *
+            (lines_to_draw + works[k].batch_size - pixmap.height());
+        works[k].batch_size = pixmap.height() - lines_to_draw;
+        lines_to_draw = pixmap.height();
         break;
       }
     }
-    // draw new line of fft data at top of waterfall bitmap  -- from Gqrx
+    // draw new line of fft data at top of waterfall bitmap
     pixmap.scroll(/* dx = */ 0, /* dy = */ lines_to_draw, /* x = */ 0,
-                  /* y = */ 0, width, height);
+                  /* y = */ 0, pixmap.width(), pixmap.height());
     QPainter painter{&pixmap};
     for (; k < works.size(); k++) {
       const size_t count = works[k].count;
       const size_t batch_size = works[k].batch_size;
       const size_t offset = works[k].offset;
       auto ptr = works[k].ptr.get();
-      size_t x_max = sycl::min(count, static_cast<size_t>(width));
-      assert(batch_size <= static_cast<size_t>(height));
+      size_t x_max = sycl::min(count, static_cast<size_t>(pixmap.width()));
+      assert(batch_size <= static_cast<size_t>(pixmap.height()));
       //SRTB_LOGD << " [SpectrumImageProvider] "
       //          << "drawing pixmap, len = " << x_max << srtb::endl;
       for (size_t j = 0; j < batch_size; j++) {
@@ -299,11 +296,18 @@ class SpectrumImageProvider : public QObject, public QQuickImageProvider {
     //          << srtb::endl;
     (void)id;
     if (size) {
-      *size = QSize(width, height);
+      *size = QSize(pixmap.width(), pixmap.height());
     }
-    QPixmap pixmap_scaled = pixmap.scaled(
-        requestedSize.width() > 0 ? requestedSize.width() : width,
-        requestedSize.height() > 0 ? requestedSize.height() : height);
+    QPixmap pixmap_scaled;
+    if (requestedSize.width() == pixmap.width() &&
+        requestedSize.height() == pixmap.height()) {
+      pixmap_scaled = pixmap;
+    } else {
+      pixmap_scaled = pixmap.scaled(
+          requestedSize.width() > 0 ? requestedSize.width() : pixmap.width(),
+          requestedSize.height() > 0 ? requestedSize.height()
+                                     : pixmap.height());
+    }
     return pixmap_scaled;
   }
 };
