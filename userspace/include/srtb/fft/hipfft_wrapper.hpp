@@ -82,6 +82,11 @@ struct hipfft_common_trait {
   static inline decltype(auto) fftSetWorkArea(Args&&... args) {
     return hipfftSetWorkArea(std::forward<Args>(args)...);
   }
+
+  template <typename... Args>
+  static inline decltype(auto) fftSetAutoAllocation(Args&&... args) {
+    return hipfftSetAutoAllocation(std::forward<Args>(args)...);
+  }
 };
 
 template <>

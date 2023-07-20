@@ -89,6 +89,9 @@ class cufft_like_1d_wrapper
     SRTB_CHECK_CUFFT_LIKE_API(trait::SetDevice(native_device));
 
     SRTB_CHECK_CUFFT_LIKE(trait::fftCreate(&plan));
+#ifdef SRTB_FFT_SHARE_WORK_AREA
+    SRTB_CHECK_CUFFT_LIKE(trait::fftSetAutoAllocation(plan, false));
+#endif  // SRTB_FFT_SHARE_WORK_AREA
     constexpr auto native_fft_type = trait::get_native_fft_type(fft_type);
 
     // 64-bit version

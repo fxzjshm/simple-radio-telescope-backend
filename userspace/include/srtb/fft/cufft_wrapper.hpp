@@ -79,6 +79,11 @@ struct cufft_common_trait {
   static inline decltype(auto) fftSetWorkArea(Args&&... args) {
     return cufftSetWorkArea(std::forward<Args>(args)...);
   }
+
+  template <typename... Args>
+  static inline decltype(auto) fftSetAutoAllocation(Args&&... args) {
+    return cufftSetAutoAllocation(std::forward<Args>(args)...);
+  }
 };
 
 template <>
