@@ -135,6 +135,7 @@ inline void resample_spectrum(DeviceInputAccessor d_in, size_t in_width,
                               size_t in_height, DeviceOutputAccessor d_out,
                               size_t out_width, size_t out_height,
                               sycl::queue& q) {
+  using T = typename std::iterator_traits<DeviceOutputAccessor>::value_type;
   const srtb::real in_width_real = static_cast<srtb::real>(in_width);
   const srtb::real in_height_real = static_cast<srtb::real>(in_height);
   const srtb::real out_width_real = static_cast<srtb::real>(out_width);
@@ -186,7 +187,7 @@ inline void resample_spectrum(DeviceInputAccessor d_in, size_t in_width,
      const size_t right_int = static_cast<size_t>(right_real);
 
      const auto sample = [=](size_t y) {
-       srtb::real sum = 0;
+       T sum = 0;
        SRTB_ASSERT_IN_KERNEL(left_real >= left_accurate);
        if (left_real > left_accurate) [[likely]] {
          const size_t left_left = left_int - 1;
@@ -212,7 +213,7 @@ inline void resample_spectrum(DeviceInputAccessor d_in, size_t in_width,
        return sum;
      };
 
-     srtb::real sum = 0;
+     T sum = 0;
      /*
         on input spectrum, f axis:
 
