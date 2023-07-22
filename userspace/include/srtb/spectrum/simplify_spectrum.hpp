@@ -263,6 +263,206 @@ inline void resample_spectrum(DeviceInputAccessor d_in, size_t in_width,
 }
 
 /**
+ * @brief average the norm of input complex numbers in frequency axis and time axis
+ * 
+ * schmantic:
+ * 
+ *  .----------------------------------------------------------------------> t
+ *  | x \           / x ... x \           / x ... ... x \           / x
+ *  | x  \         /  x ... x  \         /  x ... ... x  \         /  x
+ *  | x    \bar{x}    x ... x    \bar{x}    x ... ... x    \bar{x}    x
+ *  | x  /         \  x ... x  /         \  x ... ... x  /         \  x
+ *  | x /           \ x ... x /           \ x ... ... x /           \ x
+ *  |
+ *  | x \           / x ... x \           / x ... ... x \           / x
+ *  | x  \         /  x ... x  \         /  x ... ... x  \         /  x
+ *  | x    \bar{x}    x ... x    \bar{x}    x ... ... x    \bar{x}    x
+ *  | x  /         \  x ... x  /         \  x ... ... x  /         \  x
+ *  | x /           \ x ... x /           \ x ... ... x /           \ x
+ *  |
+ *  | .               . ... .               . ... ... .               .
+ *  | .               . ... .               . ... ... .               .
+ *  | .               . ... .               . ... ... .               .
+ *  |
+ *  | x \           / x ... x \           / x ... ... x \           / x
+ *  | x  \         /  x ... x  \         /  x ... ... x  \         /  x
+ *  | x    \bar{x}    x ... x    \bar{x}    x ... ... x    \bar{x}    x
+ *  | x  /         \  x ... x  /         \  x ... ... x  /         \  x
+ *  | x /           \ x ... x /           \ x ... ... x /           \ x
+ *  |
+ *  v
+ *  f
+ * 
+ * @tparam DeviceInputAccessor e.g. device pointer complex*
+ * @tparam DeviceOutputAccessor e.g. device pointer real*
+ * @param d_in iterator of input complex spectrum, with time as x-axis and frequency as y-axis
+ * @param in_width count in x-axis (time) of d_in
+ * @param in_height count in y-axis (frequency) of d_in
+ * @param d_out iterator of output intensity (real), axis same as d_in
+ * @param out_width count in x-axis (time) of d_out
+ * @param out_height count in y-axis (frequency) of d_out
+ * @param q SYCL queue to submit kernel
+ */
+template <typename DeviceInputAccessor, typename DeviceOutputAccessor>
+inline void resample_spectrum_3(DeviceInputAccessor d_in, size_t in_width,
+                                size_t in_height, DeviceOutputAccessor d_out,
+                                size_t out_width, size_t out_height,
+                                sycl::queue& q) {
+  using T = typename std::iterator_traits<DeviceOutputAccessor>::value_type;
+  const srtb::real in_width_real = static_cast<srtb::real>(in_width);
+  const srtb::real in_height_real = static_cast<srtb::real>(in_height);
+  const srtb::real out_width_real = static_cast<srtb::real>(out_width);
+  const srtb::real out_height_real = static_cast<srtb::real>(out_height);
+
+  const size_t max_work_item_required =
+      std::max(static_cast<size_t>(std::round(in_width_real / out_width_real)),
+               size_t{1});
+
+  // modified on the basis of bufffer_algorihms.hpp in SyclParallelSTL
+  sycl::device device = q.get_device();
+  const sycl::id<1> max_work_item_size_1 = device.get_info<
+#if defined(__COMPUTECPP__)
+      sycl::info::device::max_work_item_sizes
+#else
+      sycl::info::device::max_work_item_sizes<1>
+#endif
+      >();
+  const size_t max_work_item =
+      std::min(device.get_info<sycl::info::device::max_work_group_size>(),
+               max_work_item_size_1[0]);
+  const size_t local_mem_size =
+      device.get_info<sycl::info::device::local_mem_size>();
+  constexpr size_t sizeofB = sizeof(T);
+  const size_t nb_work_item =
+      std::min(std::min(max_work_item, local_mem_size / sizeofB),
+               max_work_item_required);
+  SRTB_LOGD << " [resample_spectrum_3] "
+            << "nb_work_item = " << nb_work_item << srtb::endl;
+
+  q.submit([&](sycl::handler& cgh) {
+     sycl::range<1> range_group{out_width * out_height};
+     sycl::range<1> range_item{nb_work_item};
+     // local memory area for partial sums
+     sycl::accessor<T, /* dimensions = */ 1, sycl::access::mode::read_write,
+                    sycl::access::target::local>
+         sum{sycl::range<1>(nb_work_item), cgh, sycl::no_init};
+     cgh.parallel_for(
+         sycl::nd_range<1>(range_group * range_item, range_item),
+         [=](sycl::nd_item<1> nd_item) {
+           // this group / block works for pixel (x2, y2) on output pixmap
+           const size_t group_idx = nd_item.get_group(0);
+           const size_t y2 = group_idx / out_width;
+           const size_t x2 = group_idx - y2 * out_width;
+           SRTB_ASSERT_IN_KERNEL(x2 < out_width && y2 < out_height);
+           SRTB_ASSERT_IN_KERNEL(y2 * out_width + x2 == group_idx);
+           SRTB_ASSERT_IN_KERNEL(nd_item.get_local_range(0) == nb_work_item);
+           const size_t local_idx = nd_item.get_local_id(0);
+
+           // t axis: average
+           const srtb::real left_accurate = x2 / out_width_real * in_width_real;
+           const srtb::real right_accurate =
+               (x2 + 1) / out_width_real * in_width_real;
+           const srtb::real left_real = sycl::ceil(left_accurate);
+           const srtb::real right_real = sycl::floor(right_accurate);
+           const size_t left_int = static_cast<size_t>(left_real);
+           const size_t right_int = static_cast<size_t>(right_real);
+
+           // instead of plain for-loop iteration over all input spectrum pixels
+           // to form output one, a parallelization of size nb_work_item is used
+           // here to improve efficiency
+           const auto sample = [=](size_t y) {
+             T partial_x_sum = 0;
+             if (local_idx == 0) {
+               SRTB_ASSERT_IN_KERNEL(left_real >= left_accurate);
+               if (left_real > left_accurate) [[likely]] {
+                 const size_t left_left = left_int - 1;
+                 // left_left == static_cast<size_t>(sycl::floor(left_real)),
+                 // const size_t left_right = left;
+                 SRTB_ASSERT_IN_KERNEL(left_left < in_width);
+                 partial_x_sum += (left_real - left_accurate) *
+                                  srtb::norm(d_in[y * in_width + left_left]);
+               }
+             }
+             for (size_t x = left_int + local_idx; x < right_int;
+                  x += nb_work_item) {
+               SRTB_ASSERT_IN_KERNEL(x < in_width);
+               partial_x_sum += srtb::norm(d_in[y * in_width + x]);
+             }
+             if (local_idx == nb_work_item - 1) {
+               SRTB_ASSERT_IN_KERNEL(right_accurate >= right_real);
+               if (right_accurate - right_real > eps) [[likely]] {
+                 const size_t right_left = right_int;
+                 // const size_t right_right = right + 1;
+                 // right_right == static_cast<size_t>(sycl::ceil(right_real));
+                 SRTB_ASSERT_IN_KERNEL(right_left < in_width);
+                 partial_x_sum += (right_accurate - right_left) *
+                                  srtb::norm(d_in[y * in_width + right_left]);
+               }
+             }
+             return partial_x_sum;
+           };
+
+           srtb::real y_sum = 0;
+           /*
+            on input spectrum, f axis:
+
+            <--- up   |---------------- sum ------------------|          down --->
+              --|--------|--------|---- ... ----|--------|--------|------> f
+                ^     ^  ^                               ^    ^   ^
+                |     |  |                               |    |   |
+                |   up_accurate                          |  down_accurate
+              up_up      |                      down == down_up   |
+                     up == up_down                            down_down
+
+            ("|" means integer index position)
+          */
+           const srtb::real up_accurate = y2 / out_height_real * in_height_real;
+           const srtb::real down_accurate =
+               (y2 + 1) / out_height_real * in_height_real;
+           const srtb::real up_real = sycl::ceil(up_accurate);
+           const srtb::real down_real = sycl::floor(down_accurate);
+           const size_t up_int = static_cast<size_t>(up_real),
+                        down_int = static_cast<size_t>(down_real);
+
+           SRTB_ASSERT_IN_KERNEL(up_real >= up_accurate);
+           if (up_real > up_accurate) [[likely]] {
+             const size_t up_up = up_int - 1;
+             // up_up == static_cast<size_t>(sycl::floor(up_real)),
+             // const size_t up_down = up_int;
+             SRTB_ASSERT_IN_KERNEL(up_up < in_height);
+             y_sum += (up_real - up_accurate) * sample(up_up);
+           }
+
+           for (size_t y = up_int; y < down_int; y++) {
+             SRTB_ASSERT_IN_KERNEL(y < in_height);
+             y_sum += sample(y);
+           }
+
+           SRTB_ASSERT_IN_KERNEL(down_accurate >= down_real);
+           if (down_accurate > down_real) [[likely]] {
+             const size_t down_up = down_int;
+             // const size_t down_down = down_int + 1;
+             // down_down == static_cast<size_t>(sycl::ceil(down_real));
+             SRTB_ASSERT_IN_KERNEL(down_up < in_height);
+             y_sum += (down_accurate - down_real) * sample(down_up);
+           }
+           sum[local_idx] = y_sum;
+
+           nd_item.barrier(sycl::access::fence_space::local_space);
+
+           // TODO: reduce over all work items ?
+           if (local_idx == 0) {
+             T total_sum = 0;
+             for (size_t i = 0; i < nb_work_item; i++) {
+               total_sum += sum[i];
+             }
+             d_out[group_idx] = total_sum;
+           }
+         });
+   }).wait();
+}
+
+/**
  * @brief normalize ( intended to scale values to [0, 1] )
  *        using average value in data.
  * @return average value

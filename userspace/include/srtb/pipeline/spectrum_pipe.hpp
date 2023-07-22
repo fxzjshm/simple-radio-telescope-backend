@@ -124,8 +124,8 @@ class simplify_spectrum_pipe_2 : public pipe<simplify_spectrum_pipe_2> {
     SRTB_LOGD << " [simplify spectrum pipe] "
               << " start simplifying" << srtb::endl;
 
-    srtb::spectrum::resample_spectrum(d_in, in_width, in_height, d_out,
-                                      out_width, out_height, q);
+    srtb::spectrum::resample_spectrum_3(d_in, in_width, in_height, d_out,
+                                        out_width, out_height, q);
     d_in = nullptr;
     d_in_shared.reset();
 
@@ -146,8 +146,8 @@ class simplify_spectrum_pipe_2 : public pipe<simplify_spectrum_pipe_2> {
     auto h_image = h_image_shared.get();
 
     srtb::spectrum::generate_pixmap(d_out, d_image, out_width, out_height,
-                                    color_1.rgba(), color_2.rgba(),
-                                    argb_error, q);
+                                    color_1.rgba(), color_2.rgba(), argb_error,
+                                    q);
 
     SRTB_LOGD << " [simplify spectrum pipe] "
               << " finished simplifying" << srtb::endl;
