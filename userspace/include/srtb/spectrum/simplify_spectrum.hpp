@@ -90,7 +90,10 @@ void simplify_spectrum_calculate_norm(DeviceInputAccessor d_in, size_t in_count,
 }
 
 /**
- * @brief average the norm of input complex numbers in frequency axis and time axis
+ * @brief average the norm of input complex numbers on frequency axis,
+ *        linear interpolation on time axis
+ * @note this variant only uses two nearest data points on time axis in input region
+ *       so output spectrum isn't smooth.
  * 
  * schmantic:
  * 
@@ -131,10 +134,10 @@ void simplify_spectrum_calculate_norm(DeviceInputAccessor d_in, size_t in_count,
  * @param q SYCL queue to submit kernel
  */
 template <typename DeviceInputAccessor, typename DeviceOutputAccessor>
-inline void resample_spectrum(DeviceInputAccessor d_in, size_t in_width,
-                              size_t in_height, DeviceOutputAccessor d_out,
-                              size_t out_width, size_t out_height,
-                              sycl::queue& q) {
+inline void resample_spectrum_1(DeviceInputAccessor d_in, size_t in_width,
+                                size_t in_height, DeviceOutputAccessor d_out,
+                                size_t out_width, size_t out_height,
+                                sycl::queue& q) {
   using T = typename std::iterator_traits<DeviceOutputAccessor>::value_type;
   const srtb::real in_width_real = static_cast<srtb::real>(in_width);
   const srtb::real in_height_real = static_cast<srtb::real>(in_height);
@@ -149,34 +152,142 @@ inline void resample_spectrum(DeviceInputAccessor d_in, size_t in_width,
      SRTB_ASSERT_IN_KERNEL(x2 < out_width && y2 < out_height);
      SRTB_ASSERT_IN_KERNEL(y2 * out_width + x2 == idx);
 
-     //  // correspond position on input spectrum is (x1, y1)
-     //  const srtb::real x1 =
-     //      static_cast<srtb::real>(x2) / out_width_real * in_width_real;
-     //  //const srtb::real y1 =
-     //  //    static_cast<srtb::real>(y2) / out_height_real * in_height_real;
-     //  /*
-     //     on input spectrum, t axis:
+     // correspond position on input spectrum is (x1, y1)
+     const srtb::real x1 =
+         static_cast<srtb::real>(x2) / out_width_real * in_width_real;
+     /*
+         on input spectrum, t axis:
 
-     //     ----|--------|------> t
-     //       left   ^ right
-     //              |
-     //             x_1
+         ----|--------|------> t
+           left   ^ right
+                  |
+                 x_1
 
-     //     ("|" means integer index position)
-     //   */
-     //  const srtb::real left_real = sycl::floor(x1);
-     //  const srtb::real right_real = left_real + 1;
-     //  const size_t left_int = static_cast<size_t>(left_real);
-     //  const size_t right_int = left_int + 1;
-     //  const srtb::real left_portion = right_real - x1;
-     //  const srtb::real right_portion = x1 - left_real;
-     //  SRTB_ASSERT_IN_KERNEL(left_portion >= 0);
-     //  SRTB_ASSERT_IN_KERNEL(right_portion >= 0);
+         ("|" means integer index position)
+       */
+     const srtb::real left_real = sycl::floor(x1);
+     const srtb::real right_real = left_real + 1;
+     const size_t left_int = static_cast<size_t>(left_real);
+     const size_t right_int = left_int + 1;
+     const srtb::real left_portion = right_real - x1;
+     const srtb::real right_portion = x1 - left_real;
+     SRTB_ASSERT_IN_KERNEL(left_portion >= 0);
+     SRTB_ASSERT_IN_KERNEL(right_portion >= 0);
 
-     //  const auto sample = [=](size_t y) {
-     //    return left_portion * srtb::norm(d_in[y * in_width + left_int]) +
-     //           right_portion * srtb::norm(d_in[y * in_width + right_int]);
-     //  };
+     const auto sample = [=](size_t y) {
+       return left_portion * srtb::norm(d_in[y * in_width + left_int]) +
+              right_portion * srtb::norm(d_in[y * in_width + right_int]);
+     };
+
+     T sum = 0;
+     /*
+        on input spectrum, f axis:
+
+        <--- up   |---------------- sum ------------------|          down --->
+          --|--------|--------|---- ... ----|--------|--------|------> f
+            ^     ^  ^                               ^    ^   ^
+            |     |  |                               |    |   |
+            |   up_accurate                          |  down_accurate
+          up_up      |                      down == down_up   |
+                 up == up_down                            down_down
+
+        ("|" means integer index position)
+      */
+     const srtb::real up_accurate = y2 / out_height_real * in_height_real;
+     const srtb::real down_accurate =
+         (y2 + 1) / out_height_real * in_height_real;
+     const srtb::real up_real = sycl::ceil(up_accurate);
+     const srtb::real down_real = sycl::floor(down_accurate);
+     const size_t up_int = static_cast<size_t>(up_real),
+                  down_int = static_cast<size_t>(down_real);
+
+     SRTB_ASSERT_IN_KERNEL(up_real >= up_accurate);
+     if (up_real > up_accurate) [[likely]] {
+       const size_t up_up = up_int - 1;
+       // up_up == static_cast<size_t>(sycl::floor(up_real)),
+       // const size_t up_down = up_int;
+       SRTB_ASSERT_IN_KERNEL(up_up < in_height);
+       sum += (up_real - up_accurate) * sample(up_up);
+     }
+
+     for (size_t y = up_int; y < down_int; y++) {
+       SRTB_ASSERT_IN_KERNEL(y < in_height);
+       sum += sample(y);
+     }
+
+     SRTB_ASSERT_IN_KERNEL(down_accurate >= down_real);
+     if (down_accurate > down_real) [[likely]] {
+       const size_t down_up = down_int;
+       // const size_t down_down = down_int + 1;
+       // down_down == static_cast<size_t>(sycl::ceil(down_real));
+       SRTB_ASSERT_IN_KERNEL(down_up < in_height);
+       sum += (down_accurate - down_real) * sample(down_up);
+     }
+
+     d_out[idx] = sum;
+   }).wait();
+}
+
+/**
+ * @brief average the norm of input complex numbers on frequency axis and time axis
+ * @note this variant also average values on time axis, but it is expensive
+ * 
+ * schmantic:
+ * 
+ *  .----------------------------------------------------------------------> t
+ *  | x \ ......... / x ... x \ ......... / x ... ... x \ ......... / x
+ *  | x  \ ....... /  x ... x  \ ....... /  x ... ... x  \ ....... /  x
+ *  | x    \bar{x}    x ... x    \bar{x}    x ... ... x    \bar{x}    x
+ *  | x  / ....... \  x ... x  / ....... \  x ... ... x  / ....... \  x
+ *  | x / ......... \ x ... x / ......... \ x ... ... x / ......... \ x
+ *  |
+ *  | x \ ......... / x ... x \ ......... / x ... ... x \ ......... / x
+ *  | x  \ ....... /  x ... x  \ ....... /  x ... ... x  \ ....... /  x
+ *  | x    \bar{x}    x ... x    \bar{x}    x ... ... x    \bar{x}    x
+ *  | x  / ....... \  x ... x  / ....... \  x ... ... x  / ....... \  x
+ *  | x / ......... \ x ... x / ......... \ x ... ... x / ......... \ x
+ *  |
+ *  | .               . ... .               . ... ... .               .
+ *  | .               . ... .               . ... ... .               .
+ *  | .               . ... .               . ... ... .               .
+ *  |
+ *  | x \ ......... / x ... x \ ......... / x ... ... x \ ......... / x
+ *  | x  \ ....... /  x ... x  \ ....... /  x ... ... x  \ ....... /  x
+ *  | x    \bar{x}    x ... x    \bar{x}    x ... ... x    \bar{x}    x
+ *  | x  / ....... \  x ... x  / ....... \  x ... ... x  / ....... \  x
+ *  | x / ......... \ x ... x / ......... \ x ... ... x / ......... \ x
+ *  |
+ *  v
+ *  f
+ * 
+ * @tparam DeviceInputAccessor e.g. device pointer complex*
+ * @tparam DeviceOutputAccessor e.g. device pointer real*
+ * @param d_in iterator of input complex spectrum, with time as x-axis and frequency as y-axis
+ * @param in_width count in x-axis (time) of d_in
+ * @param in_height count in y-axis (frequency) of d_in
+ * @param d_out iterator of output intensity (real), axis same as d_in
+ * @param out_width count in x-axis (time) of d_out
+ * @param out_height count in y-axis (frequency) of d_out
+ * @param q SYCL queue to submit kernel
+ */
+template <typename DeviceInputAccessor, typename DeviceOutputAccessor>
+inline void resample_spectrum_2(DeviceInputAccessor d_in, size_t in_width,
+                                size_t in_height, DeviceOutputAccessor d_out,
+                                size_t out_width, size_t out_height,
+                                sycl::queue& q) {
+  using T = typename std::iterator_traits<DeviceOutputAccessor>::value_type;
+  const srtb::real in_width_real = static_cast<srtb::real>(in_width);
+  const srtb::real in_height_real = static_cast<srtb::real>(in_height);
+  const srtb::real out_width_real = static_cast<srtb::real>(out_width);
+  const srtb::real out_height_real = static_cast<srtb::real>(out_height);
+
+  q.parallel_for(sycl::range<1>{out_width * out_height}, [=](sycl::item<1> id) {
+     // working for pixel (x2, y2) on output pixmap
+     const size_t idx = id.get_id(0);
+     const size_t y2 = idx / out_width;
+     const size_t x2 = idx - y2 * out_width;
+     SRTB_ASSERT_IN_KERNEL(x2 < out_width && y2 < out_height);
+     SRTB_ASSERT_IN_KERNEL(y2 * out_width + x2 == idx);
 
      const srtb::real left_accurate = x2 / out_width_real * in_width_real;
      const srtb::real right_accurate =
@@ -202,7 +313,7 @@ inline void resample_spectrum(DeviceInputAccessor d_in, size_t in_width,
          sum += srtb::norm(d_in[y * in_width + x]);
        }
        SRTB_ASSERT_IN_KERNEL(right_accurate >= right_real);
-       if (right_accurate - right_real > eps) [[likely]] {
+       if (right_accurate > right_real) [[likely]] {
          const size_t right_left = right_int;
          // const size_t right_right = right + 1;
          // right_right == static_cast<size_t>(sycl::ceil(right_real));
@@ -263,32 +374,35 @@ inline void resample_spectrum(DeviceInputAccessor d_in, size_t in_width,
 }
 
 /**
- * @brief average the norm of input complex numbers in frequency axis and time axis
+ * @brief average the norm of input complex numbers on frequency axis and time axis
+ * @note this variant is based on resample_spectrum_2, thus also average values on time axis;
+ *       but a work group for an output pixel instead of a work item, 
+ *       which is intended for improving memory access pattern.
  * 
  * schmantic:
  * 
  *  .----------------------------------------------------------------------> t
- *  | x \           / x ... x \           / x ... ... x \           / x
- *  | x  \         /  x ... x  \         /  x ... ... x  \         /  x
+ *  | x \ ......... / x ... x \ ......... / x ... ... x \ ......... / x
+ *  | x  \ ....... /  x ... x  \ ....... /  x ... ... x  \ ....... /  x
  *  | x    \bar{x}    x ... x    \bar{x}    x ... ... x    \bar{x}    x
- *  | x  /         \  x ... x  /         \  x ... ... x  /         \  x
- *  | x /           \ x ... x /           \ x ... ... x /           \ x
+ *  | x  / ....... \  x ... x  / ....... \  x ... ... x  / ....... \  x
+ *  | x / ......... \ x ... x / ......... \ x ... ... x / ......... \ x
  *  |
- *  | x \           / x ... x \           / x ... ... x \           / x
- *  | x  \         /  x ... x  \         /  x ... ... x  \         /  x
+ *  | x \ ......... / x ... x \ ......... / x ... ... x \ ......... / x
+ *  | x  \ ....... /  x ... x  \ ....... /  x ... ... x  \ ....... /  x
  *  | x    \bar{x}    x ... x    \bar{x}    x ... ... x    \bar{x}    x
- *  | x  /         \  x ... x  /         \  x ... ... x  /         \  x
- *  | x /           \ x ... x /           \ x ... ... x /           \ x
+ *  | x  / ....... \  x ... x  / ....... \  x ... ... x  / ....... \  x
+ *  | x / ......... \ x ... x / ......... \ x ... ... x / ......... \ x
  *  |
  *  | .               . ... .               . ... ... .               .
  *  | .               . ... .               . ... ... .               .
  *  | .               . ... .               . ... ... .               .
  *  |
- *  | x \           / x ... x \           / x ... ... x \           / x
- *  | x  \         /  x ... x  \         /  x ... ... x  \         /  x
+ *  | x \ ......... / x ... x \ ......... / x ... ... x \ ......... / x
+ *  | x  \ ....... /  x ... x  \ ....... /  x ... ... x  \ ....... /  x
  *  | x    \bar{x}    x ... x    \bar{x}    x ... ... x    \bar{x}    x
- *  | x  /         \  x ... x  /         \  x ... ... x  /         \  x
- *  | x /           \ x ... x /           \ x ... ... x /           \ x
+ *  | x  / ....... \  x ... x  / ....... \  x ... ... x  / ....... \  x
+ *  | x / ......... \ x ... x / ......... \ x ... ... x / ......... \ x
  *  |
  *  v
  *  f
@@ -360,6 +474,19 @@ inline void resample_spectrum_3(DeviceInputAccessor d_in, size_t in_width,
            const size_t local_idx = nd_item.get_local_id(0);
 
            // t axis: average
+           /*
+             on input spectrum, t axis:
+ 
+             <--- left |---------------- sum ------------------|         right --->
+               --|--------|--------|---- ... ----|--------|--------|------> f
+                 ^     ^  ^                               ^    ^   ^
+                 |     |  |                               |    |   |
+                 | left_accurate                          |  right_accurate
+             left_left    |                 right == right_left    |
+                     left == left_right                       right_right
+ 
+             ("|" means integer index position)
+           */
            const srtb::real left_accurate = x2 / out_width_real * in_width_real;
            const srtb::real right_accurate =
                (x2 + 1) / out_width_real * in_width_real;
@@ -391,7 +518,7 @@ inline void resample_spectrum_3(DeviceInputAccessor d_in, size_t in_width,
              }
              if (local_idx == nb_work_item - 1) {
                SRTB_ASSERT_IN_KERNEL(right_accurate >= right_real);
-               if (right_accurate - right_real > eps) [[likely]] {
+               if (right_accurate > right_real) [[likely]] {
                  const size_t right_left = right_int;
                  // const size_t right_right = right + 1;
                  // right_right == static_cast<size_t>(sycl::ceil(right_real));
