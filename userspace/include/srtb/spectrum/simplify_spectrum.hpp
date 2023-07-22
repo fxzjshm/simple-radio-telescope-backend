@@ -336,6 +336,7 @@ inline void resample_spectrum_3(DeviceInputAccessor d_in, size_t in_width,
   const size_t nb_work_item =
       std::min(std::min(max_work_item, local_mem_size / sizeofB),
                max_work_item_required);
+  const size_t reduce_size = std::bit_ceil(nb_work_item) >> 1;
   SRTB_LOGD << " [resample_spectrum_3] "
             << "nb_work_item = " << nb_work_item << srtb::endl;
 
@@ -450,13 +451,15 @@ inline void resample_spectrum_3(DeviceInputAccessor d_in, size_t in_width,
 
            nd_item.barrier(sycl::access::fence_space::local_space);
 
-           // TODO: reduce over all work items ?
-           if (local_idx == 0) {
-             T total_sum = 0;
-             for (size_t i = 0; i < nb_work_item; i++) {
-               total_sum += sum[i];
+           // sum over work items, using reduce
+           for (size_t offset = reduce_size; offset > 0; offset >>= 1) {
+             if (local_idx + offset < nb_work_item) {
+               sum[local_idx] += sum[local_idx + offset];
              }
-             d_out[group_idx] = total_sum;
+             nd_item.barrier(sycl::access::fence_space::local_space);
+           }
+           if (local_idx == 0) {
+             d_out[group_idx] = sum[0];
            }
          });
    }).wait();
