@@ -669,7 +669,7 @@ inline constexpr auto getARGB(unsigned char a, unsigned char r, unsigned char g,
  *             >::type, uint32_t
  *           >::value, void
  *         >::type 
- *         this function is enabled only if output type is uint32_t, which can represen ARGB32
+ *         this function is enabled only if output type is uint32_t, which can represent ARGB32
  * 
  * @param d_in input intensity
  * @param d_out output pixmap
@@ -690,17 +690,18 @@ inline void generate_pixmap(InputIterator d_in, OutputIterator d_out,
                             size_t width, size_t height, uint32_t argb_1,
                             uint32_t argb_2, uint32_t argb_error,
                             sycl::queue& q) {
+  using T = typename std::iterator_traits<InputIterator>::value_type;
   const size_t total_count = width * height;
   const auto [a1, r1, g1, b1] = getARGB(argb_1);
   const auto [a2, r2, g2, b2] = getARGB(argb_2);
-  const srtb::real a1f = a1, r1f = r1, g1f = g1, b1f = b1;
-  const srtb::real a2f = a2, r2f = r2, g2f = g2, b2f = b2;
+  const T a1f = a1, r1f = r1, g1f = g1, b1f = b1;
+  const T a2f = a2, r2f = r2, g2f = g2, b2f = b2;
 
   q.parallel_for(sycl::range<1>{total_count}, [=](sycl::item<1> id) {
      const size_t i = id.get_id(0);
-     const auto in = d_in[i];
+     const T in = d_in[i];
      uint32_t out;
-     constexpr srtb::real zero = 0, one = 1;
+     constexpr T zero = 0, one = 1;
      if (zero <= in && in <= one) {
        out = getARGB((one - in) * a1f + in * a2f, (one - in) * r1f + in * r2f,
                      (one - in) * g1f + in * g2f, (one - in) * b1f + in * b2f);
