@@ -431,16 +431,25 @@ inline void resample_spectrum_3(DeviceInputAccessor d_in, size_t in_width,
   const size_t max_work_item_required =
       std::max(static_cast<size_t>(std::round(in_width_real / out_width_real)),
                size_t{1});
+  // TODO: check if this is really optimal
+  // Currently available info:
+  //   NVIDIA GPUs have wrap size 32.
+  //   AMD GPUs with GCN / CDNA? architecture have wave front size 64,
+  //            with RDNA architecture have 32.
+  //   [DATA EXPUNGED] 1st gen have wave front size 128?,
+  //                   2nd gen have ... 32?
+  //   amd64 CPUs with AVX512 -> 64 bytes
+  // benchmark on AMD Radeon VII:
+  //   auto: 31ms
+  //   128: 25.5 25.9 25.7
+  //   64: 16.637 16.971 16.496
+  //   32: 19.889 19.401 (???)
+  const size_t max_work_item_optimal = 64;
 
   // modified on the basis of bufffer_algorihms.hpp in SyclParallelSTL
   sycl::device device = q.get_device();
-  const sycl::id<1> max_work_item_size_1 = device.get_info<
-#if defined(__COMPUTECPP__)
-      sycl::info::device::max_work_item_sizes
-#else
-      sycl::info::device::max_work_item_sizes<1>
-#endif
-      >();
+  const sycl::id<1> max_work_item_size_1 =
+      device.get_info<sycl::info::device::max_work_item_sizes<1> >();
   const size_t max_work_item =
       std::min(device.get_info<sycl::info::device::max_work_group_size>(),
                max_work_item_size_1[0]);
@@ -448,8 +457,9 @@ inline void resample_spectrum_3(DeviceInputAccessor d_in, size_t in_width,
       device.get_info<sycl::info::device::local_mem_size>();
   constexpr size_t sizeofB = sizeof(T);
   const size_t nb_work_item =
-      std::min(std::min(max_work_item, local_mem_size / sizeofB),
-               max_work_item_required);
+      std::min(std::min(std::min(max_work_item, local_mem_size / sizeofB),
+                        max_work_item_required),
+               max_work_item_optimal);
   const size_t reduce_size = std::bit_ceil(nb_work_item) >> 1;
   SRTB_LOGD << " [resample_spectrum_3] "
             << "nb_work_item = " << nb_work_item << srtb::endl;
