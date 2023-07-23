@@ -39,8 +39,10 @@ inline int show_gui(int argc, char **argv, std::vector<std::jthread> threads) {
   QGuiApplication app(argc, argv);
 
   QQmlApplicationEngine engine;
-  QPointer spectrum_image_provider_ptr =
-      new srtb::gui::spectrum::SpectrumImageProvider{};
+  // an explicit operator new here because "The QQmlEngine takes ownership of provider."
+  // otherwise a double free is going to happen
+  QPointer spectrum_image_provider_ptr{
+      new srtb::gui::spectrum::SimpleSpectrumImageProvider{}};
   engine.addImageProvider(QLatin1String("spectrum-image-provider"),
                           spectrum_image_provider_ptr);
   const QUrl url(QStringLiteral("qrc:/main.qml"));
@@ -56,10 +58,13 @@ inline int show_gui(int argc, char **argv, std::vector<std::jthread> threads) {
           } else {
             // connect signal to slot
             // TODO: is this a proper way in Qt?
-            QObject::connect(
-                reinterpret_cast<QQuickWindow *>(obj),
-                &QQuickWindow::beforeRendering, spectrum_image_provider_ptr,
-                &srtb::gui::spectrum::SpectrumImageProvider::update_pixmap);
+            QObject::connect(reinterpret_cast<QQuickWindow *>(obj),
+                             &QQuickWindow::beforeRendering,
+                             spectrum_image_provider_ptr, [=]() {
+                               if (spectrum_image_provider_ptr) [[likely]] {
+                                 spectrum_image_provider_ptr->update_pixmap();
+                               }
+                             });
 
             QObject::connect(
                 reinterpret_cast<QQuickWindow *>(obj),

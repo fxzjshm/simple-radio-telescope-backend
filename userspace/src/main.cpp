@@ -219,17 +219,18 @@ int main(int argc, char** argv) {
 
   std::jthread dedisperse_thread = srtb::pipeline::dedisperse_pipe::start();
 
-  std::jthread ifft_1d_c2c_thread = srtb::pipeline::ifft_1d_c2c_pipe::start();
+  //std::jthread ifft_1d_c2c_thread = srtb::pipeline::ifft_1d_c2c_pipe::start();
 
-  std::jthread refft_1d_c2c_thread = srtb::pipeline::refft_1d_c2c_pipe::start();
+  //std::jthread refft_1d_c2c_thread = srtb::pipeline::refft_1d_c2c_pipe::start();
 
-  //std::jthread watfft_1d_c2c_thread = srtb::pipeline::watfft_1d_c2c_pipe::start();
+  std::jthread watfft_1d_c2c_thread =
+      srtb::pipeline::watfft_1d_c2c_pipe::start();
+
+  //std::jthread signal_detect_thread =
+  //    srtb::pipeline::signal_detect_pipe::start();
 
   std::jthread signal_detect_thread =
-      srtb::pipeline::signal_detect_pipe::start();
-  
-  //std::jthread signal_detect_thread =
-  //    srtb::pipeline::signal_detect_pipe_2::start();
+      srtb::pipeline::signal_detect_pipe_2::start();
 
   std::jthread baseband_output_thread;
   if (srtb::config.baseband_write_all) {
@@ -246,9 +247,9 @@ int main(int argc, char** argv) {
   std::jthread simplify_spectrum_thread;
 #if SRTB_ENABLE_GUI
   if (srtb::config.gui_enable) {
-    simplify_spectrum_thread = srtb::pipeline::simplify_spectrum_pipe::start();
-    //simplify_spectrum_thread =
-    //    srtb::pipeline::simplify_spectrum_pipe_2::start();
+    //simplify_spectrum_thread = srtb::pipeline::simplify_spectrum_pipe::start();
+    simplify_spectrum_thread =
+        srtb::pipeline::simplify_spectrum_pipe_2::start();
   }
 #endif  // SRTB_ENABLE_GUI
 
@@ -258,9 +259,9 @@ int main(int argc, char** argv) {
   threads.push_back(std::move(fft_1d_r2c_thread));
   threads.push_back(std::move(rfi_mitigation_thread));
   threads.push_back(std::move(dedisperse_thread));
-  threads.push_back(std::move(ifft_1d_c2c_thread));
-  threads.push_back(std::move(refft_1d_c2c_thread));
-  //threads.push_back(std::move(watfft_1d_c2c_thread));
+  //threads.push_back(std::move(ifft_1d_c2c_thread));
+  //threads.push_back(std::move(refft_1d_c2c_thread));
+  threads.push_back(std::move(watfft_1d_c2c_thread));
   threads.push_back(std::move(signal_detect_thread));
   threads.push_back(std::move(baseband_output_thread));
   threads.push_back(std::move(simplify_spectrum_thread));
