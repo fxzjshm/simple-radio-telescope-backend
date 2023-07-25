@@ -50,8 +50,6 @@ struct dedispertion_real_trait<true> {
 using dedisp_real_t =
     detail::dedispertion_real_trait<srtb::use_emulated_fp64>::type;
 
-using dedisp_real_host_t = double;
-
 /**
  * @brief dispersion constant in "accurate" value
  * 
@@ -64,7 +62,7 @@ using dedisp_real_host_t = double;
  *          = 4.149378 \times 10^3 \mathrm{MHz^2 pc^{-1} cm^3 s}$
  *       (J.C. Jiang, 2022)
  */
-inline constexpr dedisp_real_t D = 4.148808e3;
+inline constexpr double D = 4.148808e3;
 
 /**
  * @brief delay time caused by dispersion relative to f_c, assuming f > f_c (for positive result).
@@ -74,9 +72,7 @@ inline constexpr dedisp_real_t D = 4.148808e3;
  */
 template <typename T>
 inline T dispersion_delay_time(const T f, const T f_c, const T dm) {
-  return -dedisp_real_host_t{D} * dm *
-         (dedisp_real_host_t(1.0) / (f * f) -
-          dedisp_real_host_t(1.0) / (f_c * f_c));
+  return -D * dm * (1.0 / (f * f) - 1.0 / (f_c * f_c));
 }
 
 inline srtb::real max_delay_time() {
@@ -138,14 +134,17 @@ inline auto nsamps_reserved() -> size_t {
  * @param f signal frequency in MHz
  * @param f_c reference signal frequency in MHz. subscription from (3.66) in Jiang (2022)
  * @param dm dispersion measurement
+ * @tparam phase_real type internally used to calculate the delayed phase,
+ *                    ususally float64 or df64
+ * 
+ * ref: Lorimer, D. R. and M. Kramer (2004). Handbook of Pulsar Astronomy. 
  * 
  * ref: C.G. Bassa et al, Enabling pulsar and fast transient searches using coherent dedispersion
  *      (arXiv:1607.00909), https://github.com/cbassa/cdmt/blob/master/cdmt.cu
  */
-template <typename T = srtb::real, typename C = srtb::complex<T> >
-inline C coherent_dedispersion_factor(const dedisp_real_t f,
-                                      const dedisp_real_t f_c,
-                                      const dedisp_real_t dm) noexcept {
+template <typename phase_real, typename T, typename C>
+inline C coherent_dedispersion_factor(const phase_real f, const phase_real f_c,
+                                      const phase_real dm) noexcept {
   // TODO: does pre-computing delta_phi saves time?
   // TODO: check the sign!
   // phase delay
@@ -153,30 +152,30 @@ inline C coherent_dedispersion_factor(const dedisp_real_t f,
   // NOTE: this delta_phi may be up to 10^9, so the precision of float may not be sufficient here.
 
   //// 1) original formula
-  //const dedisp_real_t delta_phi =
+  //const phase_real delta_phi =
   //    -T{2 * M_PI} * D * 1e6 * dm *
-  //    (dedisp_real_t(1.0) / (f * f) - dedisp_real_t(1.0) / (f_c * f_c)) * f;
+  //    (phase_real(1.0) / (f * f) - phase_real(1.0) / (f_c * f_c)) * f;
 
   //// 2) J.C. Jiang (2022)  ->  Lorimer et al. (2004)
-  //const dedisp_real_t delta_f = f - f_c;
-  //const dedisp_real_t delta_phi =
+  //const phase_real delta_f = f - f_c;
+  //const phase_real delta_phi =
   //    -T{2 * M_PI} * D * 1e6 * dm * ((delta_f * delta_f) / (f * f_c * f_c));
   //// 2.1)
   //const C factor = C(sycl::cos(delta_phi), sycl::sin(delta_phi));
   //// 2.2)
-  //dedisp_real_t cos_delta_phi, sin_delta_phi;
+  //phase_real cos_delta_phi, sin_delta_phi;
   //// &cos_delta_phi cannot be used here, not in specification
   //sin_delta_phi =
-  //    sycl::sincos(delta_phi, sycl::private_ptr<dedisp_real_t>{&cos_delta_phi});
+  //    sycl::sincos(delta_phi, sycl::private_ptr<phase_real>{&cos_delta_phi});
   //const C factor = C(cos_delta_phi, sin_delta_phi);
 
   //// 3) optimized from (2)
   // dedispertion constant D with unit Hz -> MHz corrected
   // this is explicitly constexpr, wish device compiler won't generate cl_khr_fp64 operations...
-  constexpr dedisp_real_t D_ = D * dedisp_real_t{1e6};
-  const dedisp_real_t delta_f = f - f_c;
-  const dedisp_real_t k = D_ * dm / f * ((delta_f / f_c) * (delta_f / f_c));
-  dedisp_real_t k_int;
+  constexpr phase_real D_ = D * 1e6;
+  const phase_real delta_f = f - f_c;
+  const phase_real k = D_ * dm / f * ((delta_f / f_c) * (delta_f / f_c));
+  phase_real k_int;
   const T k_frac = srtb::modf(k, &k_int);
   const T delta_phi = -T{2 * M_PI} * k_frac;
   T cos_delta_phi, sin_delta_phi;
@@ -193,14 +192,15 @@ inline C coherent_dedispersion_factor(const dedisp_real_t f,
  * @see srtb::codd::D
  * @see crtb::codd::coherent_dedispertion
  */
-template <typename T = srtb::real, typename C = srtb::complex<T>,
-          typename Accessor>
+template <typename T, typename Accessor>
 inline void coherent_dedispertion_item(Accessor input, Accessor output,
                                        const T f_min, const T f_c, const T df,
                                        const T dm, const size_t i) {
+  using C = typename std::iterator_traits<Accessor>::value_type;
   const dedisp_real_t f =
       dedisp_real_t{f_min} + dedisp_real_t{df} * static_cast<dedisp_real_t>(i);
-  const C factor = coherent_dedispersion_factor(f, dedisp_real_t{f_c}, dm);
+  const C factor = coherent_dedispersion_factor<dedisp_real_t, T, C>(
+      f, dedisp_real_t{f_c}, dedisp_real_t{dm});
   const C in = input[i];
   const C out = in * factor;
   output[i] = out;
@@ -221,7 +221,7 @@ inline void coherent_dedispertion_item(Accessor input, Accessor output,
  * @param dm disperse measurement, note: use "accurate" value
  * @see srtb::codd::D
  */
-template <typename T, typename C = srtb::complex<T>, typename Accessor>
+template <typename T, typename Accessor>
 inline void coherent_dedispertion(Accessor input, Accessor output,
                                   const size_t length, const T f_min,
                                   const T f_c, const T df, const T dm,
@@ -235,12 +235,12 @@ inline void coherent_dedispertion(Accessor input, Accessor output,
 /**
  * @brief in-place version of the function above
  */
-template <typename T, typename C = srtb::complex<T>, typename Accessor>
+template <typename T, typename Accessor>
 inline void coherent_dedispertion(Accessor input, const size_t length,
                                   const T f_min, const T f_c, const T delta_f,
                                   const T dm, sycl::queue& q) {
-  return coherent_dedispertion<T, C, Accessor>(input, input, length, f_min, f_c,
-                                               delta_f, dm, q);
+  return coherent_dedispertion<T, Accessor>(input, input, length, f_min, f_c,
+                                            delta_f, dm, q);
 }
 
 }  // namespace coherent_dedispersion
