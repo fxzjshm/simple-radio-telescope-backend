@@ -68,9 +68,12 @@ class baseband_output_pipe</* continuous_write = */ true>
 
     // file name need time stamp, so cannot create early
     if (!file_output_stream) [[unlikely]] {
+      auto file_counter = baseband_output_work.udp_packet_counter;
+      if (file_counter == baseband_output_work.no_udp_packet_counter) {
+        file_counter = baseband_output_work.timestamp;
+      }
       std::string file_path = srtb::config.baseband_output_file_prefix +
-                              std::to_string(baseband_output_work.timestamp) +
-                              ".bin";
+                              std::to_string(file_counter) + ".bin";
       file_output_stream = std::ofstream(file_path.c_str(), std::ios::binary);
       if (!file_output_stream) [[unlikely]] {
         auto err = "Cannot open file " + file_path;
