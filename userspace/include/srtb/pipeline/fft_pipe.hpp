@@ -408,8 +408,9 @@ class watfft_1d_c2c_pipe : public pipe<watfft_1d_c2c_pipe> {
     signal_detect_work.count = watfft_length;
     signal_detect_work.batch_size = watfft_batch_size;
     signal_detect_work.timestamp = ifft_1d_c2c_work.timestamp;
-    signal_detect_work.udp_packet_counter =
-        ifft_1d_c2c_work.udp_packet_counter;
+    signal_detect_work.udp_packet_counter = ifft_1d_c2c_work.udp_packet_counter;
+    signal_detect_work.baseband_data =
+        std::move(ifft_1d_c2c_work.baseband_data);
     SRTB_PUSH_WORK_OR_RETURN(" [watfft 1d c2c pipe] ",
                              srtb::signal_detect_queue, signal_detect_work,
                              stop_token);
