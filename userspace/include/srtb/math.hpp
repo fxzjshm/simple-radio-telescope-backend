@@ -72,20 +72,58 @@ inline constexpr T abs(const T x) noexcept {
 }
 
 template <typename T>
-inline constexpr T modf(const T x, T* iptr) noexcept {
+inline constexpr T modf(const T a, T* iptr) noexcept {
   if constexpr (std::is_floating_point_v<T>) {
-    return sycl::modf(x, sycl::private_ptr<T>{iptr});
+    return sycl::modf(a, sycl::private_ptr<T>{iptr});
   } else if constexpr (std::is_same_v<T, dsmath::df64>) {
     float xi, xf, yi, yf;
-    xf = sycl::modf(x.x, sycl::private_ptr<float>{&xi});
-    yf = sycl::modf(x.y, sycl::private_ptr<float>{&yi});
+    xf = sycl::modf(a.x, sycl::private_ptr<float>{&xi});
+    yf = sycl::modf(a.y, sycl::private_ptr<float>{&yi});
     dsmath::df64 i, f;
     i = dsmath::df64{xi} + dsmath::df64{yi};
     f = dsmath::df64{xf} + dsmath::df64{yf};
+    // assume f in [-1.0, 1.0] ?
+    constexpr bool assume_range = true;
     constexpr dsmath::df64 one = 1.0f;
-    if (f.x > 1.0f) {
-      f = f - one;
-      i = i + one;
+    if constexpr (assume_range) {
+      if (static_cast<float>(a) > 0.0f) {
+        // f should in [0.0, 1.0]
+        if (f.x + f.y < 0.0f) {
+          f = f + one;
+          i = i - one;
+        }
+      }
+      if (static_cast<float>(a) < 0.0f) {
+        // f should in [-1.0, 0.0]
+        if (f.x + f.y > 0.0f) {
+          f = f - one;
+          i = i + one;
+        }
+      }
+    } else {
+      // not assuming f in [-1.0, 1.0], should in [-2.0, 2.0]
+      if (static_cast<float>(a) > 0.0f) {
+        // f should in [0.0, 1.0]
+        while (f.x + f.y < 0.0f) {
+          f = f + one;
+          i = i - one;
+        }
+        while (f.x + f.y > 1.0f) {
+          f = f - one;
+          i = i + one;
+        }
+      }
+      if (static_cast<float>(a) < 0.0f) {
+        // f should in [-1.0, 0.0]
+        while (f.x + f.y < -1.0f) {
+          f = f + one;
+          i = i - one;
+        }
+        while (f.x + f.y > 0.0f) {
+          f = f - one;
+          i = i + one;
+        }
+      }
     }
     *iptr = i;
     return f;
