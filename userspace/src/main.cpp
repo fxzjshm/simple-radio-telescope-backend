@@ -167,7 +167,7 @@ int main(int argc, char** argv) {
   }
 
   // TODO: maybe multiple file input or something else
-  const size_t input_pipe_count =
+  size_t input_pipe_count =
       std::max(std::max(srtb::config.udp_receiver_sender_address.size(),
                         srtb::config.udp_receiver_sender_port.size()),
                size_t{1});
@@ -180,6 +180,7 @@ int main(int argc, char** argv) {
     SRTB_LOGI << " [main] "
               << "Reading file " << input_file_path << srtb::endl;
     input_thread.push_back(srtb::pipeline::read_file_pipe::start());
+    input_pipe_count = 1;
   } else {
     if (input_file_path != "") {
       SRTB_LOGE << " [main] "
