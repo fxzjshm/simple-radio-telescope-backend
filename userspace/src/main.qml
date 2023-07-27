@@ -10,7 +10,7 @@ Window {
 
     Image {
         id: spectrum_image
-        cache: false
+        cache: true
         width: parent.width
         height: parent.height
         source: "image://spectrum-image-provider/spectrum"

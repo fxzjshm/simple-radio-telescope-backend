@@ -14,12 +14,15 @@
 #ifndef __SRTB_GUI_SPECTRUM_IMAGE_PROVIDER__
 #define __SRTB_GUI_SPECTRUM_IMAGE_PROVIDER__
 
+#include <thread>
+
 #include "srtb/commons.hpp"
 
 // Qt related
 #include <QImage>
 #include <QObject>
 #include <QPainter>
+#include <QPointer>
 #include <QQuickImageProvider>
 #include <QThread>
 
@@ -320,28 +323,52 @@ class SpectrumImageProvider : public QObject, public QQuickImageProvider {
 class SimpleSpectrumImageProvider : public QObject, public QQuickImageProvider {
   Q_OBJECT
 
- protected:
+ public:
   QImage image;
   std::shared_ptr<uint32_t> image_data;
-  // current alpha channel of all color used are FF
+  // currently alpha channel of all color used are 0xFF
   static constexpr QImage::Format image_format = QImage::Format_RGB32;
   int spectrum_update_counter = 0;
+  std::jthread checker_thread;
+  QPointer<QObject> parent;
 
  public:
-  explicit SimpleSpectrumImageProvider(QObject* parent = nullptr)
-      : QObject{parent},
+  explicit SimpleSpectrumImageProvider(QObject* parent_ = nullptr)
+      : QObject{parent_},
         QQuickImageProvider{QQuickImageProvider::Pixmap},
         image{static_cast<int>(srtb::config.gui_pixmap_width),
-              static_cast<int>(srtb::config.gui_pixmap_height), image_format} {}
+              static_cast<int>(srtb::config.gui_pixmap_height), image_format},
+        parent{parent_} {
+    checker_thread = std::jthread{[this](std::stop_token stop_token) {
+      while (!stop_token.stop_requested()) [[likely]] {
+        srtb::work::draw_spectrum_work_2 draw_spectrum_work;
+        const bool got_work =
+            srtb::draw_spectrum_queue_2.pop(draw_spectrum_work);
+        if (got_work) {
+          Q_EMIT new_pixmap_available(draw_spectrum_work);
+        }
+        std::this_thread::sleep_for(
+            std::chrono::nanoseconds(srtb::config.thread_query_work_wait_time));
+      }
+    }};
+
+    QObject::connect(
+        this, &SimpleSpectrumImageProvider::new_pixmap_available,
+        [this](srtb::work::draw_spectrum_work_2 draw_spectrum_work) {
+          SRTB_LOGD << " [gui] "
+                    << "update_pixmap " << srtb::endl;
+          update_pixmap(draw_spectrum_work);
+          trigger_update();
+        });
+  }
+
+ Q_SIGNALS:
+  void new_pixmap_available(
+      srtb::work::draw_spectrum_work_2 draw_spectrum_work);
 
  public Q_SLOTS:
-  void update_pixmap() {
-    srtb::work::draw_spectrum_work_2 draw_spectrum_work;
-    const bool got_work = srtb::draw_spectrum_queue_2.pop(draw_spectrum_work);
-    if (!got_work) {
-      return;
-    }
-
+  /** @return true if actually updated, false if not. */
+  void update_pixmap(srtb::work::draw_spectrum_work_2 draw_spectrum_work) {
     const int width = draw_spectrum_work.width;
     const int height = draw_spectrum_work.height;
     if (image.width() != width || image.height() != height) [[unlikely]] {
@@ -352,20 +379,6 @@ class SimpleSpectrumImageProvider : public QObject, public QQuickImageProvider {
       image = QImage{width, height, image_format};
     }
 
-    // moved to device
-    //QPainter painter{&pixmap};
-    //for (int y = 0; y < height; y++) {
-    //  for (int x = 0; x < width; x++) {
-    //    // 'v2' is new value of 'v' in HSV form
-    //    int v2 = static_cast<int>(color_value_count *
-    //                              draw_spectrum_work.ptr.get()[y * width + x]);
-    //    // invalid v2 values should be handled properly in operator[]
-    //    QColor local_color = color_map_holder[v2];
-    //    painter.setPen(local_color);
-    //    painter.drawPoint(x, y);
-    //  }
-    //}
-
     auto h_image_shared = draw_spectrum_work.ptr;
     uint32_t* h_image = h_image_shared.get();
     image =
@@ -373,27 +386,29 @@ class SimpleSpectrumImageProvider : public QObject, public QQuickImageProvider {
     // TODO: check lifetime of old pixmap data
     image_data = h_image_shared;
 
-    //SRTB_LOGD << " [SpectrumImageProvider] "
-    //          << "updated pixmap, count = " << update_count << srtb::endl;
+    SRTB_LOGD << " [SimpleSpectrumImageProvider] "
+              << "updated pixmap, counter = " << spectrum_update_counter
+              << srtb::endl;
   }
 
  public:
   // ref: https://stackoverflow.com/questions/45755655/how-to-correctly-use-qt-qml-image-provider
-  void trigger_update(QObject* object) {
-    // object should be main window
-    QMetaObject::invokeMethod(object, "update_spectrum",
-                              Q_ARG(QVariant, spectrum_update_counter));
-    spectrum_update_counter++;
-    //SRTB_LOGD << " [SpectrumImageProvider] "
-    //          << "trigger update, spectrum_update_counter = "
-    //          << spectrum_update_counter << srtb::endl;
+  void trigger_update() {
+    if (parent) {  // object should be main window
+      QMetaObject::invokeMethod(parent, "update_spectrum",
+                                Q_ARG(QVariant, spectrum_update_counter));
+      spectrum_update_counter++;
+      SRTB_LOGD << " [SimpleSpectrumImageProvider] "
+                << "trigger update, spectrum_update_counter = "
+                << spectrum_update_counter << srtb::endl;
+    }
   }
 
   QPixmap requestPixmap(const QString& id, QSize* size,
                         const QSize& requestedSize) override {
-    //SRTB_LOGD << " [SpectrumImageProvider] "
-    //          << "requestPixmap called with id " << id.toStdString()
-    //          << srtb::endl;
+    SRTB_LOGD << " [SimpleSpectrumImageProvider] "
+              << "requestImage called with id " << id.toStdString()
+              << srtb::endl;
     (void)id;
     if (size) {
       *size = QSize(image.width(), image.height());

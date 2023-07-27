@@ -51,29 +51,12 @@ inline int show_gui(int argc, char **argv, std::vector<std::jthread> threads) {
       [url, spectrum_image_provider_ptr](QObject *obj, const QUrl &objUrl) {
         SRTB_LOGD << " [gui] " << objUrl.toString().toStdString() << srtb::endl;
         if (url == objUrl) {
-          if (!obj) [[unlikely]] {
+          if (obj) [[likely]] {
+            spectrum_image_provider_ptr->parent = obj;
+          } else {
             SRTB_LOGE << " [gui] "
                       << "load main window failed!" << srtb::endl;
             QCoreApplication::exit(-1);
-          } else {
-            // connect signal to slot
-            // TODO: is this a proper way in Qt?
-            QObject::connect(reinterpret_cast<QQuickWindow *>(obj),
-                             &QQuickWindow::beforeRendering,
-                             spectrum_image_provider_ptr, [=]() {
-                               if (spectrum_image_provider_ptr) [[likely]] {
-                                 spectrum_image_provider_ptr->update_pixmap();
-                               }
-                             });
-
-            QObject::connect(
-                reinterpret_cast<QQuickWindow *>(obj),
-                &QQuickWindow::beforeRendering, spectrum_image_provider_ptr,
-                [=]() {
-                  if (spectrum_image_provider_ptr) [[likely]] {
-                    spectrum_image_provider_ptr->trigger_update(obj);
-                  }
-                });
           }
         }
       },
