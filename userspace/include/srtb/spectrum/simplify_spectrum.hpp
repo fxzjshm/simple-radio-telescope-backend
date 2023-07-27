@@ -423,6 +423,7 @@ inline void resample_spectrum_3(DeviceInputAccessor d_in, size_t in_width,
                                 size_t out_width, size_t out_height,
                                 sycl::queue& q) {
   using T = typename std::iterator_traits<DeviceOutputAccessor>::value_type;
+
   const srtb::real in_width_real = static_cast<srtb::real>(in_width);
   const srtb::real in_height_real = static_cast<srtb::real>(in_height);
   const srtb::real out_width_real = static_cast<srtb::real>(out_width);
@@ -431,23 +432,36 @@ inline void resample_spectrum_3(DeviceInputAccessor d_in, size_t in_width,
   const size_t max_work_item_required =
       std::max(static_cast<size_t>(std::round(in_width_real / out_width_real)),
                size_t{1});
+
+  // using wrap size for work group size
+  // noticed that minimal of supported sub_group_sizes is usually wrap size
   // TODO: check if this is really optimal
-  // Currently available info:
-  //   NVIDIA GPUs have wrap size 32.
-  //   AMD GPUs with GCN / CDNA? architecture have wave front size 64,
-  //            with RDNA architecture have 32.
-  //   [DATA EXPUNGED] 1st gen have wave front size 128?,
-  //                   2nd gen have ... 32?
-  //   amd64 CPUs with AVX512 -> 64 bytes
-  // benchmark on AMD Radeon VII:
-  //   auto: 31ms
-  //   128: 25.5 25.9 25.7
-  //   64: 16.637 16.971 16.496
-  //   32: 19.889 19.401 (???)
-  const size_t max_work_item_optimal = 64;
+  //       Currently available info:
+  //         NVIDIA GPUs have wrap size 32.
+  //         AMD GPUs with GCN / CDNA? architecture have wave front size 64,
+  //                  with RDNA architecture have 32.
+  //         [DATA EXPUNGED] 1st gen have wave front size 128?,
+  //                         2nd gen have ... 32?
+  //         amd64 CPUs with AVX512 -> 64 bytes
+  //       benchmark on AMD Radeon VII:
+  //         auto: 31ms
+  //         128: 25.5 25.9 25.7
+  //         64: 16.637 16.971 16.496
+  //         32: 19.889 19.401 (???)
+  //       benckmark on NVIDIA A4000:
+  //         64: 59.850
+  //         32: 37.657
+  sycl::device device = q.get_device();
+  auto sub_group_sizes = device.get_info<sycl::info::device::sub_group_sizes>();
+  const size_t max_work_item_optimal = std::max(
+      *std::min_element(sub_group_sizes.begin(), sub_group_sizes.end()),
+      size_t{1});
+  SRTB_LOGD << " [resample_spectrum_3] "
+            << "max_work_item_optimal = " << max_work_item_optimal
+            << srtb::endl;
 
   // modified on the basis of bufffer_algorihms.hpp in SyclParallelSTL
-  sycl::device device = q.get_device();
+  // restrict work group size using device limits & size of shared memory
   const sycl::id<1> max_work_item_size_1 =
       device.get_info<sycl::info::device::max_work_item_sizes<1> >();
   const size_t max_work_item =
@@ -460,6 +474,7 @@ inline void resample_spectrum_3(DeviceInputAccessor d_in, size_t in_width,
       std::min(std::min(std::min(max_work_item, local_mem_size / sizeofB),
                         max_work_item_required),
                max_work_item_optimal);
+
   const size_t reduce_size = std::bit_ceil(nb_work_item) >> 1;
   SRTB_LOGD << " [resample_spectrum_3] "
             << "nb_work_item = " << nb_work_item << srtb::endl;
