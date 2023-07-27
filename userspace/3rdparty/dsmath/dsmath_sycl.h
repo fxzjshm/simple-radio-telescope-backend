@@ -11,6 +11,7 @@
 // * header used included
 //   * from "operator+" this seems a C++ header, so <cstdint> is used instead of <stdint.h>
 // * constexpr
+// * #pragma STDC FP_CONTRACT ON in operator +, -, *, /
 
 // File date: 29 - 07 - 2008
 
@@ -112,6 +113,7 @@ inline constexpr df64 operator-(const df64 a) {
 // is within 1.5 ulps of the correctly rounded result with 48-bit mantissa.
 // This function computes c = a + b.
 inline constexpr df64 operator+(const df64 a, const df64 b) {
+  #pragma STDC FP_CONTRACT ON
   df64 c;
 #if defined(__DEVICE_EMULATION__)
   volatile float t1, e, t2;
@@ -134,6 +136,7 @@ inline constexpr df64 operator+(const df64 a, const df64 b) {
 // Based on dssub from DSFUN90
 // This function computes c = a - b.
 inline constexpr df64 operator-(const df64 a, const df64 b) {
+  #pragma STDC FP_CONTRACT ON
   df64 c;
 #if defined(__DEVICE_EMULATION__)
   volatile float t1, e, t2;
@@ -157,6 +160,7 @@ inline constexpr df64 operator-(const df64 a, const df64 b) {
 // Based on: Guillaume Da Graça, David Defour. Implementation of Float-Float
 // Operators on Graphics Hardware. RNC'7, pp. 23-32, 2006.
 inline constexpr df64 operator*(const df64 a, const df64 b) {
+  #pragma STDC FP_CONTRACT ON
   df64 c;
 #if defined(__DEVICE_EMULATION__)
   volatile float up, vp, u1, u2, v1, v2, mh, ml;
@@ -201,6 +205,7 @@ inline constexpr df64 operator*(const df64 a, const df64 b) {
 // This function divides the DS number A by the DS number B to yield the DS
 // quotient DSC.
 inline constexpr df64 operator/(const df64 a, const df64 b) {
+  #pragma STDC FP_CONTRACT ON
   df64 c;
 #if defined(__DEVICE_EMULATION__)
   volatile float s1, cona, conb, a1, b1, a2, b2, c11, c21;

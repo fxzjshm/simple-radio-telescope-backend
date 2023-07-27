@@ -121,7 +121,10 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -fno-omit-frame-pointer ")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -rdynamic ")
 ## -ffp-contract=fast will not work for df64
 ## -ffp-contract=fast-honor-pragmas not supported by CUDA
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ffp-contract=on ")
+## https://clang.llvm.org/docs/UsersManual.html#cmdoption-ffp-contract
+if(SRTB_ENABLE_CUDA)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ffp-contract=on ")
+endif()
 ## optimize flags
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -ftree-vectorize")
 ## sanitizer, for debug usage
