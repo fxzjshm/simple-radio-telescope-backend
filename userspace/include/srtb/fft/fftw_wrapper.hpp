@@ -260,7 +260,7 @@ class fftw_1d_wrapper
 
  protected:
   void create_impl(size_t n, size_t batch_size, sycl::queue& queue) {
-    // fftw plan functions is not thread-safe
+    // fftw plan functions are not thread-safe
     std::lock_guard lock{srtb::fft::fftw_mutex};
 
     constexpr auto in_place_flags = FFTW_ESTIMATE;

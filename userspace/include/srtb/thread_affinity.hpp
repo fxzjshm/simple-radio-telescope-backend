@@ -27,7 +27,7 @@ namespace thread_affinity {
  * adapted from https://github.com/open-mpi/hwloc/blob/master/doc/examples/cpuset%2Bbitmap%2Bcpubind.c
  * ref: https://hwloc.readthedocs.io/en/v2.4/group__hwlocality__bitmap.html
  */
-int set_thread_affinity(unsigned int target_cpu) {
+inline int set_thread_affinity(unsigned int target_cpu) {
   hwloc_topology_t topology = nullptr;
   hwloc_bitmap_t set2 = nullptr;
   hwloc_obj_t obj;

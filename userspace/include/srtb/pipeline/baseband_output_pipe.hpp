@@ -272,10 +272,16 @@ class baseband_output_pipe</* continuous_write = */ false>
                 reinterpret_cast<char*>(baseband_data.baseband_ptr.get());
             const size_t baseband_write_count =
                 baseband_data.baseband_input_bytes;
-            baseband_output_stream.write(
-                baseband_ptr,
-                baseband_write_count *
-                    sizeof(decltype(baseband_data.baseband_ptr)::element_type));
+            if (baseband_ptr) {
+              baseband_output_stream.write(
+                  baseband_ptr,
+                  baseband_write_count *
+                      sizeof(
+                          decltype(baseband_data.baseband_ptr)::element_type));
+            } else {
+              SRTB_LOGE << " [baseband_output_pipe] "
+                        << "baseband pointer not valid!" << srtb::endl;
+            }
             baseband_output_stream.flush();
 
             // check handle of baseband data
@@ -304,13 +310,12 @@ class baseband_output_pipe</* continuous_write = */ false>
 
       // write spectrum
       if (work_to_write.ptr.get()) [[likely]] {
-        // boost::asio::post(
-        //     baseband_output_thread_pool,
-        //     [this, file_name_no_extension,
-          auto  d_spectrum_shared = std::move(work_to_write.ptr);
-          auto  count = work_to_write.count;
-          auto  batch_size = work_to_write.batch_size;
-              //]() {
+        boost::asio::post(
+            baseband_output_thread_pool,
+            [this, file_name_no_extension,
+             d_spectrum_shared = std::move(work_to_write.ptr),
+             count = work_to_write.count,
+             batch_size = work_to_write.batch_size]() {
               const size_t total_count = count * batch_size;
               auto h_spectrum_unique =
                   srtb::host_allocator
@@ -328,7 +333,7 @@ class baseband_output_pipe</* continuous_write = */ false>
               // don't forget to check shape order...
               cnpy::npy_save(spectrum_file_path, h_spectrum,
                              std::vector<size_t>{batch_size, count});
-            //  });
+            });
       }
 
       // write time series & plot

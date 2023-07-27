@@ -126,7 +126,20 @@ if(SRTB_ENABLE_CUDA)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ffp-contract=on ")
 endif()
 ## optimize flags
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -ftree-vectorize")
+if(NOT CMAKE_BUILD_TYPE MATCHES Debug)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ftree-vectorize ")
+  # check whether -march=native is supported
+  # https://github.com/weidai11/cryptopp/issues/273#issuecomment-249271818
+  include(CheckCXXCompilerFlag)
+  check_cxx_compiler_flag("-march=native" COMPILER_OPT_ARCH_NATIVE_SUPPORTED)
+  if (COMPILER_OPT_ARCH_NATIVE_SUPPORTED)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native ")
+  else()
+    message(WARNING "-march=native seems not suppored, please manually set optimization flag here")
+    # e.g.
+    #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=rv64imafdc ")
+  endif()
+endif()
 ## sanitizer, for debug usage
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -fno-optimize-sibling-calls ")
 

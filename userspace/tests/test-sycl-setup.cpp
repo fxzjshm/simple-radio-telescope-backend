@@ -15,7 +15,7 @@
 
 //#define _SYCL_EXT_CPLX_FAST_MATH
 #define _SYCL_CPLX_NAMESPACE sycl_cplx
-#include "sycl_ext_complex.hpp"
+#include "sycl_ext_complex.dp.hpp"
 // ---
 #include "naive_fft.dp.hpp"
 // ---

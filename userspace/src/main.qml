@@ -6,7 +6,7 @@ Window {
     width: Screen.width * 0.8
     height: Screen.height * 0.8
     visible: true
-    title: qsTr("Hello World")
+    title: qsTr("Simple Radio Telescope Backend")
 
     Image {
         id: spectrum_image

@@ -1,8 +1,28 @@
+/******************************************************************************* 
+ * Copyright (c) 2023 fxzjshm
+ * This software is licensed under Mulan PubL v2.
+ * You can use this software according to the terms and conditions of the Mulan PubL v2.
+ * You may obtain a copy of Mulan PubL v2 at:
+ *          http://license.coscl.org.cn/MulanPubL-2.0
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
+ * EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
+ * MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
+ * See the Mulan PubL v2 for more details.
+ ******************************************************************************/
+
 #include <boost/iterator/counting_iterator.hpp>
 #include <fstream>
 
 #include "srtb/algorithm/map_reduce.hpp"
 #include "srtb/coherent_dedispersion.hpp"
+#include "test-common.hpp"
+
+#define SRTB_CHECK_TEST_DF64(expr)                                      \
+  SRTB_CHECK(expr, true, {                                              \
+    throw std::runtime_error{"[test-df64] " #expr " at " __FILE__ ":" + \
+                             std::to_string(__LINE__) + " returns " +   \
+                             std::to_string(ret)};                      \
+  })
 
 int main() {
   bool write_out = false;
@@ -53,6 +73,8 @@ int main() {
               << "writing to " << double_file_name << srtb::endl;
     fwrite(h_double_out, sizeof(srtb::complex<srtb::real>), N, double_file);
     fclose(double_file);
+    SRTB_LOGI << " [test-coherent_dedispersion] "
+              << "writing to " << dsmath_file_name << srtb::endl;
     fwrite(h_dsmath_out, sizeof(srtb::complex<srtb::real>), N, dsmath_file);
     fclose(dsmath_file);
   }

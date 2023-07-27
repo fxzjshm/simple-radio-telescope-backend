@@ -119,6 +119,7 @@ export CLI_SuppressLogging=1
 * [DATA EXPUNGED] CPU + [DATA EXPUNGED] ("Device X")
 * Intel Alder Lake CPU + [DATA EXPUNGED]
   * waiting for optimization of library from this device vendor
+* QEMU emulated RISC-V 64 CPU
 
 To be tested:
 * Mesa rusticl!
