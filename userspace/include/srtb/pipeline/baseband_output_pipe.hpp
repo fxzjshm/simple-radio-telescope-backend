@@ -332,7 +332,7 @@ class baseband_output_pipe</* continuous_write = */ false>
                   file_name_no_extension + ".npy";
               // don't forget to check shape order...
               cnpy::npy_save(spectrum_file_path, h_spectrum,
-                             std::vector<size_t>{batch_size, count});
+                             std::vector<size_t>{count, batch_size});
             });
       }
 
