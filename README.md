@@ -5,8 +5,17 @@ Everything working in progress...
 This is a simple backend of radio telescope. 
 It reads raw "baseband"/"intermediate frequency" voltage data and should be capable of coherent dedispersion, radio frequency interference mitigation and single pulse signal detection in real-time, with spectrum waterfall shown in GUI.
 
-![doc/img/result_crab_giant_pulse_spectrum_refresh.avif](doc/img/result_crab_giant_pulse_spectrum_refresh.avif)
-*First giant pulse from crab captured by this software*
+<div align="center">
+
+<img src="doc/img/result_1644-4559.avif" width="80%" />
+
+*Spectrum generated from one polarization of DSPSR's example baseband file of J1644-4559*
+
+<img src="doc/img/result_crab_giant_pulse_spectrum_refresh.avif" width="80%" />
+
+*First giant pulse from crab captured by this software (with obsolete spectrum generation code path)*
+
+</div>
 
 Possible future plans include DPDK integration, search of disperse measurements, etc.
 
@@ -26,33 +35,29 @@ Corrections and suggestions are very appreciated!
 ### Pipeline Structure
 ```mermaid
 graph LR;
-  UDP_packets[UDP <br/> packets];
-  recorded_baseband_file[recorded <br/> baseband <br/> file];
   udp_receiver_pipe(udp <br/> receiver <br/> pipe);
   read_file_pipe(read <br/> file <br/> pipe);
   unpack_pipe(unpack <br/> pipe);
   fft_1d_r2c_pipe(fft <br/> 1d r2c <br/> pipe);
   rfi_mitigation_pipe_stage1(rfi <br/> mitigation <br/> pipe <br/> stage 1);
   dedisperse_pipe(dedisperse <br/> pipe);
-  ifft_1d_c2c_pipe(ifft <br/> 1d c2c <br/> pipe);
-  refft_1d_c2c_pipe(refft <br/> 1d c2c <br/> pipe);
+  watfft_1d_c2c_pipe(waterfall <br/> fft <br/> 1d c2c <br/> pipe);
   rfi_mitigation_pipe_stage2(rfi <br/> mitigation <br/> pipe <br/> stage 2);
   signal_detect_pipe(signal <br/> detect <br/> pipe);
   baseband_output_pipe(baseband <br/> output <br/> pipe);
   simplify_spectrum_pipe(simplify <br/> spectrum <br/> pipe);
-  SpectrumImageProvider(Spectrum <br/> Image <br/> Provider <br/> & UI);
-  baseband_file_with_signal_candidate[baseband <br/> file <br/> with <br/> signal <br/> candidate]
+  gui(Graphic <br/> Interface);
 
-  UDP_packets --> udp_receiver_pipe --> unpack_pipe;
-  recorded_baseband_file --> read_file_pipe --> unpack_pipe;
-  unpack_pipe --> fft_1d_r2c_pipe --> rfi_mitigation_pipe_stage1 --> dedisperse_pipe --> ifft_1d_c2c_pipe --> refft_1d_c2c_pipe --> rfi_mitigation_pipe_stage2 --> signal_detect_pipe;
+  udp_receiver_pipe --> unpack_pipe;
+  read_file_pipe --> unpack_pipe;
+  unpack_pipe --> fft_1d_r2c_pipe --> rfi_mitigation_pipe_stage1 --> dedisperse_pipe --> watfft_1d_c2c_pipe --> rfi_mitigation_pipe_stage2 --> signal_detect_pipe;
   signal_detect_pipe --> simplify_spectrum_pipe;
   signal_detect_pipe --> baseband_output_pipe;
-  baseband_output_pipe --> baseband_file_with_signal_candidate
-  simplify_spectrum_pipe --> SpectrumImageProvider
+  baseband_output_pipe
+  simplify_spectrum_pipe --> gui
 ```
 
-(`rfi_mitigation_pipe_stage2` hasn't been separated from `signal_detect_pipe`)
+(`rfi_mitigation_pipe_stage2` hasn't been separated from `signal_detect_pipe` in code)
 
 ## Building
 Note that this repository has submodule for dependency management, don't forget to add `--recursive` when cloning this git repo, or use
