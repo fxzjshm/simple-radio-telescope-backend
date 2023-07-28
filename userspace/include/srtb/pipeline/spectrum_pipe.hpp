@@ -14,7 +14,8 @@
 #ifndef __SRTB_PIPELINE_SPECTRUM_PIPE__
 #define __SRTB_PIPELINE_SPECTRUM_PIPE__
 
-#include <QColor>
+#include <boost/algorithm/string/replace.hpp>
+#include <string>
 
 #include "srtb/pipeline/pipe.hpp"
 #include "srtb/spectrum/simplify_spectrum.hpp"
@@ -103,6 +104,14 @@ class simplify_spectrum_pipe_2 : public pipe<simplify_spectrum_pipe_2> {
  public:
   simplify_spectrum_pipe_2() = default;
 
+  auto color_cast(std::string str) -> uint32_t {
+    if (str.starts_with("#")) {
+      boost::replace_first(str, "#", "0x");
+    }
+    return static_cast<uint32_t>(
+        std::stoul(str, /* index = */ nullptr, /* base = */ 0));
+  }
+
  protected:
   void run_once_impl(std::stop_token stop_token) {
     srtb::work::simplify_spectrum_work simplify_spectrum_work;
@@ -134,9 +143,10 @@ class simplify_spectrum_pipe_2 : public pipe<simplify_spectrum_pipe_2> {
     srtb::spectrum::simplify_spectrum_normalize_with_average_value(
         d_out, total_out_count, q);
 
-    const QColor color_1 = QColor{"#1f1e33"};
-    const QColor color_2 = QColor("#33e1f1");
-    const uint32_t argb_error = static_cast<uint32_t>(0xe0e1ccull);
+    const uint32_t opaque = 0xff000000;
+    const uint32_t color_1 = color_cast("#1f1e33") | opaque;
+    const uint32_t color_2 = color_cast("#33e1f1") | opaque;
+    const uint32_t argb_error = static_cast<uint32_t>(0xe0e1ccull) | opaque;
 
     auto d_image_shared =
         srtb::device_allocator.allocate_shared<uint32_t>(total_out_count);
@@ -146,8 +156,7 @@ class simplify_spectrum_pipe_2 : public pipe<simplify_spectrum_pipe_2> {
     auto h_image = h_image_shared.get();
 
     srtb::spectrum::generate_pixmap(d_out, d_image, out_width, out_height,
-                                    color_1.rgba(), color_2.rgba(), argb_error,
-                                    q);
+                                    color_1, color_2, argb_error, q);
 
     SRTB_LOGD << " [simplify spectrum pipe] "
               << " finished simplifying" << srtb::endl;
