@@ -256,6 +256,7 @@ using signal_detect_work = simplify_spectrum_work;
  */
 struct time_series_holder {
   std::shared_ptr<srtb::real> h_time_series;
+  std::shared_ptr<srtb::real> d_time_series;
   size_t time_series_length;
   /** @brief size of boxcar used to compute the time series; = 1 if not used */
   size_t boxcar_length;

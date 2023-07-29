@@ -406,7 +406,8 @@ class signal_detect_pipe_2 : public pipe<signal_detect_pipe_2> {
           sycl::event event =
               q.copy(d_time_series, /* -> */ h_out, time_series_count);
           srtb::work::time_series_holder time_series_holder{
-              .h_time_series = h_out_shared,
+              .h_time_series = std::move(h_out_shared),
+              .d_time_series = d_time_series_shared,
               .time_series_length = time_series_count,
               .boxcar_length = 1,
               .transfer_event = event};
@@ -424,16 +425,15 @@ class signal_detect_pipe_2 : public pipe<signal_detect_pipe_2> {
         sycl::impl::inclusive_scan(execution_policy, d_time_series,
                                    d_time_series + time_series_count,
                                    d_accumulated, srtb::real{0}, std::plus());
-        // TODO: reuse d_time_series ?
-        // this is reused for different boxcar_length
-        auto d_boxcared_time_series_unique_ptr =
-            srtb::device_allocator.allocate_unique<srtb::real>(
-                time_series_count);
-        auto d_boxcared_time_series = d_boxcared_time_series_unique_ptr.get();
 
+        // this is reused for different boxcar_length
+        auto d_boxcared_time_series_shared =
+            srtb::device_allocator.allocate_shared<srtb::real>(
+                time_series_count);
+        auto d_boxcared_time_series = d_boxcared_time_series_shared.get();
         const size_t max_boxcar_length =
             srtb::config.signal_detect_max_boxcar_length;
-        // TODO: async submit kernel ?
+        // TODO: async submit kernel failed (output corrupt, why?)
         for (size_t boxcar_length = 2; (boxcar_length <= max_boxcar_length &&
                                         boxcar_length < time_series_count);
              boxcar_length *= 2) {
@@ -463,7 +463,8 @@ class signal_detect_pipe_2 : public pipe<signal_detect_pipe_2> {
             sycl::event event = q.copy(d_boxcared_time_series, /* -> */ h_out,
                                        boxcared_time_series_count);
             srtb::work::time_series_holder time_series_holder{
-                .h_time_series = h_out_shared,
+                .h_time_series = std::move(h_out_shared),
+                .d_time_series = std::move(d_boxcared_time_series_shared),
                 .time_series_length = boxcared_time_series_count,
                 .boxcar_length = boxcar_length,
                 .transfer_event = event};
