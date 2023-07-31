@@ -41,6 +41,9 @@
     #if defined(__HIPSYCL_ENABLE_HIP_TARGET__)
         #define SRTB_ENABLE_ROCM_INTEROP 1
     #endif
+    #if defined(SRTB_ENABLE_MUSA)
+        #define SRTB_ENABLE_MUSA_INTEROP 1
+    #endif
     #if defined(__HIPSYCL_ENABLE_OMPHOST_TARGET__)
         // no need to define introp macro
     #endif
@@ -60,6 +63,12 @@
 #else
 #define SRTB_IF_ENABLED_ROCM_INTEROP(...)
 #endif  // SRTB_ENABLE_ROCM_INTEROP
+
+#ifdef SRTB_ENABLE_MUSA_INTEROP
+#define SRTB_IF_ENABLED_MUSA_INTEROP(...) __VA_ARGS__
+#else
+#define SRTB_IF_ENABLED_MUSA_INTEROP(...)
+#endif  // SRTB_ENABLE_MUSA_INTEROP
 
 // fix for sycl::get_native<sycl::backend::ext_oneapi_hip>(device)
 // https://github.com/intel/llvm/pull/7145
@@ -84,6 +93,9 @@ namespace backend {
     #endif
     #if defined(SRTB_ENABLE_ROCM_INTEROP)
         inline constexpr sycl::backend rocm = sycl::backend::hip;
+    #endif
+    #if defined(SRTB_ENABLE_MUSA_INTEROP)
+        inline constexpr sycl::backend musa = sycl::backend::musa;
     #endif
     inline constexpr sycl::backend cpu = sycl::backend::omp;
 #else

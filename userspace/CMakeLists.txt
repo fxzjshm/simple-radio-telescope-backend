@@ -11,7 +11,7 @@ endif()
 
 # detect backends
 ## CUDA, SRTB_CUDA_ARCH required if with hipSYCL and optional with intal-llvm
-find_package(CUDAToolkit)
+find_package(CUDAToolkit QUIET)
 option(SRTB_ENABLE_CUDA "option to enable CUDA backend" ${CUDAToolkit_FOUND})
 message(STATUS "SRTB_ENABLE_CUDA = ${SRTB_ENABLE_CUDA}")
 
@@ -39,12 +39,21 @@ if(SRTB_ENABLE_ROCM)
     link_directories("${ROCM_PATH}/lib")
 endif()
 
+# MUSA
+list(APPEND CMAKE_MODULE_PATH /usr/local/musa/cmake)
+find_package(MUSAToolkit)
+option(SRTB_ENABLE_MUSA "option to enable MUSA backend" ${MUSA_FOUND})
+message(STATUS "SRTB_ENABLE_MUSA = ${SRTB_ENABLE_MUSA}")
+
 # export(?) backend selection to macros
 if(SRTB_ENABLE_CUDA)
     add_compile_definitions(SRTB_ENABLE_CUDA=1)
 endif()
 if(SRTB_ENABLE_ROCM)
     add_compile_definitions(SRTB_ENABLE_ROCM=1)
+endif()
+if(SRTB_ENABLE_MUSA)
+    add_compile_definitions(SRTB_ENABLE_MUSA=1)
 endif()
 
 # setup SYCL compilers
@@ -58,6 +67,9 @@ if(SRTB_SYCL_IMPLEMENTATION STREQUAL "hipSYCL")
     endif()
     if(SRTB_ENABLE_ROCM)
         set(SRTB_HIPSYCL_TARGETS "${SRTB_HIPSYCL_TARGETS}hip:${SRTB_ROCM_ARCH};")
+    endif()
+    if(SRTB_ENABLE_MUSA)
+        set(SRTB_HIPSYCL_TARGETS "${SRTB_HIPSYCL_TARGETS}generic;")
     endif()
     set(SRTB_HIPSYCL_TARGETS "${SRTB_HIPSYCL_TARGETS}omp")
     message(STATUS "HIPSYCL_TARGETS = ${SRTB_HIPSYCL_TARGETS}")  # e.g. HIPSYCL_TARGETS=cuda:sm_86;hip:gfx906;omp
@@ -221,6 +233,9 @@ function(srtb_add_dependency target_name)
         # https://rocmdocs.amd.com/en/latest/Installation_Guide/Using-CMake-with-AMD-ROCm.html
         target_link_libraries(${target_name} PUBLIC hip::hipfft roc::rocfft)
         target_link_libraries(${target_name} PUBLIC amdhip64)
+    endif()
+    if(SRTB_ENABLE_MUSA)
+        target_link_libraries(${target_name} PUBLIC MUSA::musart MUSA::musa_driver MUSA::mufft)
     endif()
 
     if(SRTB_ENABLE_GUI)

@@ -26,6 +26,9 @@
 #ifdef SRTB_ENABLE_ROCM_INTEROP
 #include "srtb/fft/hipfft_wrapper.hpp"
 #endif  // SRTB_ENABLE_ROCM_INTEROP
+#ifdef SRTB_ENABLE_MUSA_INTEROP
+#include "srtb/fft/mufft_wrapper.hpp"
+#endif  // SRTB_ENABLE_MUSA_INTEROP
 #include "srtb/fft/naive_fft_wrapper.hpp"
 
 #define SRTB_CHECK_FFT(expr)                                          \
@@ -49,6 +52,9 @@ class fft_1d_dispatcher {
 #ifdef SRTB_ENABLE_ROCM_INTEROP
   std::optional<hipfft_1d_wrapper<fft_type, T, C> > hipfft_1d_wrapper_instance;
 #endif  // SRTB_ENABLE_ROCM_INTEROP
+#ifdef SRTB_ENABLE_MUSA_INTEROP
+  std::optional<mufft_1d_wrapper<fft_type, T, C> > mufft_1d_wrapper_instance;
+#endif  // SRTB_ENABLE_MUSA_INTEROP
   std::optional<fftw_1d_wrapper<fft_type, T, C> > fftw_1d_wrapper_instance;
   naive_fft_1d_wrapper<fft_type, T, C> naive_fft_1d_wrapper_instance;
 
@@ -80,6 +86,14 @@ class fft_1d_dispatcher {
       }
     });
 
+    SRTB_IF_ENABLED_MUSA_INTEROP({
+      if (device.get_backend() == srtb::backend::musa) [[likely]] {
+        mufft_1d_wrapper_instance.emplace(n, batch_size, q);
+        SRTB_CHECK_FFT(mufft_1d_wrapper_instance.has_value());
+        return;
+      }
+    });
+
     if (device.is_cpu()) {
       fftw_1d_wrapper_instance.emplace(n, batch_size, q);
       SRTB_CHECK_FFT(fftw_1d_wrapper_instance.has_value());
@@ -98,6 +112,12 @@ class fft_1d_dispatcher {
     SRTB_IF_ENABLED_ROCM_INTEROP({                                   \
       if (hipfft_1d_wrapper_instance.has_value()) [[likely]] {       \
         return hipfft_1d_wrapper_instance.value().func(__VA_ARGS__); \
+      }                                                              \
+    });                                                              \
+                                                                     \
+    SRTB_IF_ENABLED_MUSA_INTEROP({                                   \
+      if (mufft_1d_wrapper_instance.has_value()) [[likely]] {        \
+        return mufft_1d_wrapper_instance.value().func(__VA_ARGS__);  \
       }                                                              \
     });                                                              \
                                                                      \
