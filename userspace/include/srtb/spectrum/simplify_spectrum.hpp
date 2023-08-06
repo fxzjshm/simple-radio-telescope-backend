@@ -483,9 +483,8 @@ inline void resample_spectrum_3(DeviceInputAccessor d_in, size_t in_width,
      sycl::range<1> range_group{out_width * out_height};
      sycl::range<1> range_item{nb_work_item};
      // local memory area for partial sums
-     sycl::accessor<T, /* dimensions = */ 1, sycl::access::mode::read_write,
-                    sycl::access::target::local>
-         sum{sycl::range<1>(nb_work_item), cgh, sycl::no_init};
+     sycl::local_accessor<T, /* dimensions = */ 1> sum{
+         sycl::range<1>(nb_work_item), cgh, sycl::no_init};
      cgh.parallel_for(
          sycl::nd_range<1>(range_group * range_item, range_item),
          [=](sycl::nd_item<1> nd_item) {
@@ -679,7 +678,7 @@ inline constexpr auto getARGB(unsigned char a, unsigned char r, unsigned char g,
  * @tparam OutputIterator type of d_out, accessor on device, e.g. uint32_t*
  * @tparam std::enable_if<
  *           std::is_same<
- *             typename std::decay<
+ *             typename std::remove_cvref<
  *               typename std::iterator_traits<OutputIterator>::value_type
  *             >::type, uint32_t
  *           >::value, void
@@ -695,12 +694,13 @@ inline constexpr auto getARGB(unsigned char a, unsigned char r, unsigned char g,
  * @param argb_error color if input out of range
  * @param q the SYCL queue which to submit kernel to
  */
-template <typename InputIterator, typename OutputIterator,
-          typename = typename std::enable_if<
-              std::is_same<typename std::decay<typename std::iterator_traits<
-                               OutputIterator>::value_type>::type,
-                           uint32_t>::value,
-              void>::type>
+template <
+    typename InputIterator, typename OutputIterator,
+    typename = typename std::enable_if<
+        std::is_same<typename std::remove_cvref<typename std::iterator_traits<
+                         OutputIterator>::value_type>::type,
+                     uint32_t>::value,
+        void>::type>
 inline void generate_pixmap(InputIterator d_in, OutputIterator d_out,
                             size_t width, size_t height, uint32_t argb_1,
                             uint32_t argb_2, uint32_t argb_error,
