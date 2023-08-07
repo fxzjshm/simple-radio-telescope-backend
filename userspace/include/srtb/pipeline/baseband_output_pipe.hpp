@@ -54,7 +54,8 @@ class baseband_output_pipe</* continuous_write = */ true>
   friend pipe<baseband_output_pipe<true> >;
 
  protected:
-  std::ofstream file_output_stream;
+  std::optional<std::ofstream> opt_file_output_stream;
+  std::string file_path;
 
  public:
   baseband_output_pipe() {}
@@ -67,20 +68,23 @@ class baseband_output_pipe</* continuous_write = */ true>
                             stop_token);
 
     // file name need time stamp, so cannot create early
-    if (!file_output_stream) [[unlikely]] {
+    if (!opt_file_output_stream) [[unlikely]] {
       auto file_counter = baseband_output_work.udp_packet_counter;
       if (file_counter == baseband_output_work.no_udp_packet_counter) {
         file_counter = baseband_output_work.timestamp;
       }
-      std::string file_path = srtb::config.baseband_output_file_prefix +
-                              std::to_string(file_counter) + ".bin";
-      file_output_stream = std::ofstream(file_path.c_str(), std::ios::binary);
-      if (!file_output_stream) [[unlikely]] {
-        auto err = "Cannot open file " + file_path;
+      file_path = srtb::config.baseband_output_file_prefix +
+                  std::to_string(file_counter) + ".bin";
+      opt_file_output_stream.emplace(file_path.c_str(), std::ios::binary);
+      if (!opt_file_output_stream || !opt_file_output_stream.value())
+          [[unlikely]] {
+        std::string err = "Cannot open file " + file_path;
         SRTB_LOGE << " [baseband_output_pipe] " << err << srtb::endl;
         throw std::runtime_error{err};
       }
     }
+
+    auto& file_output_stream = opt_file_output_stream.value();
 
     const char* ptr = reinterpret_cast<char*>(
         baseband_output_work.baseband_data.baseband_ptr.get());
@@ -107,6 +111,11 @@ class baseband_output_pipe</* continuous_write = */ true>
     file_output_stream.write(
         ptr, write_count * sizeof(decltype(baseband_output_work.baseband_data
                                                .baseband_ptr)::element_type));
+    if (!file_output_stream) [[unlikely]] {
+      std::string err = "Cannot write to " + file_path;
+      SRTB_LOGE << " [baseband_output_pipe] " << err << srtb::endl;
+      throw std::runtime_error{err};
+    }
 
     srtb::pipeline::notify();
   }
