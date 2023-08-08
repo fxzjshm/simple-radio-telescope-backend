@@ -31,25 +31,28 @@ class read_file_pipe : public pipe<read_file_pipe> {
   friend pipe<read_file_pipe>;
 
  protected:
-  bool has_read = false;
+  std::ifstream input_file_stream;
+  std::streampos logical_file_pos;
+  bool log_given;
 
  protected:
-  /**
-   * @brief reads binary file of give type T and unpack it and send it into the pipe.
-   * 
-   * @param file_path path of the file to read
-   * @param q a sycl queue to use
-   * @note TODO: read file header to get correct timestamp (if exists)
-   */
-  void read_file(const std::string& file_path,
-                 const size_t baseband_input_count,
-                 const int baseband_input_bits,
-                 const size_t input_file_offset_bytes, sycl::queue& q,
-                 std::stop_token stop_token) {
-    std::ifstream input_file_stream{file_path,
-                                    std::ifstream::in | std::ifstream::binary};
-    const size_t time_sample_bytes =
-        baseband_input_count * std::abs(baseband_input_bits) / BITS_PER_BYTE;
+  void setup_impl(std::stop_token stop_token) {
+    // wait until other pipes have set up
+    while (srtb::pipeline::running_pipe_count !=
+               srtb::pipeline::expected_running_pipe_count -
+                   srtb::pipeline::expected_input_pipe_count ||
+           stop_token.stop_requested()) {
+      std::this_thread::sleep_for(
+          std::chrono::nanoseconds(srtb::config.thread_query_work_wait_time));
+    }
+
+    auto file_path = srtb::config.input_file_path;
+    auto baseband_input_count = srtb::config.baseband_input_count;
+    auto baseband_input_bits = srtb::config.baseband_input_bits;
+    auto input_file_offset_bytes = srtb::config.input_file_offset_bytes;
+
+    input_file_stream =
+        std::ifstream{file_path, std::ifstream::in | std::ifstream::binary};
 
     input_file_stream.ignore(input_file_offset_bytes);
 
@@ -61,9 +64,19 @@ class read_file_pipe : public pipe<read_file_pipe> {
     //      position in file stream    logical end of this chunk of data
     //                    <-------------|
     //                     samples reserved because of coherent dedispersion
-    std::streampos logical_file_pos = input_file_offset_bytes;
+    logical_file_pos = input_file_offset_bytes;
 
-    while (input_file_stream) {
+    log_given = false;
+  }
+
+  void run_once_impl(std::stop_token stop_token) {
+    if (input_file_stream) {
+      auto baseband_input_count = srtb::config.baseband_input_count;
+      auto baseband_input_bits = srtb::config.baseband_input_bits;
+
+      const size_t time_sample_bytes =
+          baseband_input_count * std::abs(baseband_input_bits) / BITS_PER_BYTE;
+
       std::shared_ptr<char> h_in_shared =
           srtb::host_allocator.allocate_shared<char>(time_sample_bytes);
       char* h_in = h_in_shared.get();
@@ -109,34 +122,19 @@ class read_file_pipe : public pipe<read_file_pipe> {
       }
 
       srtb::pipeline::wait_for_notify(stop_token);
-    }
-
-    SRTB_LOGI << " [read_file] " << file_path << " has been read" << srtb::endl;
-  }
-
-  void setup_impl(std::stop_token stop_token) {
-    // wait until other pipes have set up
-    while (srtb::pipeline::running_pipe_count !=
-               srtb::pipeline::expected_running_pipe_count -
-                   srtb::pipeline::expected_input_pipe_count ||
-           stop_token.stop_requested()) {
-      std::this_thread::sleep_for(
-          std::chrono::nanoseconds(srtb::config.thread_query_work_wait_time));
-    }
-  }
-
-  void run_once_impl(std::stop_token stop_token) {
-    if (!has_read) {
-      read_file(srtb::config.input_file_path, srtb::config.baseband_input_count,
-                srtb::config.baseband_input_bits,
-                srtb::config.input_file_offset_bytes, q, stop_token);
-      has_read = true;
-      srtb::pipeline::no_more_work = true;
     } else {
+      srtb::pipeline::no_more_work = true;
       // nothing to do ...
       // NOTE: here is 1000x sleep time, because thread_query_work_wait_time is of nanosecond
       std::this_thread::sleep_for(
           std::chrono::microseconds(srtb::config.thread_query_work_wait_time));
+
+      if (!log_given) {
+        log_given = true;
+        auto file_path = srtb::config.input_file_path;
+        SRTB_LOGI << " [read_file] " << file_path << " has been read"
+                  << srtb::endl;
+      }
     }
   }
 };
