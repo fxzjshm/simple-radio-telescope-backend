@@ -29,21 +29,23 @@ namespace pipeline {
  *        using average intensity of frequency channels and manually set ranges.
  * @note another RFI mitigation using spectral kurtosis is in signal_detect_pipe
  */
-class rfi_mitigation_pipe : public pipe<rfi_mitigation_pipe> {
-  friend pipe<rfi_mitigation_pipe>;
-
+class rfi_mitigation_pipe {
  protected:
+  sycl::queue q;
   /** @brief frequency ranges that is manuallly set in config by user */
   std::string mitigate_rfi_freq_list;
   /** @brief frequency tanges parsed from the string above */
   std::vector<srtb::spectrum::rfi_range_type> rfi_ranges;
 
- protected:
-  void run_once_impl(std::stop_token stop_token) {
-    srtb::work::rfi_mitigation_work rfi_mitigation_work;
-    SRTB_POP_WORK_OR_RETURN(" [rfi mitigation pipe] ",
-                            srtb::rfi_mitigation_queue, rfi_mitigation_work,
-                            stop_token);
+ public:
+  rfi_mitigation_pipe(sycl::queue q_) : q{q_} {}
+
+  auto operator()(std::stop_token stop_token,
+                  srtb::work::rfi_mitigation_work rfi_mitigation_work) {
+    //srtb::work::rfi_mitigation_work rfi_mitigation_work;
+    //SRTB_POP_WORK_OR_RETURN(" [rfi mitigation pipe] ",
+    //                        srtb::rfi_mitigation_queue, rfi_mitigation_work,
+    //                        stop_token);
 
     auto d_in_shared = rfi_mitigation_work.ptr;
     auto d_in = d_in_shared.get();
@@ -116,8 +118,9 @@ class rfi_mitigation_pipe : public pipe<rfi_mitigation_pipe> {
     out_work.baseband_freq_low = srtb::config.baseband_freq_low;
     out_work.baseband_sample_rate = srtb::config.baseband_sample_rate;
     out_work.dm = srtb::config.dm;
-    SRTB_PUSH_WORK_OR_RETURN(" [rfi mitigation pipe] ", srtb::dedisperse_queue,
-                             out_work, stop_token);
+    //SRTB_PUSH_WORK_OR_RETURN(" [rfi mitigation pipe] ", srtb::dedisperse_queue,
+    //                         out_work, stop_token);
+    return std::optional{out_work};
   }
 };
 

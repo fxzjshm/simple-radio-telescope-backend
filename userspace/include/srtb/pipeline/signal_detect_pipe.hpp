@@ -50,17 +50,19 @@ namespace pipeline {
  * TODO: separate this into 2 pipes ? 
  *       (one for sum into time series, one for actual signal detect)
  */
-class signal_detect_pipe : public pipe<signal_detect_pipe> {
-  friend pipe<signal_detect_pipe>;
-
+class signal_detect_pipe {
  protected:
-  sycl::sycl_execution_policy<> execution_policy{q};
+  sycl::queue q;
+  sycl::sycl_execution_policy<> execution_policy;
 
- protected:
-  void run_once_impl(std::stop_token stop_token) {
-    srtb::work::signal_detect_work signal_detect_work;
-    SRTB_POP_WORK_OR_RETURN(" [signal_detect_pipe] ", srtb::signal_detect_queue,
-                            signal_detect_work, stop_token);
+ public:
+  signal_detect_pipe(sycl::queue q_) : q{q_}, execution_policy{q} {}
+
+  auto operator()(std::stop_token stop_token,
+                  srtb::work::signal_detect_work signal_detect_work) {
+    //srtb::work::signal_detect_work signal_detect_work;
+    //SRTB_POP_WORK_OR_RETURN(" [signal_detect_pipe] ", srtb::signal_detect_queue,
+    //                        signal_detect_work, stop_token);
 
     auto& d_in_shared = signal_detect_work.ptr;
     auto d_in = d_in_shared.get();
@@ -247,9 +249,10 @@ class signal_detect_pipe : public pipe<signal_detect_pipe> {
       SRTB_LOGD << " [signal_detect_pipe] "
                 << "no signal detected" << srtb::endl;
     }
-    SRTB_PUSH_WORK_OR_RETURN(" [signal_detect_pipe] ",
-                             srtb::baseband_output_queue, baseband_output_work,
-                             stop_token);
+    //SRTB_PUSH_WORK_OR_RETURN(" [signal_detect_pipe] ",
+    //                         srtb::baseband_output_queue, baseband_output_work,
+    //                         stop_token);
+    return std::optional{baseband_output_work};
   }
 };
 
@@ -267,18 +270,20 @@ class signal_detect_pipe : public pipe<signal_detect_pipe> {
  *          ....      |                .
  *     1111......1111 v                x
  */
-class signal_detect_pipe_2 : public pipe<signal_detect_pipe_2> {
-  friend pipe<signal_detect_pipe_2>;
-
+class signal_detect_pipe_2 {
  protected:
-  sycl::sycl_execution_policy<> execution_policy{q};
+  sycl::queue q;
+  sycl::sycl_execution_policy<> execution_policy;
 
- protected:
-  void run_once_impl(std::stop_token stop_token) {
-    srtb::work::signal_detect_work signal_detect_work;
-    SRTB_POP_WORK_OR_RETURN(" [signal_detect_pipe_2] ",
-                            srtb::signal_detect_queue, signal_detect_work,
-                            stop_token);
+ public:
+  signal_detect_pipe_2(sycl::queue q_) : q{q_}, execution_policy{q} {}
+
+  auto operator()(std::stop_token stop_token,
+                  srtb::work::signal_detect_work signal_detect_work) {
+    //srtb::work::signal_detect_work signal_detect_work;
+    //SRTB_POP_WORK_OR_RETURN(" [signal_detect_pipe_2] ",
+    //                        srtb::signal_detect_queue, signal_detect_work,
+    //                        stop_token);
 
     auto& d_in_shared = signal_detect_work.ptr;
     auto d_in = d_in_shared.get();
@@ -315,7 +320,7 @@ class signal_detect_pipe_2 : public pipe<signal_detect_pipe_2> {
       auto d_zero_count = d_zero_count_shared.get();
       q.copy(d_zero_count, &zero_count, 1).wait();
       SRTB_LOGD << " [signal_detect_pipe_2] "
-                 << "zero_count = " << zero_count << srtb::endl;
+                << "zero_count = " << zero_count << srtb::endl;
     }
 
     if (SRTB_ENABLE_GUI && srtb::config.gui_enable) {
@@ -491,9 +496,10 @@ class signal_detect_pipe_2 : public pipe<signal_detect_pipe_2> {
       SRTB_LOGD << " [signal_detect_pipe_2] "
                 << "no signal detected" << srtb::endl;
     }
-    SRTB_PUSH_WORK_OR_RETURN(" [signal_detect_pipe_2] ",
-                             srtb::baseband_output_queue, baseband_output_work,
-                             stop_token);
+    //SRTB_PUSH_WORK_OR_RETURN(" [signal_detect_pipe_2] ",
+    //                         srtb::baseband_output_queue, baseband_output_work,
+    //                         stop_token);
+    return std::optional{baseband_output_work};
   }
 };
 

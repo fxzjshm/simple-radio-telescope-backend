@@ -25,24 +25,25 @@ namespace pipeline {
  * @brief this pipe reads from @c srtb::unpack_queue, unpack and apply FFT window
  *        to input baseband data, then push work to @c srtb::fft_1d_r2c_queue
  */
-class unpack_pipe : public pipe<unpack_pipe> {
-  friend pipe<unpack_pipe>;
-
+class unpack_pipe {
  protected:
+  sycl::queue q;
   srtb::fft::fft_window_functor_manager<srtb::real, srtb::fft::default_window>
       window_functor_manager;
 
  public:
-  unpack_pipe()
-      : window_functor_manager{srtb::fft::default_window{},
+  unpack_pipe(sycl::queue q_)
+      : q{q_},
+        window_functor_manager{srtb::fft::default_window{},
                                /* n = */ srtb::config.baseband_input_count, q} {
   }
 
- protected:
-  void run_once_impl(std::stop_token stop_token) {
-    srtb::work::unpack_work unpack_work;
-    SRTB_POP_WORK_OR_RETURN(" [unpack pipe] ", srtb::unpack_queue, unpack_work,
-                            stop_token);
+  auto operator()(std::stop_token stop_token,
+                  srtb::work::unpack_work unpack_work) {
+    //srtb::work::unpack_work unpack_work;
+    //SRTB_POP_WORK_OR_RETURN(" [unpack pipe] ", srtb::unpack_queue, unpack_work,
+    //                        stop_token);
+
     // data length after unpack
     const int baseband_input_bits = unpack_work.baseband_input_bits;
     const size_t out_count =
@@ -121,8 +122,9 @@ class unpack_pipe : public pipe<unpack_pipe> {
     fft_1d_r2c_work.baseband_data = std::move(unpack_work.baseband_data);
     fft_1d_r2c_work.timestamp = unpack_work.timestamp;
     fft_1d_r2c_work.udp_packet_counter = unpack_work.udp_packet_counter;
-    SRTB_PUSH_WORK_OR_RETURN(" [unpack pipe] ", srtb::fft_1d_r2c_queue,
-                             fft_1d_r2c_work, stop_token);
+    //SRTB_PUSH_WORK_OR_RETURN(" [unpack pipe] ", srtb::fft_1d_r2c_queue,
+    //                         fft_1d_r2c_work, stop_token);
+    return std::optional{fft_1d_r2c_work};
   }
 };
 

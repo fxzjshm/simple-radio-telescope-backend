@@ -44,3 +44,17 @@ add_executable(srtb-correlator
   correlator.cpp
 )
 srtb_add_dependency(srtb-correlator)
+
+add_executable(srtb_baseband_receiver baseband_receiver.cpp)
+srtb_add_dependency(srtb_baseband_receiver)
+target_link_libraries(srtb_baseband_receiver PUBLIC
+  Python3::Python
+  Python3::Module
+)
+if(Python3_NumPy_FOUND)
+  target_link_libraries(srtb_baseband_receiver PUBLIC
+    Python3::NumPy
+  )
+else()
+    target_compile_definitions(srtb_baseband_receiver INTERFACE WITHOUT_NUMPY)
+endif()

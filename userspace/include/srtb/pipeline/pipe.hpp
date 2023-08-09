@@ -14,10 +14,11 @@
 #ifndef __SRTB_PIPELINE_PIPE__
 #define __SRTB_PIPELINE_PIPE__
 
+#include <boost/type_traits.hpp>
 #include <functional>
+#include <stop_token>
 #include <thread>
 #include <type_traits>
-#include <stop_token>
 
 #if __has_include(<pthread.h>)
 #include <pthread.h>
@@ -28,133 +29,172 @@
 namespace srtb {
 namespace pipeline {
 
+inline namespace detail {
+
+/** @brief class name without namespace or template */
+template <typename Type>
+inline auto class_name() -> std::string {
+  const auto full_type_name = srtb::type_name<Type>();
+  // example full type name:
+  //   1) srtb::pipeline::xxx_pipe
+  //   2) srtb::pipeline::xxx_pipe<some_template_parameter>
+  // need to deal with all of these
+  constexpr std::string_view template_mark{"<"};
+  constexpr std::string_view namespace_mark{"::"};
+  const size_t template_mark_position = full_type_name.find(template_mark);
+  const auto end = full_type_name.size();
+  size_t start;
+  if (template_mark_position != std::string::npos) {
+    start = full_type_name.rfind(namespace_mark, template_mark_position);
+  } else {
+    start = full_type_name.rfind(namespace_mark, end);
+  }
+  start += namespace_mark.size();
+  auto name = full_type_name;
+  if (start != std::string::npos && start < end) {
+    name = full_type_name.substr(start, (end - start));
+  }
+  return std::string{name};
+}
+
+/** @brief thread name of a pipe is type name of the pipe, for debugging */
+template <typename Type>
+inline auto generate_thread_name() -> std::string {
+  auto name = class_name<Type>();
+
+  // pthread restrict thread name length < 16 characters (not including \0 ?),
+  // otherwise pthread_setname_np has no effect
+  constexpr size_t thread_name_length_limit = 15;
+  if (name.size() > thread_name_length_limit) {
+    name = name.substr(0, thread_name_length_limit);
+  }
+  return std::string{name};
+}
+
+inline bool is_running(std::stop_token stop_token) {
+  return (!stop_token.stop_possible()) ||
+         (stop_token.stop_possible() && !stop_token.stop_requested());
+}
+
+}  // namespace detail
+
 /**
  * @brief Represents a pipe, which receives work from a work_queue,
  *        apply transform and then push the result to next one, on different threads.
- * @note functions required for derived classes to have: @c run_once_impl
- *       optional ones: @c setup_impl, @c teardown_impl , which constructs/deconstructs
- *                      required resources on the thread to be run
  * @note TODO: decouple work queue push and pop from @c run_once_impl
- * @tparam Derived derived class. ref: curiously recurring template pattern (CRTP)
+ * @tparam PipeFunctor actural pipe, with signature pipe_functor(std::stop_token, in_work_type) -> out_work_type
+ * @tparam InFunctor funtor to provide work for this pipe, with signature @c in_functor(std::stop_token) -> std::optional<in_work_type>
+ * @tparam OutFunctor functor to store result of this pipe, with signature @c out_functor(std::stop_token, out_work_type) -> void
  */
-template <typename Derived>
+template <typename PipeFunctor, typename InFunctor, typename OutFunctor>
 class pipe {
-  friend Derived;
-
  public:
-  /**
-   * @brief queue used in this pipeline.
-   *        In some implementations @c sycl::queue is sequencial, in order to 
-   *        overlap different stages different queues should be used in different
-   *        pipes, which run on their own thread.
-   */
-  sycl::queue q;
-  // other things should be defined on derived pipes.
+  PipeFunctor pipe_functor;
+  InFunctor in_functor;
+  OutFunctor out_functor;
   // TODO: should this class include in/out work queue, instead of using global work queues?
 
  public:
   /**
-   * @brief Start working in a new thread
-   * @return std::jthread the thread running on.
-   */
-  template <typename... Args>
-  static std::jthread start(Args... args) {
-    std::jthread jthread{[](std::stop_token stop_token, Args... args) {
-                           Derived derived{args...};
-                           derived.run(stop_token);
-                         },
-                         args...};
-#if __has_include(<pthread.h>)
-    const std::string thread_name = generate_thread_name();
-    pthread_setname_np(jthread.native_handle(), thread_name.c_str());
-#else
-#warning not setting thread name of pipe (TODO)
-#endif
-    return jthread;
-  }
-
-  /**
    * @brief Run on this thread. May block this thread.
    */
   void run(std::stop_token stop_token) {
-    constexpr bool has_setup = requires() { sub().setup_impl(stop_token); };
-    constexpr bool has_teardown =
-        requires() { sub().teardown_impl(stop_token); };
-
-    if constexpr (has_setup) {
-      sub().setup_impl(stop_token);
-    }
     srtb::pipeline::running_pipe_count++;
-    while ((!stop_token.stop_possible()) ||
-           (stop_token.stop_possible() && !stop_token.stop_requested()))
-        [[likely]] {
-      sub().run_once_impl(stop_token);
+    while (is_running(stop_token)) [[likely]] {
+      std::optional opt_in_work = in_functor(stop_token);
+      if (!is_running(stop_token)) [[unlikely]] {
+        break;
+      }
+      SRTB_LOGD << " [" << class_name<PipeFunctor>() << "] "
+                << "popped work" << srtb::endl;
+      auto in_work = opt_in_work.value();
+      std::optional opt_out_work = pipe_functor(stop_token, in_work);
+      if (!is_running(stop_token)) [[unlikely]] {
+        break;
+      }
+      auto out_work = opt_out_work.value();
+      out_functor(stop_token, out_work);
+      SRTB_LOGD << " [" << class_name<PipeFunctor>() << "] "
+                << "pushed work" << srtb::endl;
     }
     srtb::pipeline::running_pipe_count--;
-    if constexpr (has_teardown) {
-      sub().teardown_impl(stop_token);
-    }
-  }
-
-  // functions run on the new thread:
-  // setup() -> setup_impl(), if constructor doesn't apply here.
-  // run_once() -> run_once_impl()
-  // teardown() -> teardown_impl(), if destructor doesn't apply here.
-  // some functions rely on thread_local variables, but constructor & destructor
-  // run on main thread, so setup_impl() & teardown_impl() are needed.
-
- private:
-  pipe(sycl::queue q_ = srtb::queue) : q{q_} {};
-
-  ~pipe() {
-    // wait until all operations in this pipe finish, then exit
-    // otherwise if the sycl runtime exit before operations (like host to device memcpy) is done,
-    // error may happen
-    q.wait();
-  }
-
-  /**
-   * @brief Shortcut for CRTP.
-   */
-  Derived& sub() { return static_cast<Derived&>(*this); }
-
-  /**
-   * @brief thread name of a pipe is type name of the pipe, for debugging
-   * 
-   * @return std::string 
-   */
-  static inline auto generate_thread_name() -> std::string {
-    const auto full_type_name = srtb::type_name<Derived>();
-    // example full type name:
-    //   1) srtb::pipeline::xxx_pipe
-    //   2) srtb::pipeline::xxx_pipe<some_template_parameter>
-    //   3) xxx_pipe
-    // need to deal with all of these
-    constexpr std::string_view template_mark{"<"};
-    constexpr std::string_view namespace_mark{"::"};
-    const size_t template_mark_position = full_type_name.find(template_mark);
-    const auto end = full_type_name.size();
-    size_t start;
-    if (template_mark_position != std::string::npos) {
-      start = full_type_name.rfind(namespace_mark, template_mark_position);
-    } else {
-      start = full_type_name.rfind(namespace_mark, end);
-    }
-    start += namespace_mark.size();
-    auto name = full_type_name;
-    if (start != std::string::npos && start < end) {
-      name = full_type_name.substr(start, (end - start));
-    }
-
-    // pthread restrict thread name length < 16 characters (not including \0 ?),
-    // otherwise pthread_setname_np has no effect
-    constexpr size_t thread_name_length_limit = 15;
-    if (name.size() > thread_name_length_limit) {
-      name = name.substr(0, thread_name_length_limit);
-    }
-    return std::string{name};
   }
 };
+
+template <typename Queue>
+class queue_in_functor {
+ protected:
+  Queue& work_queue;
+  using Work = typename Queue::work_type;
+
+ public:
+  explicit queue_in_functor(Queue& work_queue_) : work_queue{work_queue_} {}
+
+  auto operator()(std::stop_token stop_token) {
+    Work work;
+    bool ret = work_queue.pop(work);
+    if (!ret) [[unlikely]] {
+      while (!ret) {
+        if (stop_token.stop_requested()) [[unlikely]] {
+          return std::optional<Work>{};
+        }
+        std::this_thread::sleep_for(
+            std::chrono::nanoseconds(srtb::config.thread_query_work_wait_time));
+        ret = work_queue.pop(work);
+      }
+    }
+    return std::optional{work};
+  }
+};
+
+template <typename Queue>
+class queue_out_functor {
+ protected:
+  Queue& work_queue;
+  using Work = typename Queue::work_type;
+
+ public:
+  explicit queue_out_functor(Queue& work_queue_) : work_queue{work_queue_} {}
+
+  auto operator()(std::stop_token stop_token, Work work) {
+    bool ret = work_queue.push(work);
+    if (!ret) [[unlikely]] {
+      while (!ret) {
+        if (stop_token.stop_requested()) [[unlikely]] {
+          return;
+        }
+        std::this_thread::sleep_for(
+            std::chrono::nanoseconds(srtb::config.thread_query_work_wait_time));
+        ret = work_queue.push(work);
+      }
+    }
+  }
+};
+
+/**
+  * @brief Start working in a new thread
+  * @return std::jthread the thread running on.
+  */
+template <typename PipeFunctor, typename InFunctor, typename OutFunctor,
+          typename... Args>
+static std::jthread start_pipe(sycl::queue q, InFunctor in_functor,
+                               OutFunctor out_functor, Args... args) {
+  std::jthread jthread{
+      [=](std::stop_token stop_token, Args... args) {
+        // the pipe lives on its thread
+        srtb::pipeline::pipe<PipeFunctor, InFunctor, OutFunctor> pipe{
+            PipeFunctor{q, args...}, in_functor, out_functor};
+        pipe.run(stop_token);
+      },
+      args...};
+#if __has_include(<pthread.h>)
+  const std::string thread_name = generate_thread_name<PipeFunctor>();
+  pthread_setname_np(jthread.native_handle(), thread_name.c_str());
+#else
+#warning not setting thread name of pipe (TODO)
+#endif
+  return jthread;
+}
 
 inline void wait_for_notify(std::stop_token stop_token) {
   while (true) {

@@ -72,12 +72,15 @@ template <typename T, size_t capacity>
 class work_queue<T, true, true, capacity>
     : public boost::lockfree::spsc_queue<T,
                                          boost::lockfree::capacity<capacity> > {
+ public:
+  using work_type = T;
 };
 
 template <typename T, size_t initial_capacity>
 class work_queue<T, true, false, initial_capacity>
     : public boost::lockfree::spsc_queue<T> {
  public:
+  using work_type = T;
   using super_class = boost::lockfree::spsc_queue<T>;
   work_queue(size_t initial_capacity_ = initial_capacity)
       : super_class{initial_capacity_} {}
@@ -87,6 +90,7 @@ template <typename T, bool unused_1, size_t unused_2>
 class work_queue<T, false, unused_1, unused_2>
     : public moodycamel::ConcurrentQueue<T> {
  public:
+  using work_type = T;
   using super_class = moodycamel::ConcurrentQueue<T>;
   template <typename... Args>
   inline decltype(auto) push(Args&&... args) {

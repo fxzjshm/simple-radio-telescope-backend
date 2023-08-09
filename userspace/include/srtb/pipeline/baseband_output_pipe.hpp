@@ -37,6 +37,7 @@
 #include "cnpy.h"
 #include "matplotlibcpp.h"
 #include "srtb/commons.hpp"
+#include "srtb/coherent_dedispersion.hpp"
 #include "srtb/pipeline/pipe.hpp"
 
 namespace srtb {
@@ -48,24 +49,22 @@ namespace pipeline {
 template <bool continuous_write = false>
 class baseband_output_pipe;
 
-template <>
-class baseband_output_pipe</* continuous_write = */ true>
-    : public pipe<baseband_output_pipe<true> > {
-  friend pipe<baseband_output_pipe<true> >;
-
+template<>
+class baseband_output_pipe</* continuous_write = */ true> {
  protected:
   std::optional<std::ofstream> opt_file_output_stream;
   std::string file_path;
+  sycl::queue q;
 
  public:
-  baseband_output_pipe() {}
+  baseband_output_pipe(sycl::queue q_) : q{q_} {}
 
- protected:
-  void run_once_impl(std::stop_token stop_token) {
-    srtb::work::baseband_output_work baseband_output_work;
-    SRTB_POP_WORK_OR_RETURN(" [baseband_output_pipe] ",
-                            srtb::baseband_output_queue, baseband_output_work,
-                            stop_token);
+  auto operator()(std::stop_token stop_token,
+                  srtb::work::baseband_output_work baseband_output_work) {
+    //srtb::work::baseband_output_work baseband_output_work;
+    //SRTB_POP_WORK_OR_RETURN(" [baseband_output_pipe] ",
+    //                        srtb::baseband_output_queue, baseband_output_work,
+    //                        stop_token);
 
     // file name need time stamp, so cannot create early
     if (!opt_file_output_stream) [[unlikely]] {
@@ -118,16 +117,14 @@ class baseband_output_pipe</* continuous_write = */ true>
     }
 
     srtb::pipeline::notify();
+    return std::optional{true};
   }
 };
 
 // --------------------------------------------------------------------
 
-template <>
-class baseband_output_pipe</* continuous_write = */ false>
-    : public pipe<baseband_output_pipe<false> > {
-  friend pipe<baseband_output_pipe<false> >;
-
+template<>
+class baseband_output_pipe</* continuous_write = */ false> {
   /** @brief local container of recent works with no signal detected (negative) */
   std::deque<srtb::work::baseband_output_work> recent_negative_works;
   /** @brief local container of timestamps of recent works with signal detected (positive) */
@@ -140,8 +137,10 @@ class baseband_output_pipe</* continuous_write = */ false>
   // Actually just don't want to introduce another pipe...
   boost::asio::thread_pool time_series_plot_thread_pool{1};
 
+  sycl::queue q;
+
  public:
-  baseband_output_pipe() {
+  baseband_output_pipe(sycl::queue q_) : q{q_} {
     // check if directory is writable, also record start time
     std::string check_file_path = srtb::config.baseband_output_file_prefix +
                                   "begin_" + generate_time_tag();
@@ -183,11 +182,11 @@ class baseband_output_pipe</* continuous_write = */ false>
     return std::string{time_string};
   }
 
-  void run_once_impl(std::stop_token stop_token) {
-    srtb::work::baseband_output_work baseband_output_work;
-    SRTB_POP_WORK_OR_RETURN(" [baseband_output_pipe] ",
-                            srtb::baseband_output_queue, baseband_output_work,
-                            stop_token);
+  auto operator()(std::stop_token stop_token, srtb::work::baseband_output_work baseband_output_work) {
+    //srtb::work::baseband_output_work baseband_output_work;
+    //SRTB_POP_WORK_OR_RETURN(" [baseband_output_pipe] ",
+    //                        srtb::baseband_output_queue, baseband_output_work,
+    //                        stop_token);
     std::optional<srtb::work::baseband_output_work> opt_work_to_write;
 
     const bool has_signal = (baseband_output_work.time_series.size() > 0);
@@ -397,7 +396,8 @@ class baseband_output_pipe</* continuous_write = */ false>
     }  // if (opt_work_to_write.has_value())
 
     srtb::pipeline::notify();
-  }  // void run_once_inpl()
+    return std::optional{true};
+  }  // auto operator()
 };
 
 }  // namespace pipeline

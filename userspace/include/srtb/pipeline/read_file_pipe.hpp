@@ -27,24 +27,23 @@ namespace pipeline {
 /**
  * @brief this pipe reads from baseband file and push into @c srtb::unpack_queue
  */
-class read_file_pipe : public pipe<read_file_pipe> {
-  friend pipe<read_file_pipe>;
-
+class read_file_pipe {
  protected:
+  sycl::queue q;
   std::ifstream input_file_stream;
   std::streampos logical_file_pos;
   bool log_given;
 
- protected:
-  void setup_impl(std::stop_token stop_token) {
-    // wait until other pipes have set up
-    while (srtb::pipeline::running_pipe_count !=
-               srtb::pipeline::expected_running_pipe_count -
-                   srtb::pipeline::expected_input_pipe_count ||
-           stop_token.stop_requested()) {
-      std::this_thread::sleep_for(
-          std::chrono::nanoseconds(srtb::config.thread_query_work_wait_time));
-    }
+ public:
+  read_file_pipe(sycl::queue q_) : q{q_} {
+    //// wait until other pipes have set up
+    //while (srtb::pipeline::running_pipe_count !=
+    //           srtb::pipeline::expected_running_pipe_count -
+    //               srtb::pipeline::expected_input_pipe_count ||
+    //       stop_token.stop_requested()) {
+    //  std::this_thread::sleep_for(
+    //      std::chrono::nanoseconds(srtb::config.thread_query_work_wait_time));
+    //}
 
     auto file_path = srtb::config.input_file_path;
     auto baseband_input_count = srtb::config.baseband_input_count;
@@ -69,7 +68,7 @@ class read_file_pipe : public pipe<read_file_pipe> {
     log_given = false;
   }
 
-  void run_once_impl(std::stop_token stop_token) {
+  auto operator()(std::stop_token stop_token) {
     if (input_file_stream) {
       auto baseband_input_count = srtb::config.baseband_input_count;
       auto baseband_input_bits = srtb::config.baseband_input_bits;
@@ -90,22 +89,6 @@ class read_file_pipe : public pipe<read_file_pipe> {
       char* d_in = d_in_shared.get();
       q.copy(h_in, /* -> */ d_in, time_sample_bytes).wait();
 
-      const uint64_t timestamp =
-          std::chrono::system_clock::now().time_since_epoch().count();
-      {
-        srtb::work::unpack_work unpack_work;
-        unpack_work.ptr = std::reinterpret_pointer_cast<std::byte>(d_in_shared);
-        unpack_work.count = time_sample_bytes;
-        unpack_work.baseband_data = {
-            std::reinterpret_pointer_cast<std::byte>(h_in_shared),
-            time_sample_bytes};
-        unpack_work.timestamp = timestamp;
-        unpack_work.udp_packet_counter = unpack_work.no_udp_packet_counter;
-        unpack_work.baseband_input_bits = baseband_input_bits;
-        SRTB_PUSH_WORK_OR_RETURN(" [read_file] ", srtb::unpack_queue,
-                                 unpack_work, stop_token);
-      }
-
       // reserved some samples for next round
       const size_t nsamps_reserved = srtb::codd::nsamps_reserved();
       const std::streamoff reserved_bytes =
@@ -121,7 +104,23 @@ class read_file_pipe : public pipe<read_file_pipe> {
                   << " >= reserved_bytes = " << reserved_bytes << srtb::endl;
       }
 
-      srtb::pipeline::wait_for_notify(stop_token);
+      const uint64_t timestamp =
+          std::chrono::system_clock::now().time_since_epoch().count();
+
+      srtb::work::unpack_work unpack_work;
+      unpack_work.ptr = std::reinterpret_pointer_cast<std::byte>(d_in_shared);
+      unpack_work.count = time_sample_bytes;
+      unpack_work.baseband_data = {
+          std::reinterpret_pointer_cast<std::byte>(h_in_shared),
+          time_sample_bytes};
+      unpack_work.timestamp = timestamp;
+      unpack_work.udp_packet_counter = unpack_work.no_udp_packet_counter;
+      unpack_work.baseband_input_bits = baseband_input_bits;
+      return std::optional{unpack_work};
+      //SRTB_PUSH_WORK_OR_RETURN(" [read_file] ", srtb::unpack_queue,
+      //                         unpack_work, stop_token);
+
+      //srtb::pipeline::wait_for_notify(stop_token);
     } else {
       srtb::pipeline::no_more_work = true;
       // nothing to do ...

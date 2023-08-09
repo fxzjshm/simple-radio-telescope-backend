@@ -26,18 +26,17 @@ namespace pipeline {
 /**
  * @brief This temporary pipe reads FFT-ed data and adapt it to lines on GUI pixmap.
  */
-class simplify_spectrum_pipe : public pipe<simplify_spectrum_pipe> {
-  friend pipe<simplify_spectrum_pipe>;
+class simplify_spectrum_pipe {
+ protected:
+  sycl::queue q;
 
  public:
-  simplify_spectrum_pipe() = default;
-
- protected:
-  void run_once_impl(std::stop_token stop_token) {
-    srtb::work::simplify_spectrum_work simplify_spectrum_work;
-    SRTB_POP_WORK_OR_RETURN(" [simplify spectrum pipe] ",
-                            srtb::simplify_spectrum_queue,
-                            simplify_spectrum_work, stop_token);
+  auto operator()(std::stop_token stop_token,
+                  srtb::work::simplify_spectrum_work simplify_spectrum_work) {
+    //srtb::work::simplify_spectrum_work simplify_spectrum_work;
+    //SRTB_POP_WORK_OR_RETURN(" [simplify spectrum pipe] ",
+    //                        srtb::simplify_spectrum_queue,
+    //                        simplify_spectrum_work, stop_token);
 
     const size_t in_count = simplify_spectrum_work.count;
     const size_t out_count = srtb::config.gui_pixmap_width;
@@ -98,12 +97,11 @@ class simplify_spectrum_pipe : public pipe<simplify_spectrum_pipe> {
 /**
  * @brief This temporary pipe reads FFT-ed data and generate thumbnail of the spectrum to draw it on GUI pixmap.
  */
-class simplify_spectrum_pipe_2 : public pipe<simplify_spectrum_pipe_2> {
-  friend pipe<simplify_spectrum_pipe_2>;
+class simplify_spectrum_pipe_2 {
+ protected:
+  sycl::queue q;
 
  public:
-  simplify_spectrum_pipe_2() = default;
-
   auto color_cast(std::string str) -> uint32_t {
     if (str.starts_with("#")) {
       boost::replace_first(str, "#", "0x");
@@ -112,12 +110,12 @@ class simplify_spectrum_pipe_2 : public pipe<simplify_spectrum_pipe_2> {
         std::stoul(str, /* index = */ nullptr, /* base = */ 0));
   }
 
- protected:
-  void run_once_impl(std::stop_token stop_token) {
-    srtb::work::simplify_spectrum_work simplify_spectrum_work;
-    SRTB_POP_WORK_OR_RETURN(" [simplify spectrum pipe] ",
-                            srtb::simplify_spectrum_queue,
-                            simplify_spectrum_work, stop_token);
+  auto operator()(std::stop_token stop_token,
+                  srtb::work::simplify_spectrum_work simplify_spectrum_work) {
+    //srtb::work::simplify_spectrum_work simplify_spectrum_work;
+    //SRTB_POP_WORK_OR_RETURN(" [simplify spectrum pipe] ",
+    //                        srtb::simplify_spectrum_queue,
+    //                        simplify_spectrum_work, stop_token);
 
     const size_t in_width = simplify_spectrum_work.count;
     const size_t in_height = simplify_spectrum_work.batch_size;

@@ -23,19 +23,15 @@ namespace pipeline {
 /**
  * @brief codd = coherent dedispersion
  *        this pipe applies coherent dedispertion to FFT-ed data.
- * @note the highest frequency channel is dropped
  */
-class dedisperse_pipe : public pipe<dedisperse_pipe> {
-  friend pipe<dedisperse_pipe>;
+class dedisperse_pipe {
+  sycl::queue q;
 
  public:
-  dedisperse_pipe() = default;
-
- protected:
-  void run_once_impl(std::stop_token stop_token) {
-    srtb::work::dedisperse_work work;
-    SRTB_POP_WORK_OR_RETURN(" [dedisperse pipe] ", srtb::dedisperse_queue, work,
-                            stop_token);
+  auto operator()(std::stop_token stop_token,
+                  srtb::work::dedisperse_work work) {
+    //SRTB_POP_WORK_OR_RETURN(" [dedisperse pipe] ", srtb::dedisperse_queue, work,
+    //                        stop_token);
     const size_t N = work.count;
     const srtb::real df = srtb::config.baseband_bandwidth / N;
     auto& d_in_shared = work.ptr;
@@ -59,8 +55,9 @@ class dedisperse_pipe : public pipe<dedisperse_pipe> {
     ifft_1d_c2c_work.baseband_data = std::move(work.baseband_data);
     ifft_1d_c2c_work.timestamp = work.timestamp;
     ifft_1d_c2c_work.udp_packet_counter = work.udp_packet_counter;
-    SRTB_PUSH_WORK_OR_RETURN(" [dedisperse pipe] ", srtb::ifft_1d_c2c_queue,
-                             ifft_1d_c2c_work, stop_token);
+    //SRTB_PUSH_WORK_OR_RETURN(" [dedisperse pipe] ", srtb::ifft_1d_c2c_queue,
+    //                         ifft_1d_c2c_work, stop_token);
+    return std::optional{ifft_1d_c2c_work};
   }
 };
 
