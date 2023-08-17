@@ -19,7 +19,7 @@
 
 #include "srtb/coherent_dedispersion.hpp"
 #include "srtb/commons.hpp"
-#include "srtb/pipeline/pipe.hpp"
+#include "srtb/pipeline/framework/pipe.hpp"
 
 namespace srtb {
 namespace pipeline {
@@ -68,7 +68,7 @@ class read_file_pipe {
     log_given = false;
   }
 
-  auto operator()(std::stop_token stop_token) {
+  auto operator()(std::stop_token stop_token, srtb::work::dummy_work) {
     if (input_file_stream) {
       auto baseband_input_count = srtb::config.baseband_input_count;
       auto baseband_input_bits = srtb::config.baseband_input_bits;

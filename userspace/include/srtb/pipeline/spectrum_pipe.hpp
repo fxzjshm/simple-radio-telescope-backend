@@ -17,7 +17,7 @@
 #include <boost/algorithm/string/replace.hpp>
 #include <string>
 
-#include "srtb/pipeline/pipe.hpp"
+#include "srtb/pipeline/framework/pipe.hpp"
 #include "srtb/spectrum/simplify_spectrum.hpp"
 
 namespace srtb {

@@ -15,7 +15,7 @@
 #define __SRTB_PIPELINE_DEDISPERSE_PIPE__
 
 #include "srtb/coherent_dedispersion.hpp"
-#include "srtb/pipeline/pipe.hpp"
+#include "srtb/pipeline/framework/pipe.hpp"
 
 namespace srtb {
 namespace pipeline {

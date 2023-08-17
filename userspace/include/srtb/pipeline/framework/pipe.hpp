@@ -98,7 +98,7 @@ inline bool is_running(std::stop_token stop_token) {
  * @brief Represents a pipe, which receives work from a work_queue,
  *        apply transform and then push the result to next one, on different threads.
  * @note TODO: decouple work queue push and pop from @c run_once_impl
- * @tparam PipeFunctor actural pipe, with signature pipe_functor(std::stop_token, in_work_type) -> out_work_type
+ * @tparam PipeFunctor actural pipe, with signature pipe_functor(std::stop_token, in_work_type) -> std::optional<out_work_type>
  * @tparam InFunctor funtor to provide work for this pipe, with signature @c in_functor(std::stop_token) -> std::optional<in_work_type>
  * @tparam OutFunctor functor to store result of this pipe, with signature @c out_functor(std::stop_token, out_work_type) -> void
  */
@@ -120,70 +120,20 @@ class pipe {
     srtb::pipeline::running_pipe_count++;
     while (is_running(stop_token)) [[likely]] {
       std::optional opt_in_work = in_functor(stop_token);
-      if (!is_running(stop_token)) [[unlikely]] {
+      if (!is_running(stop_token) || !opt_in_work) [[unlikely]] {
         break;
       }
-      SRTB_LOGD << tag << "popped work" << srtb::endl;
+      SRTB_LOGD << tag << "got work" << srtb::endl;
       auto in_work = opt_in_work.value();
       std::optional opt_out_work = pipe_functor(stop_token, in_work);
-      if (!is_running(stop_token)) [[unlikely]] {
+      if (!is_running(stop_token) || !opt_out_work) [[unlikely]] {
         break;
       }
       auto out_work = opt_out_work.value();
       out_functor(stop_token, out_work);
-      SRTB_LOGD << tag << "pushed work" << srtb::endl;
+      SRTB_LOGD << tag << "work finished" << srtb::endl;
     }
     srtb::pipeline::running_pipe_count--;
-  }
-};
-
-template <typename Queue>
-class queue_in_functor {
- protected:
-  Queue& work_queue;
-  using Work = typename Queue::work_type;
-
- public:
-  explicit queue_in_functor(Queue& work_queue_) : work_queue{work_queue_} {}
-
-  auto operator()(std::stop_token stop_token) {
-    Work work;
-    bool ret = work_queue.pop(work);
-    if (!ret) [[unlikely]] {
-      while (!ret) {
-        if (stop_token.stop_requested()) [[unlikely]] {
-          return std::optional<Work>{};
-        }
-        std::this_thread::sleep_for(
-            std::chrono::nanoseconds(srtb::config.thread_query_work_wait_time));
-        ret = work_queue.pop(work);
-      }
-    }
-    return std::optional{work};
-  }
-};
-
-template <typename Queue>
-class queue_out_functor {
- protected:
-  Queue& work_queue;
-  using Work = typename Queue::work_type;
-
- public:
-  explicit queue_out_functor(Queue& work_queue_) : work_queue{work_queue_} {}
-
-  auto operator()(std::stop_token stop_token, Work work) {
-    bool ret = work_queue.push(work);
-    if (!ret) [[unlikely]] {
-      while (!ret) {
-        if (stop_token.stop_requested()) [[unlikely]] {
-          return;
-        }
-        std::this_thread::sleep_for(
-            std::chrono::nanoseconds(srtb::config.thread_query_work_wait_time));
-        ret = work_queue.push(work);
-      }
-    }
   }
 };
 

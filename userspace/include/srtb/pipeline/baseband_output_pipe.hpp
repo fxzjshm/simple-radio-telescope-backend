@@ -38,7 +38,7 @@
 #include "matplotlibcpp.h"
 #include "srtb/commons.hpp"
 #include "srtb/coherent_dedispersion.hpp"
-#include "srtb/pipeline/pipe.hpp"
+#include "srtb/pipeline/framework/pipe.hpp"
 
 namespace srtb {
 namespace pipeline {
@@ -117,7 +117,7 @@ class baseband_output_pipe</* continuous_write = */ true> {
     }
 
     srtb::pipeline::notify();
-    return std::optional{true};
+    return std::optional{srtb::work::dummy_work{}};
   }
 };
 
@@ -396,7 +396,7 @@ class baseband_output_pipe</* continuous_write = */ false> {
     }  // if (opt_work_to_write.has_value())
 
     srtb::pipeline::notify();
-    return std::optional{true};
+    return std::optional{srtb::work::dummy_work{}};
   }  // auto operator()
 };
 

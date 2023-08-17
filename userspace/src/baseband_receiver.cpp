@@ -15,7 +15,8 @@
 
 #include "srtb/commons.hpp"
 #include "srtb/pipeline/baseband_output_pipe.hpp"
-#include "srtb/pipeline/pipe.hpp"
+#include "srtb/pipeline/framework/pipe.hpp"
+#include "srtb/pipeline/framework/pipe_io.hpp"
 #include "srtb/pipeline/udp_receiver_pipe.hpp"
 #include "srtb/program_options.hpp"
 
@@ -31,13 +32,12 @@ int baseband_receiver(int argc, char** argv) {
   sycl::queue q = srtb::queue;
   std::jthread udp_receiver_thread =
       srtb::pipeline::start_pipe<srtb::pipeline::udp_receiver_pipe>(
-          q,
-          []([[maybe_unused]] std::stop_token) { return std::optional{true}; },
+          q, srtb::pipeline::dummy_in_functor{},
           srtb::pipeline::queue_out_functor{srtb::baseband_output_queue});
   std::jthread baseband_output_thread =
       srtb::pipeline::start_pipe<srtb::pipeline::baseband_output_pipe<true> >(
           q, srtb::pipeline::queue_in_functor{srtb::baseband_output_queue},
-          []([[maybe_unused]] std::stop_token, [[maybe_unused]] bool) {});
+          srtb::pipeline::dummy_out_functor{});
   return EXIT_SUCCESS;
 }
 

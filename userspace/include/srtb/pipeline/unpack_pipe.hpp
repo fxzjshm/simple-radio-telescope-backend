@@ -15,7 +15,7 @@
 #define __SRTB_PIPELINE_UNPACK_PIPE__
 
 #include "srtb/fft/fft_window.hpp"
-#include "srtb/pipeline/pipe.hpp"
+#include "srtb/pipeline/framework/pipe.hpp"
 #include "srtb/unpack.hpp"
 
 namespace srtb {

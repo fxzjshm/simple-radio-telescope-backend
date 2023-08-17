@@ -18,7 +18,7 @@
 
 #include "srtb/coherent_dedispersion.hpp"
 #include "srtb/io/udp_receiver.hpp"
-#include "srtb/pipeline/pipe.hpp"
+#include "srtb/pipeline/framework/pipe.hpp"
 #include "srtb/thread_affinity.hpp"
 
 namespace srtb {
@@ -104,7 +104,7 @@ class udp_receiver_pipe {
               << "port = " << sender_port << srtb::endl;
   }
 
-  auto operator()(std::stop_token stop_token, [[maybe_unused]] bool dummy) {
+  auto operator()(std::stop_token stop_token, srtb::work::dummy_work) {
     auto& worker = opt_worker.value();
 
     // this config should persist during one work push

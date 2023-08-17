@@ -278,6 +278,11 @@ struct baseband_output_work
 
 // work queues are in global_variables.hpp
 
+/**
+ * @brief Dummy work as place holder for work queue / pipe work transfer
+ */
+struct dummy_work {};
+
 }  // namespace work
 }  // namespace srtb
 

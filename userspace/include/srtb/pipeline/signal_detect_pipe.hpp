@@ -21,7 +21,7 @@
 #include "sycl/execution_policy"
 // --- divide line for clang-format
 #include "srtb/commons.hpp"
-#include "srtb/pipeline/pipe.hpp"
+#include "srtb/pipeline/framework/pipe.hpp"
 // --- divide line for clang-format
 #include "srtb/algorithm/map_reduce.hpp"
 #include "srtb/algorithm/multi_reduce.hpp"

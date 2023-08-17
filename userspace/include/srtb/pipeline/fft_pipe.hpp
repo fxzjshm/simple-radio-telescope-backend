@@ -17,7 +17,7 @@
 #include "srtb/commons.hpp"
 #include "srtb/fft/fft.hpp"
 #include "srtb/fft/fft_window.hpp"
-#include "srtb/pipeline/pipe.hpp"
+#include "srtb/pipeline/framework/pipe.hpp"
 #include "srtb/spectrum/rfi_mitigation.hpp"
 
 namespace srtb {

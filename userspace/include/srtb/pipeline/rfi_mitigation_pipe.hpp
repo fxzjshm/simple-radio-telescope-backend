@@ -18,7 +18,7 @@
 #include <utility>
 #include <vector>
 
-#include "srtb/pipeline/pipe.hpp"
+#include "srtb/pipeline/framework/pipe.hpp"
 #include "srtb/spectrum/rfi_mitigation.hpp"
 
 namespace srtb {
