@@ -33,34 +33,50 @@ inline namespace detail {
 
 /** @brief class name without namespace or template */
 template <typename Type>
-inline auto class_name() -> std::string {
-  const auto full_type_name = srtb::type_name<Type>();
-  // example full type name:
-  //   1) srtb::pipeline::xxx_pipe
-  //   2) srtb::pipeline::xxx_pipe<some_template_parameter>
-  // need to deal with all of these
-  constexpr std::string_view template_mark{"<"};
-  constexpr std::string_view namespace_mark{"::"};
-  const size_t template_mark_position = full_type_name.find(template_mark);
-  const auto end = full_type_name.size();
-  size_t start;
-  if (template_mark_position != std::string::npos) {
-    start = full_type_name.rfind(namespace_mark, template_mark_position);
-  } else {
-    start = full_type_name.rfind(namespace_mark, end);
+struct type_helper {
+  inline auto class_name() -> std::string {
+    const auto full_type_name = srtb::type_name<Type>();
+    // example full type name:
+    //   1) srtb::pipeline::xxx_pipe
+    //   2) srtb::pipeline::xxx_pipe<some_template_parameter>
+    // need to deal with all of these
+    constexpr std::string_view template_mark{"<"};
+    constexpr std::string_view namespace_mark{"::"};
+
+    constexpr std::string_view blank_chars = " \n\t";
+    const size_t full_type_name_end =
+        full_type_name.find_last_not_of(blank_chars) + 1;
+
+    const size_t template_mark_position = full_type_name.find(template_mark);
+    size_t namespace_pos;
+    if (template_mark_position != std::string::npos) {
+      namespace_pos =
+          full_type_name.rfind(namespace_mark, template_mark_position);
+    } else {
+      namespace_pos = full_type_name.rfind(namespace_mark, full_type_name_end);
+    }
+
+    size_t start;
+    if (namespace_pos != std::string::npos) {
+      start = namespace_pos + namespace_mark.size();
+    } else {
+      start = 0;
+    }
+
+    const size_t end = std::min(full_type_name_end, template_mark_position);
+
+    auto name = full_type_name;
+    if (0 <= start && start < end && end < full_type_name.size()) {
+      name = full_type_name.substr(start, (end - start));
+    }
+    return std::string{name};
   }
-  start += namespace_mark.size();
-  auto name = full_type_name;
-  if (start != std::string::npos && start < end) {
-    name = full_type_name.substr(start, (end - start));
-  }
-  return std::string{name};
-}
+};
 
 /** @brief thread name of a pipe is type name of the pipe, for debugging */
 template <typename Type>
 inline auto generate_thread_name() -> std::string {
-  auto name = class_name<Type>();
+  auto name = type_helper<Type>{}.class_name();
 
   // pthread restrict thread name length < 16 characters (not including \0 ?),
   // otherwise pthread_setname_np has no effect
@@ -99,14 +115,15 @@ class pipe {
    * @brief Run on this thread. May block this thread.
    */
   void run(std::stop_token stop_token) {
+    const auto class_name = type_helper<PipeFunctor>{}.class_name();
+    const auto tag = " [" + class_name + "] ";
     srtb::pipeline::running_pipe_count++;
     while (is_running(stop_token)) [[likely]] {
       std::optional opt_in_work = in_functor(stop_token);
       if (!is_running(stop_token)) [[unlikely]] {
         break;
       }
-      SRTB_LOGD << " [" << class_name<PipeFunctor>() << "] "
-                << "popped work" << srtb::endl;
+      SRTB_LOGD << tag << "popped work" << srtb::endl;
       auto in_work = opt_in_work.value();
       std::optional opt_out_work = pipe_functor(stop_token, in_work);
       if (!is_running(stop_token)) [[unlikely]] {
@@ -114,8 +131,7 @@ class pipe {
       }
       auto out_work = opt_out_work.value();
       out_functor(stop_token, out_work);
-      SRTB_LOGD << " [" << class_name<PipeFunctor>() << "] "
-                << "pushed work" << srtb::endl;
+      SRTB_LOGD << tag << "pushed work" << srtb::endl;
     }
     srtb::pipeline::running_pipe_count--;
   }
