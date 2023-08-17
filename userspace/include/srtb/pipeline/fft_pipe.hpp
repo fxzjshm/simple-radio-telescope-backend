@@ -39,7 +39,7 @@ class fft_1d_r2c_pipe {
                            /* batch_size = */ 1, q);
   }
 
-  auto operator()(std::stop_token stop_token,
+  auto operator()([[maybe_unused]] std::stop_token stop_token,
                   srtb::work::fft_1d_r2c_work fft_1d_r2c_work) {
     // assume opt_dispatcher has value
     auto& dispatcher = opt_dispatcher.value();
@@ -113,7 +113,7 @@ class ifft_1d_c2c_pipe {
                                             /* n = */ input_count, q);
   }
 
-  auto run_once_impl(std::stop_token stop_token,
+  auto run_once_impl([[maybe_unused]] std::stop_token stop_token,
                      srtb::work::ifft_1d_c2c_work ifft_1d_c2c_work) {
     auto& ifft_dispatcher = opt_ifft_dispatcher.value();
 
@@ -242,7 +242,7 @@ class refft_1d_c2c_pipe {
                                              /* n = */ refft_length, q);
   }
 
-  auto operator()(std::stop_token stop_token,
+  auto operator()([[maybe_unused]] std::stop_token stop_token,
                   srtb::work::refft_1d_c2c_work refft_1d_c2c_work) {
     //srtb::work::refft_1d_c2c_work refft_1d_c2c_work;
     //SRTB_POP_WORK_OR_RETURN(" [refft 1d c2c pipe] ", srtb::refft_1d_c2c_queue,
@@ -339,11 +339,11 @@ class watfft_1d_c2c_pipe {
                                               /* n = */ watfft_length, q);
   }
 
-  auto operator()(std::stop_token stop_token,
+  auto operator()([[maybe_unused]] std::stop_token stop_token,
                   srtb::work::ifft_1d_c2c_work ifft_1d_c2c_work) {
-    srtb::work::ifft_1d_c2c_work ifft_1d_c2c_work;
-    SRTB_POP_WORK_OR_RETURN(" [watfft 1d c2c pipe] ", srtb::ifft_1d_c2c_queue,
-                            ifft_1d_c2c_work, stop_token);
+    //srtb::work::ifft_1d_c2c_work ifft_1d_c2c_work;
+    //SRTB_POP_WORK_OR_RETURN(" [watfft 1d c2c pipe] ", srtb::ifft_1d_c2c_queue,
+    //                        ifft_1d_c2c_work, stop_token);
     const size_t input_count = ifft_1d_c2c_work.count;
 
     auto& watfft_dispatcher = opt_watfft_dispatcher.value();

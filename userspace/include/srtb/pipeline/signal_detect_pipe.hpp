@@ -58,7 +58,7 @@ class signal_detect_pipe {
  public:
   signal_detect_pipe(sycl::queue q_) : q{q_}, execution_policy{q} {}
 
-  auto operator()(std::stop_token stop_token,
+  auto operator()([[maybe_unused]] std::stop_token stop_token,
                   srtb::work::signal_detect_work signal_detect_work) {
     //srtb::work::signal_detect_work signal_detect_work;
     //SRTB_POP_WORK_OR_RETURN(" [signal_detect_pipe] ", srtb::signal_detect_queue,
@@ -278,7 +278,7 @@ class signal_detect_pipe_2 {
  public:
   signal_detect_pipe_2(sycl::queue q_) : q{q_}, execution_policy{q} {}
 
-  auto operator()(std::stop_token stop_token,
+  auto operator()([[maybe_unused]] std::stop_token stop_token,
                   srtb::work::signal_detect_work signal_detect_work) {
     //srtb::work::signal_detect_work signal_detect_work;
     //SRTB_POP_WORK_OR_RETURN(" [signal_detect_pipe_2] ",

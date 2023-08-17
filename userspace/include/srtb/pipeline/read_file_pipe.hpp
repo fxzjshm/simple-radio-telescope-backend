@@ -46,8 +46,6 @@ class read_file_pipe {
     //}
 
     auto file_path = srtb::config.input_file_path;
-    auto baseband_input_count = srtb::config.baseband_input_count;
-    auto baseband_input_bits = srtb::config.baseband_input_bits;
     auto input_file_offset_bytes = srtb::config.input_file_offset_bytes;
 
     input_file_stream =
@@ -68,7 +66,8 @@ class read_file_pipe {
     log_given = false;
   }
 
-  auto operator()(std::stop_token stop_token, srtb::work::dummy_work) {
+  auto operator()([[maybe_unused]] std::stop_token stop_token,
+                  srtb::work::dummy_work) {
     if (input_file_stream) {
       auto baseband_input_count = srtb::config.baseband_input_count;
       auto baseband_input_bits = srtb::config.baseband_input_bits;
@@ -107,16 +106,17 @@ class read_file_pipe {
       const uint64_t timestamp =
           std::chrono::system_clock::now().time_since_epoch().count();
 
-      srtb::work::unpack_work unpack_work;
-      unpack_work.ptr = std::reinterpret_pointer_cast<std::byte>(d_in_shared);
-      unpack_work.count = time_sample_bytes;
-      unpack_work.baseband_data = {
+      srtb::work::copy_to_device_work copy_to_device_work;
+      copy_to_device_work.ptr =
+          std::reinterpret_pointer_cast<std::byte>(d_in_shared);
+      copy_to_device_work.count = time_sample_bytes;
+      copy_to_device_work.baseband_data = {
           std::reinterpret_pointer_cast<std::byte>(h_in_shared),
           time_sample_bytes};
-      unpack_work.timestamp = timestamp;
-      unpack_work.udp_packet_counter = unpack_work.no_udp_packet_counter;
-      unpack_work.baseband_input_bits = baseband_input_bits;
-      return std::optional{unpack_work};
+      copy_to_device_work.timestamp = timestamp;
+      copy_to_device_work.udp_packet_counter =
+          copy_to_device_work.no_udp_packet_counter;
+      return std::optional{copy_to_device_work};
       //SRTB_PUSH_WORK_OR_RETURN(" [read_file] ", srtb::unpack_queue,
       //                         unpack_work, stop_token);
 
@@ -134,6 +134,7 @@ class read_file_pipe {
         SRTB_LOGI << " [read_file] " << file_path << " has been read"
                   << srtb::endl;
       }
+      return std::optional<srtb::work::copy_to_device_work>{};
     }
   }
 };

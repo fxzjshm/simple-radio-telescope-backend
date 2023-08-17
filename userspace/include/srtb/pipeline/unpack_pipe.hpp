@@ -38,7 +38,7 @@ class unpack_pipe {
                                /* n = */ srtb::config.baseband_input_count, q} {
   }
 
-  auto operator()(std::stop_token stop_token,
+  auto operator()([[maybe_unused]] std::stop_token stop_token,
                   srtb::work::unpack_work unpack_work) {
     //srtb::work::unpack_work unpack_work;
     //SRTB_POP_WORK_OR_RETURN(" [unpack pipe] ", srtb::unpack_queue, unpack_work,

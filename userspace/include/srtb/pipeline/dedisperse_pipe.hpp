@@ -25,10 +25,10 @@ namespace pipeline {
  *        this pipe applies coherent dedispertion to FFT-ed data.
  */
 class dedisperse_pipe {
+ public:
   sycl::queue q;
 
- public:
-  auto operator()(std::stop_token stop_token,
+  auto operator()([[maybe_unused]] std::stop_token stop_token,
                   srtb::work::dedisperse_work work) {
     //SRTB_POP_WORK_OR_RETURN(" [dedisperse pipe] ", srtb::dedisperse_queue, work,
     //                        stop_token);

@@ -40,7 +40,7 @@ class rfi_mitigation_pipe {
  public:
   rfi_mitigation_pipe(sycl::queue q_) : q{q_} {}
 
-  auto operator()(std::stop_token stop_token,
+  auto operator()([[maybe_unused]] std::stop_token stop_token,
                   srtb::work::rfi_mitigation_work rfi_mitigation_work) {
     //srtb::work::rfi_mitigation_work rfi_mitigation_work;
     //SRTB_POP_WORK_OR_RETURN(" [rfi mitigation pipe] ",

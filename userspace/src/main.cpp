@@ -26,6 +26,7 @@
 #include "srtb/commons.hpp"
 #include "srtb/io/udp_receiver.hpp"
 #include "srtb/pipeline/baseband_output_pipe.hpp"
+#include "srtb/pipeline/copy_to_device_pipe.hpp"
 #include "srtb/pipeline/dedisperse_pipe.hpp"
 #include "srtb/pipeline/exit_handler.hpp"
 #include "srtb/pipeline/fft_pipe.hpp"
@@ -182,7 +183,10 @@ int main(int argc, char** argv) {
   if (std::filesystem::exists(input_file_path)) {
     SRTB_LOGI << " [main] "
               << "Reading file " << input_file_path << srtb::endl;
-    input_thread.push_back(srtb::pipeline::read_file_pipe::start());
+    input_thread.push_back(
+        srtb::pipeline::start_pipe<srtb::pipeline::read_file_pipe>(
+            srtb::queue, srtb::pipeline::dummy_in_functor{},
+            srtb::pipeline::queue_out_functor{srtb::copy_to_device_queue}));
     input_pipe_count = 1;
   } else {
     if (input_file_path != "") {
@@ -195,7 +199,10 @@ int main(int argc, char** argv) {
     allocate_memory_regions(input_pipe_count);
     for (size_t i = 0; i < input_pipe_count; i++) {
       input_thread.push_back(
-          srtb::pipeline::udp_receiver_pipe::start(/* id = */ i));
+          srtb::pipeline::start_pipe<srtb::pipeline::udp_receiver_pipe>(
+              srtb::queue, srtb::pipeline::dummy_in_functor{},
+              srtb::pipeline::queue_out_functor{srtb::copy_to_device_queue},
+              /* id = */ i));
     }
   }
 
@@ -214,46 +221,98 @@ int main(int argc, char** argv) {
     plt::cla();
   }
 
-  std::jthread unpack_thread = srtb::pipeline::unpack_pipe::start();
+  std::jthread unpack_thread =
+      srtb::pipeline::start_pipe<srtb::pipeline::composite_pipe<
+          srtb::pipeline::copy_to_device_pipe, srtb::pipeline::unpack_pipe> >(
+          srtb::queue,
+          srtb::pipeline::queue_in_functor{srtb::copy_to_device_queue},
+          srtb::pipeline::queue_out_functor{srtb::fft_1d_r2c_queue});
 
-  std::jthread fft_1d_r2c_thread = srtb::pipeline::fft_1d_r2c_pipe::start();
+  std::jthread fft_1d_r2c_thread =
+      srtb::pipeline::start_pipe<srtb::pipeline::fft_1d_r2c_pipe>(
+          srtb::queue, srtb::pipeline::queue_in_functor{srtb::fft_1d_r2c_queue},
+          srtb::pipeline::queue_out_functor{srtb::rfi_mitigation_queue});
 
   std::jthread rfi_mitigation_thread =
-      srtb::pipeline::rfi_mitigation_pipe::start();
+      srtb::pipeline::start_pipe<srtb::pipeline::rfi_mitigation_pipe>(
+          srtb::queue,
+          srtb::pipeline::queue_in_functor{srtb::rfi_mitigation_queue},
+          srtb::pipeline::queue_out_functor{srtb::dedisperse_queue});
 
-  std::jthread dedisperse_thread = srtb::pipeline::dedisperse_pipe::start();
+  std::jthread dedisperse_thread =
+      srtb::pipeline::start_pipe<srtb::pipeline::dedisperse_pipe>(
+          srtb::queue, srtb::pipeline::queue_in_functor{srtb::dedisperse_queue},
+          srtb::pipeline::queue_out_functor{srtb::ifft_1d_c2c_queue});
 
-  //std::jthread ifft_1d_c2c_thread = srtb::pipeline::ifft_1d_c2c_pipe::start();
+  //std::jthread ifft_1d_c2c_thread =
+  //    srtb::pipeline::start_pipe<srtb::pipeline::ifft_1d_c2c_pipe>(
+  //        srtb::queue,
+  //        srtb::pipeline::queue_in_functor{srtb::ifft_1d_c2c_queue},
+  //        srtb::pipeline::queue_out_functor{srtb::refft_1d_c2c_queue});
 
-  //std::jthread refft_1d_c2c_thread = srtb::pipeline::refft_1d_c2c_pipe::start();
+  //std::jthread refft_1d_c2c_thread =
+  //    srtb::pipeline::start_pipe<srtb::pipeline::refft_1d_c2c_pipe>(
+  //        srtb::queue,
+  //        srtb::pipeline::queue_in_functor{srtb::refft_1d_c2c_queue},
+  //        srtb::pipeline::queue_out_functor{srtb::signal_detect_queue});
 
   std::jthread watfft_1d_c2c_thread =
-      srtb::pipeline::watfft_1d_c2c_pipe::start();
+      srtb::pipeline::start_pipe<srtb::pipeline::watfft_1d_c2c_pipe>(
+          srtb::queue,
+          srtb::pipeline::queue_in_functor{srtb::ifft_1d_c2c_queue},
+          srtb::pipeline::queue_out_functor{srtb::signal_detect_queue});
 
   //std::jthread signal_detect_thread =
-  //    srtb::pipeline::signal_detect_pipe::start();
+  //    srtb::pipeline::start_pipe<srtb::pipeline::signal_detect_pipe>(
+  //        srtb::queue,
+  //        srtb::pipeline::queue_in_functor{srtb::signal_detect_queue},
+  //        srtb::pipeline::multiple_out_functor{
+  //            srtb::pipeline::queue_out_functor{srtb::baseband_output_queue},
+  //            srtb::pipeline::queue_out_functor{
+  //                srtb::simplify_spectrum_queue}});
 
   std::jthread signal_detect_thread =
-      srtb::pipeline::signal_detect_pipe_2::start();
+      srtb::pipeline::start_pipe<srtb::pipeline::signal_detect_pipe_2>(
+          srtb::queue,
+          srtb::pipeline::queue_in_functor{srtb::signal_detect_queue},
+          srtb::pipeline::multiple_out_functor{
+              srtb::pipeline::queue_out_functor{srtb::baseband_output_queue},
+              srtb::pipeline::queue_out_functor{
+                  srtb::simplify_spectrum_queue}});
 
   std::jthread baseband_output_thread;
   if (srtb::config.baseband_write_all) {
     SRTB_LOGW << " [main] "
               << "Writing all baseband data, take care of disk space!"
               << srtb::endl;
-    baseband_output_thread = srtb::pipeline::baseband_output_pipe<
-        /* continuous_write = */ true>::start();
+    baseband_output_thread =
+        srtb::pipeline::start_pipe<srtb::pipeline::baseband_output_pipe<
+            /* continuous_write = */ true> >(
+            srtb::queue,
+            srtb::pipeline::queue_in_functor{srtb::baseband_output_queue},
+            srtb::pipeline::dummy_out_functor<srtb::work::dummy_work>{});
   } else {
-    baseband_output_thread = srtb::pipeline::baseband_output_pipe<
-        /* continuous_write = */ false>::start();
+    baseband_output_thread =
+        srtb::pipeline::start_pipe<srtb::pipeline::baseband_output_pipe<
+            /* continuous_write = */ false> >(
+            srtb::queue,
+            srtb::pipeline::queue_in_functor{srtb::baseband_output_queue},
+            srtb::pipeline::dummy_out_functor<srtb::work::dummy_work>{});
   }
 
   std::jthread simplify_spectrum_thread;
 #if SRTB_ENABLE_GUI
   if (srtb::config.gui_enable) {
-    //simplify_spectrum_thread = srtb::pipeline::simplify_spectrum_pipe::start();
+    //simplify_spectrum_thread =
+    //    srtb::pipeline::start_pipe<srtb::pipeline::simplify_spectrum_pipe>(
+    //        srtb::queue,
+    //        srtb::pipeline::queue_in_functor{srtb::simplify_spectrum_queue},
+    //        srtb::pipeline::queue_out_functor{srtb::draw_spectrum_queue});
     simplify_spectrum_thread =
-        srtb::pipeline::simplify_spectrum_pipe_2::start();
+        srtb::pipeline::start_pipe<srtb::pipeline::simplify_spectrum_pipe_2>(
+            srtb::queue,
+            srtb::pipeline::queue_in_functor{srtb::simplify_spectrum_queue},
+            srtb::pipeline::queue_out_functor{srtb::draw_spectrum_queue_2});
   }
 #endif  // SRTB_ENABLE_GUI
 

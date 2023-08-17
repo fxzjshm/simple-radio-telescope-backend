@@ -36,8 +36,8 @@
 
 #include "cnpy.h"
 #include "matplotlibcpp.h"
-#include "srtb/commons.hpp"
 #include "srtb/coherent_dedispersion.hpp"
+#include "srtb/commons.hpp"
 #include "srtb/pipeline/framework/pipe.hpp"
 
 namespace srtb {
@@ -49,7 +49,7 @@ namespace pipeline {
 template <bool continuous_write = false>
 class baseband_output_pipe;
 
-template<>
+template <>
 class baseband_output_pipe</* continuous_write = */ true> {
  protected:
   std::optional<std::ofstream> opt_file_output_stream;
@@ -59,7 +59,7 @@ class baseband_output_pipe</* continuous_write = */ true> {
  public:
   baseband_output_pipe(sycl::queue q_) : q{q_} {}
 
-  auto operator()(std::stop_token stop_token,
+  auto operator()([[maybe_unused]] std::stop_token stop_token,
                   srtb::work::baseband_output_work baseband_output_work) {
     //srtb::work::baseband_output_work baseband_output_work;
     //SRTB_POP_WORK_OR_RETURN(" [baseband_output_pipe] ",
@@ -123,7 +123,7 @@ class baseband_output_pipe</* continuous_write = */ true> {
 
 // --------------------------------------------------------------------
 
-template<>
+template <>
 class baseband_output_pipe</* continuous_write = */ false> {
   /** @brief local container of recent works with no signal detected (negative) */
   std::deque<srtb::work::baseband_output_work> recent_negative_works;
@@ -171,8 +171,7 @@ class baseband_output_pipe</* continuous_write = */ false> {
     }
   }
 
- protected:
-  auto generate_time_tag() -> std::string {
+  static auto generate_time_tag() -> std::string {
     // modified from example from https://en.cppreference.com/w/cpp/chrono/c/strftime
     std::time_t time = std::time({});
     // '\0' should included in string literal
@@ -182,7 +181,8 @@ class baseband_output_pipe</* continuous_write = */ false> {
     return std::string{time_string};
   }
 
-  auto operator()(std::stop_token stop_token, srtb::work::baseband_output_work baseband_output_work) {
+  auto operator()([[maybe_unused]] std::stop_token stop_token,
+                  srtb::work::baseband_output_work baseband_output_work) {
     //srtb::work::baseband_output_work baseband_output_work;
     //SRTB_POP_WORK_OR_RETURN(" [baseband_output_pipe] ",
     //                        srtb::baseband_output_queue, baseband_output_work,

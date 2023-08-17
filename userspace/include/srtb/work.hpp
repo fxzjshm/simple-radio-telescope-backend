@@ -110,6 +110,7 @@ class work_queue<T, false, unused_1, unused_2>
 /**
  * @brief This namespace contains work types that defines the input of a pipe.
  *        Ideally all info needed to execute the pipeline should be written in a POD work class.
+ * TODO: refactor work types
  */
 namespace work {
 
@@ -158,6 +159,13 @@ struct work {
    * @brief original baseband input correspond to this work
    */
   baseband_data_holder baseband_data;
+};
+
+/**
+ * @brief copy input from host to device
+ */
+struct copy_to_device_work : public srtb::work::work<std::shared_ptr<std::byte> > {
+  size_t batch_size;
 };
 
 /**
@@ -221,39 +229,13 @@ using refft_1d_c2c_work =
     srtb::work::work<std::shared_ptr<srtb::complex<srtb::real> > >;
 
 /**
- * @brief contains @c srtb::complex<srtb::real> to be simplified into
- *        ~10^3 @c srtb::real to be displayed on GUI.
- * @note temporary work, just do a software-defined-radio receiver job.
- */
-struct simplify_spectrum_work
-    : public srtb::work::work<std::shared_ptr<srtb::complex<srtb::real> > > {
-  size_t batch_size;
-};
-
-/**
- * @brief contains ~10^3 * @c batch_size of @c srtb::real to be summed and drawn
- *        to a line of a pixmap. @c ptr should be host pointer.
- * @note temporary work, see above.
- */
-struct draw_spectrum_work
-    : public srtb::work::work<std::shared_ptr<srtb::real> > {
-  size_t batch_size;
-};
-
-/**
- * @brief contains ARGB8888 @c uint32_t of width * height, to be drawn onto screen
- */
-struct draw_spectrum_work_2 {
-  std::shared_ptr<uint32_t> ptr;
-  size_t width;
-  size_t height;
-};
-
-/**
  * @brief contains @c srtb::complex<srtb::real> to be taken norm and summed into
  *        time series, then try tp find signal in it.
  */
-using signal_detect_work = simplify_spectrum_work;
+struct signal_detect_work
+    : public srtb::work::work<std::shared_ptr<srtb::complex<srtb::real> > > {
+  size_t batch_size;
+};
 
 /**
  * @brief contains info for a time series of a spectrum
@@ -274,6 +256,32 @@ struct baseband_output_work
     : public srtb::work::work<std::shared_ptr<srtb::complex<srtb::real> > > {
   size_t batch_size;
   std::vector<time_series_holder> time_series;
+};
+
+/**
+ * @brief contains @c srtb::complex<srtb::real> to be simplified into
+ *        ~10^3 @c srtb::real to be displayed on GUI.
+ * @note temporary work, just do a software-defined-radio receiver job.
+ */
+using simplify_spectrum_work = baseband_output_work;
+
+/**
+ * @brief contains ~10^3 * @c batch_size of @c srtb::real to be summed and drawn
+ *        to a line of a pixmap. @c ptr should be host pointer.
+ * @note temporary work, see above.
+ */
+struct draw_spectrum_work
+    : public srtb::work::work<std::shared_ptr<srtb::real> > {
+  size_t batch_size;
+};
+
+/**
+ * @brief contains ARGB8888 @c uint32_t of width * height, to be drawn onto screen
+ */
+struct draw_spectrum_work_2 {
+  std::shared_ptr<uint32_t> ptr;
+  size_t width;
+  size_t height;
 };
 
 // work queues are in global_variables.hpp

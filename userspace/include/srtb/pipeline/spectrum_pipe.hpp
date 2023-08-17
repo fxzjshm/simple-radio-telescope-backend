@@ -31,7 +31,7 @@ class simplify_spectrum_pipe {
   sycl::queue q;
 
  public:
-  auto operator()(std::stop_token stop_token,
+  auto operator()([[maybe_unused]] std::stop_token stop_token,
                   srtb::work::simplify_spectrum_work simplify_spectrum_work) {
     //srtb::work::simplify_spectrum_work simplify_spectrum_work;
     //SRTB_POP_WORK_OR_RETURN(" [simplify spectrum pipe] ",
@@ -79,18 +79,8 @@ class simplify_spectrum_pipe {
     draw_spectrum_work.timestamp = simplify_spectrum_work.timestamp;
     draw_spectrum_work.udp_packet_counter =
         simplify_spectrum_work.udp_packet_counter;
-    // same as SRTB_PUSH_WORK_OR_RETURN(), but supressed logs
-    {
-      bool success = false;
-      do {
-        if (stop_token.stop_requested()) [[unlikely]] {
-          return;
-        }
-        std::this_thread::sleep_for(
-            std::chrono::nanoseconds(srtb::config.thread_query_work_wait_time));
-        success = srtb::draw_spectrum_queue.push(draw_spectrum_work);
-      } while (!success);
-    }
+
+    return std::optional{draw_spectrum_work};
   }
 };
 
@@ -98,7 +88,7 @@ class simplify_spectrum_pipe {
  * @brief This temporary pipe reads FFT-ed data and generate thumbnail of the spectrum to draw it on GUI pixmap.
  */
 class simplify_spectrum_pipe_2 {
- protected:
+ public:
   sycl::queue q;
 
  public:
@@ -110,7 +100,7 @@ class simplify_spectrum_pipe_2 {
         std::stoul(str, /* index = */ nullptr, /* base = */ 0));
   }
 
-  auto operator()(std::stop_token stop_token,
+  auto operator()([[maybe_unused]] std::stop_token stop_token,
                   srtb::work::simplify_spectrum_work simplify_spectrum_work) {
     //srtb::work::simplify_spectrum_work simplify_spectrum_work;
     //SRTB_POP_WORK_OR_RETURN(" [simplify spectrum pipe] ",
@@ -167,18 +157,20 @@ class simplify_spectrum_pipe_2 {
     draw_spectrum_work.ptr = h_image_shared;
     draw_spectrum_work.width = out_width;
     draw_spectrum_work.height = out_height;
-    // same as SRTB_PUSH_WORK_OR_RETURN(), but supressed logs
-    {
-      bool success = false;
-      do {
-        if (stop_token.stop_requested()) [[unlikely]] {
-          return;
-        }
-        std::this_thread::sleep_for(
-            std::chrono::nanoseconds(srtb::config.thread_query_work_wait_time));
-        success = srtb::draw_spectrum_queue_2.push(draw_spectrum_work);
-      } while (!success);
-    }
+    //// same as SRTB_PUSH_WORK_OR_RETURN(), but supressed logs
+    //{
+    //  bool success = false;
+    //  do {
+    //    if (stop_token.stop_requested()) [[unlikely]] {
+    //      return std::optional<srtb::work::dummy_work>{};
+    //    }
+    //    std::this_thread::sleep_for(
+    //        std::chrono::nanoseconds(srtb::config.thread_query_work_wait_time));
+    //    success = srtb::draw_spectrum_queue_2.push(draw_spectrum_work);
+    //  } while (!success);
+    //}
+
+    return std::optional{draw_spectrum_work};
   }
 };
 

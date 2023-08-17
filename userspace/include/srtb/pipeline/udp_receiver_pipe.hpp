@@ -46,8 +46,8 @@ class udp_receiver_pipe {
   udp_receiver_pipe(sycl::queue q_, size_t id_ = 0) : q{q_}, id{id_} {
     // wait until other pipes have set up
     while (srtb::pipeline::running_pipe_count !=
-               srtb::pipeline::expected_running_pipe_count -
-                   srtb::pipeline::expected_input_pipe_count) {
+           srtb::pipeline::expected_running_pipe_count -
+               srtb::pipeline::expected_input_pipe_count) {
       std::this_thread::sleep_for(
           std::chrono::nanoseconds(srtb::config.thread_query_work_wait_time));
     }
@@ -104,7 +104,8 @@ class udp_receiver_pipe {
               << "port = " << sender_port << srtb::endl;
   }
 
-  auto operator()(std::stop_token stop_token, srtb::work::dummy_work) {
+  auto operator()([[maybe_unused]] std::stop_token stop_token,
+                  srtb::work::dummy_work) {
     auto& worker = opt_worker.value();
 
     // this config should persist during one work push
@@ -146,14 +147,14 @@ class udp_receiver_pipe {
 
     srtb::work::baseband_data_holder baseband_data{h_ptr, baseband_input_bytes};
     //if ((srtb::config.baseband_write_all && (!srtb::config.gui_enable))) {
-    // no need to process data if just recording baseband data & not showing spectrum
-    srtb::work::baseband_output_work baseband_output_work;
-    baseband_output_work.ptr = nullptr;
-    baseband_output_work.count = 0;
-    baseband_output_work.batch_size = 0;
-    baseband_output_work.baseband_data = std::move(baseband_data);
-    baseband_output_work.timestamp = timestamp;
-    baseband_output_work.udp_packet_counter = first_counter;
+    //// no need to process data if just recording baseband data & not showing spectrum
+    //srtb::work::baseband_output_work baseband_output_work;
+    //baseband_output_work.ptr = nullptr;
+    //baseband_output_work.count = 0;
+    //baseband_output_work.batch_size = 0;
+    //baseband_output_work.baseband_data = std::move(baseband_data);
+    //baseband_output_work.timestamp = timestamp;
+    //baseband_output_work.udp_packet_counter = first_counter;
     //SRTB_PUSH_WORK_OR_RETURN(" [udp receiver pipe] ",
     //                         srtb::baseband_output_queue,
     //                         baseband_output_work, stop_token);
@@ -177,6 +178,14 @@ class udp_receiver_pipe {
     //                           unpack_work, stop_token);
     //}
 
+    srtb::work::copy_to_device_work copy_to_device_work;
+    copy_to_device_work.ptr = nullptr;
+    copy_to_device_work.count = 0;
+    copy_to_device_work.batch_size = 0;
+    copy_to_device_work.baseband_data = std::move(baseband_data);
+    copy_to_device_work.timestamp = timestamp;
+    copy_to_device_work.udp_packet_counter = first_counter;
+
     auto time_after_push = std::chrono::system_clock::now();
     auto push_work_time = std::chrono::duration_cast<std::chrono::microseconds>(
                               time_after_push - time_before_push)
@@ -184,7 +193,7 @@ class udp_receiver_pipe {
     SRTB_LOGD << " [udp receiver pipe] "
               << "id = " << id << ": "
               << "push work time = " << push_work_time << " us" << srtb::endl;
-    return std::optional{baseband_output_work};
+    return std::optional{copy_to_device_work};
   }
 };
 
