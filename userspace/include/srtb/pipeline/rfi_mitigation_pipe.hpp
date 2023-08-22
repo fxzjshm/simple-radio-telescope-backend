@@ -100,27 +100,20 @@ class rfi_mitigation_pipe {
 
     // shortcut
     //srtb::work::simplify_spectrum_work simplify_spectrum_work;
+    //simplify_spectrum_work.move_parameter_from(std::move(rfi_mitigation_work));
     //simplify_spectrum_work.ptr = d_in_shared;
     //simplify_spectrum_work.count = in_count;
-    //simplify_spectrum_work.baseband_data = std::move(rfi_mitigation_work.baseband_data);
-    //simplify_spectrum_work.timestamp = rfi_mitigation_work.timestamp;
-    //simplify_spectrum_work.udp_packet_counter = rfi_mitigation_work.udp_packet_counter;
     //simplify_spectrum_work.batch_size = 1;
     //SRTB_PUSH_WORK_OR_RETURN(" [rfi mitigation pipe] ", srtb::simplify_spectrum_queue,
     //               simplify_spectrum_work);
 
-    srtb::work::dedisperse_work out_work;
-    out_work.ptr = d_in_shared;
-    out_work.count = in_count;
-    out_work.baseband_data = std::move(rfi_mitigation_work.baseband_data);
-    out_work.timestamp = rfi_mitigation_work.timestamp;
-    out_work.udp_packet_counter = rfi_mitigation_work.udp_packet_counter;
-    out_work.baseband_freq_low = srtb::config.baseband_freq_low;
-    out_work.baseband_sample_rate = srtb::config.baseband_sample_rate;
-    out_work.dm = srtb::config.dm;
+    srtb::work::dedisperse_work dedisperse_work;
+    dedisperse_work.move_parameter_from(std::move(rfi_mitigation_work));
+    dedisperse_work.ptr = d_in_shared;
+    dedisperse_work.count = in_count;
     //SRTB_PUSH_WORK_OR_RETURN(" [rfi mitigation pipe] ", srtb::dedisperse_queue,
-    //                         out_work, stop_token);
-    return std::optional{out_work};
+    //                         dedisperse_work, stop_token);
+    return std::optional{dedisperse_work};
   }
 };
 

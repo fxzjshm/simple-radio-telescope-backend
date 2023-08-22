@@ -72,13 +72,10 @@ class simplify_spectrum_pipe {
     d_out_shared.reset();
 
     srtb::work::draw_spectrum_work draw_spectrum_work;
+    draw_spectrum_work.move_parameter_from(std::move(simplify_spectrum_work));
     draw_spectrum_work.ptr = h_out_shared;
     draw_spectrum_work.count = out_count;
     draw_spectrum_work.batch_size = batch_size;
-    draw_spectrum_work.baseband_data = simplify_spectrum_work.baseband_data;
-    draw_spectrum_work.timestamp = simplify_spectrum_work.timestamp;
-    draw_spectrum_work.udp_packet_counter =
-        simplify_spectrum_work.udp_packet_counter;
 
     return std::optional{draw_spectrum_work};
   }

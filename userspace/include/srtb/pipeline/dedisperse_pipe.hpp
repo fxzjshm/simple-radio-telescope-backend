@@ -36,10 +36,11 @@ class dedisperse_pipe {
     const srtb::real df = srtb::config.baseband_bandwidth / N;
     auto& d_in_shared = work.ptr;
     auto d_in = d_in_shared.get();
-    const srtb::real f_min = work.baseband_freq_low,
+    const srtb::real f_min = srtb::config.baseband_freq_low,
                      f_c = f_min + srtb::config.baseband_bandwidth;
+    const srtb::real dm = srtb::config.dm;
     srtb::coherent_dedispersion::coherent_dedispertion(d_in, N, f_min, f_c, df,
-                                                       work.dm, q);
+                                                       dm, q);
 
     // shortcut
     //srtb::work::simplify_spectrum_work simplify_spectrum_work;
@@ -50,11 +51,9 @@ class dedisperse_pipe {
     //               simplify_spectrum_work, stop_token);
 
     srtb::work::ifft_1d_c2c_work ifft_1d_c2c_work;
+    ifft_1d_c2c_work.move_parameter_from(std::move(work));
     ifft_1d_c2c_work.ptr = d_in_shared;
     ifft_1d_c2c_work.count = N;
-    ifft_1d_c2c_work.baseband_data = std::move(work.baseband_data);
-    ifft_1d_c2c_work.timestamp = work.timestamp;
-    ifft_1d_c2c_work.udp_packet_counter = work.udp_packet_counter;
     //SRTB_PUSH_WORK_OR_RETURN(" [dedisperse pipe] ", srtb::ifft_1d_c2c_queue,
     //                         ifft_1d_c2c_work, stop_token);
     return std::optional{ifft_1d_c2c_work};

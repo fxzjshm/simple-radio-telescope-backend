@@ -72,14 +72,11 @@ class fft_1d_r2c_pipe {
     d_in_shared.reset();
 
     srtb::work::rfi_mitigation_work rfi_mitigation_work;
+    rfi_mitigation_work.move_parameter_from(std::move(fft_1d_r2c_work));
     rfi_mitigation_work.ptr = d_out_shared;
     // drop the highest frequency point
     // *Drop*  -- LinusTechTips
     rfi_mitigation_work.count = out_count - 1;
-    rfi_mitigation_work.baseband_data =
-        std::move(fft_1d_r2c_work.baseband_data);
-    rfi_mitigation_work.timestamp = fft_1d_r2c_work.timestamp;
-    rfi_mitigation_work.udp_packet_counter = fft_1d_r2c_work.udp_packet_counter;
     //SRTB_PUSH_WORK_OR_RETURN(" [fft 1d r2c pipe] ", srtb::rfi_mitigation_queue,
     //                         rfi_mitigation_work, stop_token);
     return std::optional{rfi_mitigation_work};
@@ -175,11 +172,9 @@ class ifft_1d_c2c_pipe {
     }
 
     srtb::work::refft_1d_c2c_work refft_1d_c2c_work;
+    refft_1d_c2c_work.move_parameter_from(std::move(ifft_1d_c2c_work));
     refft_1d_c2c_work.ptr = d_out_shared;
     refft_1d_c2c_work.count = output_count;
-    refft_1d_c2c_work.baseband_data = std::move(ifft_1d_c2c_work.baseband_data);
-    refft_1d_c2c_work.timestamp = ifft_1d_c2c_work.timestamp;
-    refft_1d_c2c_work.udp_packet_counter = ifft_1d_c2c_work.udp_packet_counter;
     //SRTB_PUSH_WORK_OR_RETURN(" [ifft 1d c2c pipe] ", srtb::refft_1d_c2c_queue,
     //                         refft_1d_c2c_work, stop_token);
     return std::optional{refft_1d_c2c_work};
@@ -292,14 +287,10 @@ class refft_1d_c2c_pipe {
     refft_dispatcher.process(d_in, d_out);
 
     srtb::work::signal_detect_work signal_detect_work;
+    signal_detect_work.move_parameter_from(std::move(refft_1d_c2c_work));
     signal_detect_work.ptr = d_out_shared;
     signal_detect_work.count = refft_length;
     signal_detect_work.batch_size = refft_batch_size;
-    signal_detect_work.baseband_data =
-        std::move(refft_1d_c2c_work.baseband_data);
-    signal_detect_work.timestamp = refft_1d_c2c_work.timestamp;
-    signal_detect_work.udp_packet_counter =
-        refft_1d_c2c_work.udp_packet_counter;
     //SRTB_PUSH_WORK_OR_RETURN(" [refft 1d c2c pipe] ", srtb::signal_detect_queue,
     //                         signal_detect_work, stop_token);
     return std::optional{signal_detect_work};
@@ -340,11 +331,11 @@ class watfft_1d_c2c_pipe {
   }
 
   auto operator()([[maybe_unused]] std::stop_token stop_token,
-                  srtb::work::ifft_1d_c2c_work ifft_1d_c2c_work) {
-    //srtb::work::ifft_1d_c2c_work ifft_1d_c2c_work;
+                  srtb::work::watfft_1d_c2c_work watfft_1d_c2c_work) {
+    //srtb::work::watfft_1d_c2c_work watfft_1d_c2c_work;
     //SRTB_POP_WORK_OR_RETURN(" [watfft 1d c2c pipe] ", srtb::ifft_1d_c2c_queue,
-    //                        ifft_1d_c2c_work, stop_token);
-    const size_t input_count = ifft_1d_c2c_work.count;
+    //                        watfft_1d_c2c_work, stop_token);
+    const size_t input_count = watfft_1d_c2c_work.count;
 
     auto& watfft_dispatcher = opt_watfft_dispatcher.value();
     const size_t watfft_batch_size =
@@ -359,7 +350,7 @@ class watfft_1d_c2c_pipe {
                                                 /* n = */ watfft_length, q);
     }
 
-    auto& d_in_shared = ifft_1d_c2c_work.ptr;
+    auto& d_in_shared = watfft_1d_c2c_work.ptr;
     auto d_in = d_in_shared.get();
 
     std::shared_ptr<srtb::complex<srtb::real> > d_out_shared;
@@ -395,13 +386,10 @@ class watfft_1d_c2c_pipe {
     //const auto nsamps_reserved_complex = nsamps_reserved_real / 2;
 
     srtb::work::signal_detect_work signal_detect_work;
+    signal_detect_work.move_parameter_from(std::move(watfft_1d_c2c_work));
     signal_detect_work.ptr = d_out_shared;
     signal_detect_work.count = watfft_length;
     signal_detect_work.batch_size = watfft_batch_size;
-    signal_detect_work.timestamp = ifft_1d_c2c_work.timestamp;
-    signal_detect_work.udp_packet_counter = ifft_1d_c2c_work.udp_packet_counter;
-    signal_detect_work.baseband_data =
-        std::move(ifft_1d_c2c_work.baseband_data);
     //SRTB_PUSH_WORK_OR_RETURN(" [watfft 1d c2c pipe] ",
     //                         srtb::signal_detect_queue, signal_detect_work,
     //                         stop_token);

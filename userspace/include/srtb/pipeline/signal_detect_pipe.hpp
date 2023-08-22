@@ -97,10 +97,10 @@ class signal_detect_pipe {
     if (SRTB_ENABLE_GUI && srtb::config.gui_enable) {
       // temporary work: spectrum analyzer
       srtb::work::simplify_spectrum_work simplify_spectrum_work;
+      simplify_spectrum_work.copy_parameter_from(signal_detect_work);
       simplify_spectrum_work.ptr = d_in_shared;
       simplify_spectrum_work.count = count_per_batch;
       simplify_spectrum_work.batch_size = batch_size;
-      simplify_spectrum_work.timestamp = signal_detect_work.timestamp;
       // just try once, in case GUI is stuck (e.g. when using X forwarding on SSH)
       srtb::simplify_spectrum_queue.push(simplify_spectrum_work);
     }
@@ -140,14 +140,10 @@ class signal_detect_pipe {
     // time series is now available
 
     srtb::work::baseband_output_work baseband_output_work;
+    baseband_output_work.copy_parameter_from(signal_detect_work);
     baseband_output_work.ptr = nullptr;
     baseband_output_work.count = 0;
     baseband_output_work.batch_size = 0;
-    baseband_output_work.baseband_data =
-        std::move(signal_detect_work.baseband_data);
-    baseband_output_work.timestamp = signal_detect_work.timestamp;
-    baseband_output_work.udp_packet_counter =
-        signal_detect_work.udp_packet_counter;
 
     // if too many frequency channels are masked, result is often inaccurate
     if (zero_count <
@@ -326,10 +322,10 @@ class signal_detect_pipe_2 {
     if (SRTB_ENABLE_GUI && srtb::config.gui_enable) {
       // temporary work: spectrum analyzer
       srtb::work::simplify_spectrum_work simplify_spectrum_work;
+      simplify_spectrum_work.copy_parameter_from(signal_detect_work);
       simplify_spectrum_work.ptr = d_in_shared;
       simplify_spectrum_work.count = time_sample_count;
       simplify_spectrum_work.batch_size = frequency_bin_count;
-      simplify_spectrum_work.timestamp = signal_detect_work.timestamp;
       // just try once, in case GUI is stuck (e.g. when using X forwarding on SSH)
       srtb::simplify_spectrum_queue.push(simplify_spectrum_work);
     }
@@ -386,14 +382,10 @@ class signal_detect_pipe_2 {
     // time series is now available
 
     srtb::work::baseband_output_work baseband_output_work;
+    baseband_output_work.copy_parameter_from(signal_detect_work);
     baseband_output_work.ptr = nullptr;
     baseband_output_work.count = 0;
     baseband_output_work.batch_size = 0;
-    baseband_output_work.baseband_data =
-        std::move(signal_detect_work.baseband_data);
-    baseband_output_work.timestamp = signal_detect_work.timestamp;
-    baseband_output_work.udp_packet_counter =
-        signal_detect_work.udp_packet_counter;
 
     // if too many frequency channels are masked, result is often inaccurate
     if (zero_count <

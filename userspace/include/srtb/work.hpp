@@ -115,6 +115,11 @@ class work_queue<T, false, unused_1, unused_2>
 namespace work {
 
 /**
+ * @brief Dummy work as place holder for work queue / pipe work transfer
+ */
+struct dummy_work {};
+
+/**
  * @brief this holds ownership of original baseband data & its size
  */
 struct baseband_data_holder {
@@ -139,10 +144,15 @@ struct work {
    */
   T ptr;
   /**
-   * @brief count of data in @c ptr; some may also have @c batch_size
-   *        refer to specialized work types for detail
+   * @brief shape[0] of data in @c ptr, refer to specialized work types for detail
+   * @see batch_size
    */
   size_t count;
+  /**
+   * @brief shape[1] of data in @c ptr, refer to specialized work types for detail
+   * @see count
+   */
+  size_t batch_size;
   /**
    * @brief time stamp of these data, currectly 64-bit unix timestamp from server time
    */
@@ -159,14 +169,26 @@ struct work {
    * @brief original baseband input correspond to this work
    */
   baseband_data_holder baseband_data;
+
+  template <typename U>
+  inline void move_parameter_from(work<U>&& other) {
+    timestamp = std::move(other.timestamp);
+    udp_packet_counter = std::move(other.udp_packet_counter);
+    baseband_data = std::move(other.baseband_data);
+  }
+
+  template <typename U>
+  inline void copy_parameter_from(const work<U>& other) {
+    timestamp = other.timestamp;
+    udp_packet_counter = other.udp_packet_counter;
+    baseband_data = other.baseband_data;
+  }
 };
 
 /**
  * @brief copy input from host to device
  */
-struct copy_to_device_work : public srtb::work::work<std::shared_ptr<std::byte> > {
-  size_t batch_size;
-};
+using copy_to_device_work = srtb::work::work<std::shared_ptr<std::byte> >;
 
 /**
  * @brief contains a chunk of @c std::byte of size @c count, which is 
@@ -174,20 +196,7 @@ struct copy_to_device_work : public srtb::work::work<std::shared_ptr<std::byte> 
  * @note count is count of std::byte, not of output time series,
  *       and should equal to `srtb::config.baseband_input_count * srtb::config.baseband_input_bits / srtb::BITS_PER_BYTE`
  */
-struct unpack_work : public srtb::work::work<std::shared_ptr<std::byte> > {
-  /**
-   * @brief length of a single time sample in the input, come from @c srtb::config.baseband_input_bits
-   *        currently 1, 2, 4 and 8 bit(s) baseband input is implemented,
-   *        others will result in ... undefined behaviour.
-   */
-  int baseband_input_bits;
-  /**
-   * @brief let unpack_pipe to wait for host to device copy, so that
-   *        udp receiver pipe may lose less packet.
-   *        May be empty for other data sources that is not real-time.
-   */
-  sycl::event copy_event;
-};
+using unpack_work = srtb::work::work<std::shared_ptr<std::byte> >;
 
 /**
  * @brief contains a chunk of @c srtb::real that is to be FFT-ed.
@@ -197,7 +206,7 @@ struct unpack_work : public srtb::work::work<std::shared_ptr<std::byte> > {
 using fft_1d_r2c_work = srtb::work::work<std::shared_ptr<srtb::real> >;
 
 /**
- * @brief comtains a block of @c srtb::complex<srtb::real> with radio interference
+ * @brief contains a block of @c srtb::complex<srtb::real> with radio interference
  *        to be cleared out
  */
 using rfi_mitigation_work =
@@ -206,15 +215,11 @@ using rfi_mitigation_work =
 /**
  * @brief contains a piece of @c srtb::complex<srtb::real> to be coherently dedispersed
  */
-struct dedisperse_work
-    : public srtb::work::work<std::shared_ptr<srtb::complex<srtb::real> > > {
-  srtb::real dm;
-  srtb::real baseband_freq_low;
-  srtb::real baseband_sample_rate;
-};
+using dedisperse_work =
+    srtb::work::work<std::shared_ptr<srtb::complex<srtb::real> > >;
 
 /**
- * @brief contains @c batch_size * @c count of @c srtb::complex<srtb::real>
+ * @brief contains @c count of @c srtb::complex<srtb::real> in sfrequency domain
  *        to be inversed FFT-ed
  */
 using ifft_1d_c2c_work =
@@ -229,13 +234,19 @@ using refft_1d_c2c_work =
     srtb::work::work<std::shared_ptr<srtb::complex<srtb::real> > >;
 
 /**
+ * @brief contains complex dedispersed baseband data of total length @c count
+ *        to be FFT-ed with length @c spectrum_channel_count to get spectrum with
+ *        much higher time resolution.
+ */
+using watfft_1d_c2c_work =
+    srtb::work::work<std::shared_ptr<srtb::complex<srtb::real> > >;
+
+/**
  * @brief contains @c srtb::complex<srtb::real> to be taken norm and summed into
  *        time series, then try tp find signal in it.
  */
-struct signal_detect_work
-    : public srtb::work::work<std::shared_ptr<srtb::complex<srtb::real> > > {
-  size_t batch_size;
-};
+using signal_detect_work =
+    srtb::work::work<std::shared_ptr<srtb::complex<srtb::real> > >;
 
 /**
  * @brief contains info for a time series of a spectrum
@@ -254,26 +265,21 @@ struct time_series_holder {
  */
 struct baseband_output_work
     : public srtb::work::work<std::shared_ptr<srtb::complex<srtb::real> > > {
-  size_t batch_size;
   std::vector<time_series_holder> time_series;
 };
 
 /**
  * @brief contains @c srtb::complex<srtb::real> to be simplified into
  *        ~10^3 @c srtb::real to be displayed on GUI.
- * @note temporary work, just do a software-defined-radio receiver job.
+ *        Just like a software-defined-radio receiver.
  */
 using simplify_spectrum_work = baseband_output_work;
 
 /**
  * @brief contains ~10^3 * @c batch_size of @c srtb::real to be summed and drawn
  *        to a line of a pixmap. @c ptr should be host pointer.
- * @note temporary work, see above.
  */
-struct draw_spectrum_work
-    : public srtb::work::work<std::shared_ptr<srtb::real> > {
-  size_t batch_size;
-};
+using draw_spectrum_work = srtb::work::work<std::shared_ptr<srtb::real> >;
 
 /**
  * @brief contains ARGB8888 @c uint32_t of width * height, to be drawn onto screen
@@ -285,11 +291,6 @@ struct draw_spectrum_work_2 {
 };
 
 // work queues are in global_variables.hpp
-
-/**
- * @brief Dummy work as place holder for work queue / pipe work transfer
- */
-struct dummy_work {};
 
 }  // namespace work
 }  // namespace srtb

@@ -44,12 +44,9 @@ class copy_to_device_pipe {
     q.copy(h_in, /* -> */ d_in, baseband_input_bytes).wait();
 
     srtb::work::unpack_work unpack_work;
+    unpack_work.move_parameter_from(std::move(work));
     unpack_work.ptr = std::move(d_in_shared);
     unpack_work.count = baseband_input_bytes;
-    unpack_work.baseband_data = std::move(work.baseband_data);
-    unpack_work.timestamp = work.timestamp;
-    unpack_work.udp_packet_counter = work.udp_packet_counter;
-    unpack_work.baseband_input_bits = srtb::config.baseband_input_bits;
     return std::optional{unpack_work};
   }
 };
