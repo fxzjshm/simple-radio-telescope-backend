@@ -231,12 +231,12 @@ int main(int argc, char** argv) {
   std::jthread fft_1d_r2c_thread =
       srtb::pipeline::start_pipe<srtb::pipeline::fft_1d_r2c_pipe>(
           srtb::queue, srtb::pipeline::queue_in_functor{srtb::fft_1d_r2c_queue},
-          srtb::pipeline::queue_out_functor{srtb::rfi_mitigation_queue});
+          srtb::pipeline::queue_out_functor{srtb::rfi_mitigation_s1_queue});
 
-  std::jthread rfi_mitigation_thread =
-      srtb::pipeline::start_pipe<srtb::pipeline::rfi_mitigation_pipe>(
+  std::jthread rfi_mitigation_s1_thread =
+      srtb::pipeline::start_pipe<srtb::pipeline::rfi_mitigation_s1_pipe>(
           srtb::queue,
-          srtb::pipeline::queue_in_functor{srtb::rfi_mitigation_queue},
+          srtb::pipeline::queue_in_functor{srtb::rfi_mitigation_s1_queue},
           srtb::pipeline::queue_out_functor{srtb::dedisperse_queue});
 
   std::jthread dedisperse_thread =
@@ -260,7 +260,7 @@ int main(int argc, char** argv) {
       srtb::pipeline::start_pipe<srtb::pipeline::watfft_1d_c2c_pipe>(
           srtb::queue,
           srtb::pipeline::queue_in_functor{srtb::ifft_1d_c2c_queue},
-          srtb::pipeline::queue_out_functor{srtb::signal_detect_queue});
+          srtb::pipeline::queue_out_functor{srtb::rfi_mitigation_s2_queue});
 
   //std::jthread signal_detect_thread =
   //    srtb::pipeline::start_pipe<srtb::pipeline::signal_detect_pipe>(
@@ -271,14 +271,20 @@ int main(int argc, char** argv) {
   //            srtb::pipeline::queue_out_functor{
   //                srtb::simplify_spectrum_queue}});
 
+  std::jthread rfi_mitigation_s2_thread =
+      srtb::pipeline::start_pipe<srtb::pipeline::rfi_mitigation_s2_pipe>(
+          srtb::queue,
+          srtb::pipeline::queue_in_functor{srtb::rfi_mitigation_s2_queue},
+          srtb::pipeline::multiple_out_functor{
+              srtb::pipeline::queue_out_functor{srtb::signal_detect_queue},
+              srtb::pipeline::queue_out_functor{
+                  srtb::simplify_spectrum_queue}});
+
   std::jthread signal_detect_thread =
       srtb::pipeline::start_pipe<srtb::pipeline::signal_detect_pipe_2>(
           srtb::queue,
           srtb::pipeline::queue_in_functor{srtb::signal_detect_queue},
-          srtb::pipeline::multiple_out_functor{
-              srtb::pipeline::queue_out_functor{srtb::baseband_output_queue},
-              srtb::pipeline::queue_out_functor{
-                  srtb::simplify_spectrum_queue}});
+          srtb::pipeline::queue_out_functor{srtb::baseband_output_queue});
 
   std::jthread baseband_output_thread;
   if (srtb::config.baseband_write_all) {
@@ -320,11 +326,12 @@ int main(int argc, char** argv) {
   threads = std::move(input_thread);
   threads.push_back(std::move(unpack_thread));
   threads.push_back(std::move(fft_1d_r2c_thread));
-  threads.push_back(std::move(rfi_mitigation_thread));
+  threads.push_back(std::move(rfi_mitigation_s1_thread));
   threads.push_back(std::move(dedisperse_thread));
   //threads.push_back(std::move(ifft_1d_c2c_thread));
   //threads.push_back(std::move(refft_1d_c2c_thread));
   threads.push_back(std::move(watfft_1d_c2c_thread));
+  threads.push_back(std::move(rfi_mitigation_s2_thread));
   threads.push_back(std::move(signal_detect_thread));
   threads.push_back(std::move(baseband_output_thread));
   threads.push_back(std::move(simplify_spectrum_thread));

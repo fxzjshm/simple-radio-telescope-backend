@@ -29,7 +29,7 @@ namespace pipeline {
  *        using average intensity of frequency channels and manually set ranges.
  * @note another RFI mitigation using spectral kurtosis is in signal_detect_pipe
  */
-class rfi_mitigation_pipe {
+class rfi_mitigation_s1_pipe {
  protected:
   sycl::queue q;
   /** @brief frequency ranges that is manuallly set in config by user */
@@ -38,18 +38,18 @@ class rfi_mitigation_pipe {
   std::vector<srtb::spectrum::rfi_range_type> rfi_ranges;
 
  public:
-  rfi_mitigation_pipe(sycl::queue q_) : q{q_} {}
+  rfi_mitigation_s1_pipe(sycl::queue q_) : q{q_} {}
 
   auto operator()([[maybe_unused]] std::stop_token stop_token,
-                  srtb::work::rfi_mitigation_work rfi_mitigation_work) {
-    //srtb::work::rfi_mitigation_work rfi_mitigation_work;
+                  srtb::work::rfi_mitigation_s1_work rfi_mitigation_s1_work) {
+    //srtb::work::rfi_mitigation_s1_work rfi_mitigation_s1_work;
     //SRTB_POP_WORK_OR_RETURN(" [rfi mitigation pipe] ",
-    //                        srtb::rfi_mitigation_queue, rfi_mitigation_work,
+    //                        srtb::rfi_mitigation_s1_queue, rfi_mitigation_s1_work,
     //                        stop_token);
 
-    auto d_in_shared = rfi_mitigation_work.ptr;
+    auto d_in_shared = rfi_mitigation_s1_work.ptr;
     auto d_in = d_in_shared.get();
-    const size_t in_count = rfi_mitigation_work.count;
+    const size_t in_count = rfi_mitigation_s1_work.count;
 
     // mitigate using average method & normalize
     {
@@ -100,7 +100,7 @@ class rfi_mitigation_pipe {
 
     // shortcut
     //srtb::work::simplify_spectrum_work simplify_spectrum_work;
-    //simplify_spectrum_work.move_parameter_from(std::move(rfi_mitigation_work));
+    //simplify_spectrum_work.move_parameter_from(std::move(rfi_mitigation_s1_work));
     //simplify_spectrum_work.ptr = d_in_shared;
     //simplify_spectrum_work.count = in_count;
     //simplify_spectrum_work.batch_size = 1;
@@ -108,12 +108,41 @@ class rfi_mitigation_pipe {
     //               simplify_spectrum_work);
 
     srtb::work::dedisperse_work dedisperse_work;
-    dedisperse_work.move_parameter_from(std::move(rfi_mitigation_work));
+    dedisperse_work.move_parameter_from(std::move(rfi_mitigation_s1_work));
     dedisperse_work.ptr = d_in_shared;
     dedisperse_work.count = in_count;
     //SRTB_PUSH_WORK_OR_RETURN(" [rfi mitigation pipe] ", srtb::dedisperse_queue,
     //                         dedisperse_work, stop_token);
     return std::optional{dedisperse_work};
+  }
+};
+
+/**
+ * @brief this pipe mitigates radio frequency interferences (RFI)
+ *        using average intensity of frequency channels and manually set ranges.
+ * @note another RFI mitigation using spectral kurtosis is in signal_detect_pipe
+ */
+class rfi_mitigation_s2_pipe {
+ public:
+  sycl::queue q;
+
+  auto operator()([[maybe_unused]] std::stop_token stop_token,
+                  srtb::work::rfi_mitigation_s2_work rfi_mitigation_s2_work) {
+    auto d_in_shared = rfi_mitigation_s2_work.ptr;
+    auto d_in = d_in_shared.get();
+    const size_t time_sample_count = rfi_mitigation_s2_work.count;
+    const size_t frequency_bin_count = rfi_mitigation_s2_work.batch_size;
+
+    srtb::spectrum::mitigate_rfi_spectral_kurtosis_method_2(
+        d_in, time_sample_count, frequency_bin_count,
+        srtb::config.mitigate_rfi_spectral_kurtosis_threshold, q);
+
+    srtb::work::signal_detect_work signal_detect_work;
+    signal_detect_work.move_parameter_from(std::move(rfi_mitigation_s2_work));
+    signal_detect_work.ptr = d_in_shared;
+    signal_detect_work.count = time_sample_count;
+    signal_detect_work.batch_size = frequency_bin_count;
+    return std::optional{signal_detect_work};
   }
 };
 

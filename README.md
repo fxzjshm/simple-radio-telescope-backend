@@ -39,10 +39,10 @@ graph LR;
   read_file_pipe(read <br/> file <br/> pipe);
   unpack_pipe(unpack <br/> pipe);
   fft_1d_r2c_pipe(fft <br/> 1d r2c <br/> pipe);
-  rfi_mitigation_pipe_stage1(rfi <br/> mitigation <br/> pipe <br/> stage 1);
+  rfi_mitigation_s1_pipe("rfi <br/> mitigation <br/> (stage 1) <br/> pipe");
   dedisperse_pipe(dedisperse <br/> pipe);
   watfft_1d_c2c_pipe(waterfall <br/> fft <br/> 1d c2c <br/> pipe);
-  rfi_mitigation_pipe_stage2(rfi <br/> mitigation <br/> pipe <br/> stage 2);
+  rfi_mitigation_s2_pipe("rfi <br/> mitigation <br/> (stage 2) <br/> pipe");
   signal_detect_pipe(signal <br/> detect <br/> pipe);
   baseband_output_pipe(baseband <br/> output <br/> pipe);
   simplify_spectrum_pipe(simplify <br/> spectrum <br/> pipe);
@@ -50,14 +50,12 @@ graph LR;
 
   udp_receiver_pipe --> unpack_pipe;
   read_file_pipe --> unpack_pipe;
-  unpack_pipe --> fft_1d_r2c_pipe --> rfi_mitigation_pipe_stage1 --> dedisperse_pipe --> watfft_1d_c2c_pipe --> rfi_mitigation_pipe_stage2 --> signal_detect_pipe;
+  unpack_pipe --> fft_1d_r2c_pipe --> rfi_mitigation_s1_pipe --> dedisperse_pipe --> watfft_1d_c2c_pipe --> rfi_mitigation_s2_pipe --> signal_detect_pipe;
   signal_detect_pipe --> simplify_spectrum_pipe;
   signal_detect_pipe --> baseband_output_pipe;
   baseband_output_pipe
   simplify_spectrum_pipe --> gui
 ```
-
-(`rfi_mitigation_pipe_stage2` hasn't been separated from `signal_detect_pipe` in code)
 
 ## Building
 Note that this repository has submodule for dependency management, don't forget to add `--recursive` when cloning this git repo, or use

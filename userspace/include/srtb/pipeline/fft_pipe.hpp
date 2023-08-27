@@ -25,7 +25,7 @@ namespace pipeline {
 
 /**
  * @brief This pipe reads from @c srtb::fft_1d_r2c_queue , perform FFT by calling
- *        @c srtb::fft::dispatch_1d_r2c , then push result to @c srtb::rfi_mitigation_queue
+ *        @c srtb::fft::dispatch_1d_r2c , then push result to @c srtb::rfi_mitigation_s1_queue
  */
 class fft_1d_r2c_pipe {
  protected:
@@ -71,15 +71,15 @@ class fft_1d_r2c_pipe {
     // because std::reinterpret_pointer_cast() "share ownership with the initial value of r"
     d_in_shared.reset();
 
-    srtb::work::rfi_mitigation_work rfi_mitigation_work;
-    rfi_mitigation_work.move_parameter_from(std::move(fft_1d_r2c_work));
-    rfi_mitigation_work.ptr = d_out_shared;
+    srtb::work::rfi_mitigation_s1_work rfi_mitigation_s1_work;
+    rfi_mitigation_s1_work.move_parameter_from(std::move(fft_1d_r2c_work));
+    rfi_mitigation_s1_work.ptr = d_out_shared;
     // drop the highest frequency point
     // *Drop*  -- LinusTechTips
-    rfi_mitigation_work.count = out_count - 1;
-    //SRTB_PUSH_WORK_OR_RETURN(" [fft 1d r2c pipe] ", srtb::rfi_mitigation_queue,
-    //                         rfi_mitigation_work, stop_token);
-    return std::optional{rfi_mitigation_work};
+    rfi_mitigation_s1_work.count = out_count - 1;
+    //SRTB_PUSH_WORK_OR_RETURN(" [fft 1d r2c pipe] ", srtb::rfi_mitigation_s1_queue,
+    //                         rfi_mitigation_s1_work, stop_token);
+    return std::optional{rfi_mitigation_s1_work};
   }
 };
 

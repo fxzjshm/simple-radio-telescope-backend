@@ -208,8 +208,9 @@ using fft_1d_r2c_work = srtb::work::work<std::shared_ptr<srtb::real> >;
 /**
  * @brief contains a block of @c srtb::complex<srtb::real> with radio interference
  *        to be cleared out
+ * @note stage 1: whole data is frequency domain, i,e, batch_size = 1.
  */
-using rfi_mitigation_work =
+using rfi_mitigation_s1_work =
     srtb::work::work<std::shared_ptr<srtb::complex<srtb::real> > >;
 
 /**
@@ -219,7 +220,7 @@ using dedisperse_work =
     srtb::work::work<std::shared_ptr<srtb::complex<srtb::real> > >;
 
 /**
- * @brief contains @c count of @c srtb::complex<srtb::real> in sfrequency domain
+ * @brief contains @c count of @c srtb::complex<srtb::real> in frequency domain
  *        to be inversed FFT-ed
  */
 using ifft_1d_c2c_work =
@@ -239,6 +240,14 @@ using refft_1d_c2c_work =
  *        much higher time resolution.
  */
 using watfft_1d_c2c_work =
+    srtb::work::work<std::shared_ptr<srtb::complex<srtb::real> > >;
+
+/**
+ * @brief contains a block of @c srtb::complex<srtb::real> with radio interference
+ *        to be cleared out
+ * @note stage 2: work on dynamic spectrum, count: count in time axis, batch_size: count in frequency axis
+ */
+using rfi_mitigation_s2_work =
     srtb::work::work<std::shared_ptr<srtb::complex<srtb::real> > >;
 
 /**
@@ -273,7 +282,8 @@ struct baseband_output_work
  *        ~10^3 @c srtb::real to be displayed on GUI.
  *        Just like a software-defined-radio receiver.
  */
-using simplify_spectrum_work = baseband_output_work;
+using simplify_spectrum_work =
+    srtb::work::work<std::shared_ptr<srtb::complex<srtb::real> > >;
 
 /**
  * @brief contains ~10^3 * @c batch_size of @c srtb::real to be summed and drawn

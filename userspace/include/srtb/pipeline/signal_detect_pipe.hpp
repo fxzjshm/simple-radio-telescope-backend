@@ -272,13 +272,7 @@ class signal_detect_pipe_2 {
     const size_t time_sample_count = signal_detect_work.count;
     const size_t frequency_bin_count = signal_detect_work.batch_size;
 
-    srtb::spectrum::mitigate_rfi_spectral_kurtosis_method_2(
-        d_in, time_sample_count, frequency_bin_count,
-        srtb::config.mitigate_rfi_spectral_kurtosis_threshold, q);
-
-    SRTB_LOGD << " [signal_detect_pipe_2] "
-              << "mitigate_rfi_spectral_kurtosis_method_2 finished"
-              << srtb::endl;
+    // RFI mitigation stage 2 moved to separate pipe
 
     size_t zero_count = 0;
     // count masked channels
