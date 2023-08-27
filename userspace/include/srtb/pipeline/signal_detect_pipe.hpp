@@ -141,9 +141,9 @@ class signal_detect_pipe {
 
     srtb::work::baseband_output_work baseband_output_work;
     baseband_output_work.copy_parameter_from(signal_detect_work);
-    baseband_output_work.ptr = nullptr;
-    baseband_output_work.count = 0;
-    baseband_output_work.batch_size = 0;
+    baseband_output_work.ptr = std::move(d_in_shared);
+    baseband_output_work.count = count_per_batch;
+    baseband_output_work.batch_size = batch_size;
 
     // if too many frequency channels are masked, result is often inaccurate
     if (zero_count <
@@ -234,9 +234,6 @@ class signal_detect_pipe {
 
     const bool has_signal = (baseband_output_work.time_series.size() > 0);
     if (has_signal) {
-      baseband_output_work.ptr = std::move(d_in_shared);
-      baseband_output_work.count = signal_detect_work.count;
-      baseband_output_work.batch_size = signal_detect_work.batch_size;
       SRTB_LOGI << " [signal_detect_pipe] "
                 << " signal detected in "
                 << baseband_output_work.time_series.size() << " time series"
@@ -383,9 +380,9 @@ class signal_detect_pipe_2 {
 
     srtb::work::baseband_output_work baseband_output_work;
     baseband_output_work.copy_parameter_from(signal_detect_work);
-    baseband_output_work.ptr = nullptr;
-    baseband_output_work.count = 0;
-    baseband_output_work.batch_size = 0;
+    baseband_output_work.ptr = std::move(d_in_shared);
+    baseband_output_work.count = time_sample_count;
+    baseband_output_work.batch_size = frequency_bin_count;
 
     // if too many frequency channels are masked, result is often inaccurate
     if (zero_count <
@@ -477,9 +474,6 @@ class signal_detect_pipe_2 {
 
     const bool has_signal = (baseband_output_work.time_series.size() > 0);
     if (has_signal) {
-      baseband_output_work.ptr = std::move(d_in_shared);
-      baseband_output_work.count = signal_detect_work.count;
-      baseband_output_work.batch_size = signal_detect_work.batch_size;
       SRTB_LOGI << " [signal_detect_pipe_2] "
                 << " signal detected in "
                 << baseband_output_work.time_series.size() << " time series"
