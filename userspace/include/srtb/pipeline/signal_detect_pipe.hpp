@@ -94,17 +94,6 @@ class signal_detect_pipe {
       q.copy(d_zero_count, &zero_count, 1).wait();
     }
 
-    if (SRTB_ENABLE_GUI && srtb::config.gui_enable) {
-      // temporary work: spectrum analyzer
-      srtb::work::simplify_spectrum_work simplify_spectrum_work;
-      simplify_spectrum_work.copy_parameter_from(signal_detect_work);
-      simplify_spectrum_work.ptr = d_in_shared;
-      simplify_spectrum_work.count = count_per_batch;
-      simplify_spectrum_work.batch_size = batch_size;
-      // just try once, in case GUI is stuck (e.g. when using X forwarding on SSH)
-      srtb::simplify_spectrum_queue.push(simplify_spectrum_work);
-    }
-
     // time series
     const size_t time_series_count = batch_size;
     auto d_time_series_shared =
@@ -140,7 +129,7 @@ class signal_detect_pipe {
     // time series is now available
 
     srtb::work::baseband_output_work baseband_output_work;
-    baseband_output_work.copy_parameter_from(signal_detect_work);
+    baseband_output_work.move_parameter_from(std::move(signal_detect_work));
     baseband_output_work.ptr = std::move(d_in_shared);
     baseband_output_work.count = count_per_batch;
     baseband_output_work.batch_size = batch_size;
@@ -316,17 +305,6 @@ class signal_detect_pipe_2 {
                 << "zero_count = " << zero_count << srtb::endl;
     }
 
-    if (SRTB_ENABLE_GUI && srtb::config.gui_enable) {
-      // temporary work: spectrum analyzer
-      srtb::work::simplify_spectrum_work simplify_spectrum_work;
-      simplify_spectrum_work.copy_parameter_from(signal_detect_work);
-      simplify_spectrum_work.ptr = d_in_shared;
-      simplify_spectrum_work.count = time_sample_count;
-      simplify_spectrum_work.batch_size = frequency_bin_count;
-      // just try once, in case GUI is stuck (e.g. when using X forwarding on SSH)
-      srtb::simplify_spectrum_queue.push(simplify_spectrum_work);
-    }
-
     // time series
     // Note: time_series_count <= time_sample_count, as some time samples are reserved for next segment
     size_t time_series_count;
@@ -379,7 +357,7 @@ class signal_detect_pipe_2 {
     // time series is now available
 
     srtb::work::baseband_output_work baseband_output_work;
-    baseband_output_work.copy_parameter_from(signal_detect_work);
+    baseband_output_work.move_parameter_from(std::move(signal_detect_work));
     baseband_output_work.ptr = std::move(d_in_shared);
     baseband_output_work.count = time_sample_count;
     baseband_output_work.batch_size = frequency_bin_count;
