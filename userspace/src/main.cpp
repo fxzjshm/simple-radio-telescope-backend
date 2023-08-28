@@ -31,18 +31,19 @@
 #include "srtb/pipeline/exit_handler.hpp"
 #include "srtb/pipeline/fft_pipe.hpp"
 #include "srtb/pipeline/framework/composite_pipe.hpp"
+#include "srtb/pipeline/framework/dummy_pipe.hpp"
 #include "srtb/pipeline/framework/pipe.hpp"
 #include "srtb/pipeline/framework/pipe_io.hpp"
 #include "srtb/pipeline/read_file_pipe.hpp"
 #include "srtb/pipeline/rfi_mitigation_pipe.hpp"
 #include "srtb/pipeline/signal_detect_pipe.hpp"
+#include "srtb/pipeline/spectrum_pipe.hpp"
 #include "srtb/pipeline/udp_receiver_pipe.hpp"
 #include "srtb/pipeline/unpack_pipe.hpp"
 #include "srtb/program_options.hpp"
 
 #if SRTB_ENABLE_GUI
 #include "srtb/gui/gui.hpp"
-#include "srtb/pipeline/spectrum_pipe.hpp"
 #endif  // SRTB_ENABLE_GUI
 
 namespace srtb {
@@ -307,8 +308,7 @@ int main(int argc, char** argv) {
   }
 
   std::jthread simplify_spectrum_thread;
-#if SRTB_ENABLE_GUI
-  if (srtb::config.gui_enable) {
+  if (SRTB_ENABLE_GUI && srtb::config.gui_enable) {
     //simplify_spectrum_thread =
     //    srtb::pipeline::start_pipe<srtb::pipeline::simplify_spectrum_pipe>(
     //        srtb::queue,
@@ -319,8 +319,13 @@ int main(int argc, char** argv) {
             srtb::queue,
             srtb::pipeline::queue_in_functor{srtb::simplify_spectrum_queue},
             srtb::pipeline::queue_out_functor{srtb::draw_spectrum_queue_2});
+  } else {
+    simplify_spectrum_thread =
+        srtb::pipeline::start_pipe<srtb::pipeline::dummy_pipe<> >(
+            srtb::queue,
+            srtb::pipeline::queue_in_functor{srtb::simplify_spectrum_queue},
+            srtb::pipeline::dummy_out_functor<srtb::work::dummy_work>{});
   }
-#endif  // SRTB_ENABLE_GUI
 
   std::vector<std::jthread> threads;
   threads = std::move(input_thread);
