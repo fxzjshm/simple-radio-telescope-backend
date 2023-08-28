@@ -278,7 +278,7 @@ int main(int argc, char** argv) {
           srtb::pipeline::queue_in_functor{srtb::rfi_mitigation_s2_queue},
           srtb::pipeline::multiple_out_functor{
               srtb::pipeline::queue_out_functor{srtb::signal_detect_queue},
-              srtb::pipeline::queue_out_functor{
+              srtb::pipeline::loose_queue_out_functor{
                   srtb::simplify_spectrum_queue}});
 
   std::jthread signal_detect_thread =

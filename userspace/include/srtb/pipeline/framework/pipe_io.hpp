@@ -75,6 +75,24 @@ class queue_out_functor {
   }
 };
 
+/** @brief This functor pushes output work to work queue, but only try once */
+template <typename Queue>
+class loose_queue_out_functor {
+ protected:
+  Queue& work_queue;
+  using Work = typename Queue::work_type;
+
+ public:
+  explicit loose_queue_out_functor(Queue& work_queue_)
+      : work_queue{work_queue_} {}
+
+  auto operator()(std::stop_token stop_token, Work work) {
+    if (!stop_token.stop_requested()) [[likely]] {
+      work_queue.push(work);
+    }
+  }
+};
+
 /** @brief This functor copies work and give it to multiple out functors. */
 template <typename... OutFunctors>
 class multiple_out_functor {
