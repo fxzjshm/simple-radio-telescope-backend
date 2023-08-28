@@ -150,20 +150,33 @@ template <typename PipeFunctor, typename InFunctor, typename OutFunctor,
           typename... Args>
 static std::jthread start_pipe(sycl::queue q, InFunctor in_functor,
                                OutFunctor out_functor, Args... args) {
+  // (over)use shared_ptr to manage memory, to reduce memory error
+  std::shared_ptr is_pipe_initialized =
+      std::make_shared<std::atomic<bool> >(false);
   std::jthread jthread{
-      [=](std::stop_token stop_token, Args... args) {
+      [is_pipe_initialized, q, in_functor, out_functor](
+          std::stop_token stop_token, Args... args) mutable {
         // the pipe lives on its thread
         srtb::pipeline::pipe<PipeFunctor, InFunctor, OutFunctor> pipe{
             PipeFunctor{q, args...}, in_functor, out_functor};
+        *is_pipe_initialized = true;
+        is_pipe_initialized.reset();
         pipe.run(stop_token);
       },
       args...};
+
 #if __has_include(<pthread.h>)
   const std::string thread_name = generate_thread_name<PipeFunctor>();
   pthread_setname_np(jthread.native_handle(), thread_name.c_str());
 #else
 #warning not setting thread name of pipe (TODO)
 #endif
+
+  while (*is_pipe_initialized == false) {
+    std::this_thread::sleep_for(
+        std::chrono::nanoseconds(srtb::config.thread_query_work_wait_time));
+  }
+
   return jthread;
 }
 

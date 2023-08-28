@@ -171,42 +171,6 @@ int main(int argc, char** argv) {
     srtb::queue.single_task([=]() { (*d_out) = srtb::real{42}; }).wait();
   }
 
-  // TODO: maybe multiple file input or something else
-  size_t input_pipe_count =
-      std::max(std::max(srtb::config.udp_receiver_sender_address.size(),
-                        srtb::config.udp_receiver_sender_port.size()),
-               size_t{1});
-
-  // TODO std::jthread for other pipelines
-
-  std::vector<std::jthread> input_thread;
-  auto input_file_path = srtb::config.input_file_path;
-  if (std::filesystem::exists(input_file_path)) {
-    SRTB_LOGI << " [main] "
-              << "Reading file " << input_file_path << srtb::endl;
-    input_thread.push_back(
-        srtb::pipeline::start_pipe<srtb::pipeline::read_file_pipe>(
-            srtb::queue, srtb::pipeline::dummy_in_functor{},
-            srtb::pipeline::queue_out_functor{srtb::copy_to_device_queue}));
-    input_pipe_count = 1;
-  } else {
-    if (input_file_path != "") {
-      SRTB_LOGE << " [main] "
-                << "Cannot read file " << input_file_path << srtb::endl;
-      return EXIT_FAILURE;
-    }
-    SRTB_LOGI << " [main] "
-              << "Receiving UDP packets" << srtb::endl;
-    allocate_memory_regions(input_pipe_count);
-    for (size_t i = 0; i < input_pipe_count; i++) {
-      input_thread.push_back(
-          srtb::pipeline::start_pipe<srtb::pipeline::udp_receiver_pipe>(
-              srtb::queue, srtb::pipeline::dummy_in_functor{},
-              srtb::pipeline::queue_out_functor{srtb::copy_to_device_queue},
-              /* id = */ i));
-    }
-  }
-
   // init matplotlib
   {
     namespace plt = matplotlibcpp;
@@ -221,6 +185,8 @@ int main(int argc, char** argv) {
     plt::plot(points);
     plt::cla();
   }
+
+  // setup threads for pipes
 
   std::jthread unpack_thread =
       srtb::pipeline::start_pipe<srtb::pipeline::composite_pipe<
@@ -325,6 +291,40 @@ int main(int argc, char** argv) {
             srtb::queue,
             srtb::pipeline::queue_in_functor{srtb::simplify_spectrum_queue},
             srtb::pipeline::dummy_out_functor<srtb::work::dummy_work>{});
+  }
+
+  // TODO: maybe multiple file input or something else
+  size_t input_pipe_count =
+      std::max(std::max(srtb::config.udp_receiver_sender_address.size(),
+                        srtb::config.udp_receiver_sender_port.size()),
+               size_t{1});
+
+  std::vector<std::jthread> input_thread;
+  auto input_file_path = srtb::config.input_file_path;
+  if (std::filesystem::exists(input_file_path)) {
+    SRTB_LOGI << " [main] "
+              << "Reading file " << input_file_path << srtb::endl;
+    input_thread.push_back(
+        srtb::pipeline::start_pipe<srtb::pipeline::read_file_pipe>(
+            srtb::queue, srtb::pipeline::dummy_in_functor{},
+            srtb::pipeline::queue_out_functor{srtb::copy_to_device_queue}));
+    input_pipe_count = 1;
+  } else {
+    if (input_file_path != "") {
+      SRTB_LOGE << " [main] "
+                << "Cannot read file " << input_file_path << srtb::endl;
+      return EXIT_FAILURE;
+    }
+    SRTB_LOGI << " [main] "
+              << "Receiving UDP packets" << srtb::endl;
+    allocate_memory_regions(input_pipe_count);
+    for (size_t i = 0; i < input_pipe_count; i++) {
+      input_thread.push_back(
+          srtb::pipeline::start_pipe<srtb::pipeline::udp_receiver_pipe>(
+              srtb::queue, srtb::pipeline::dummy_in_functor{},
+              srtb::pipeline::queue_out_functor{srtb::copy_to_device_queue},
+              /* id = */ i));
+    }
   }
 
   std::vector<std::jthread> threads;
