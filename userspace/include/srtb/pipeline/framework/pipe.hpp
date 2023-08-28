@@ -117,7 +117,10 @@ class pipe {
   void run(std::stop_token stop_token) {
     const auto class_name = type_helper<PipeFunctor>{}.class_name();
     const auto tag = " [" + class_name + "] ";
+
+    SRTB_LOGD << tag << "starting" << srtb::endl;
     srtb::pipeline::running_pipe_count++;
+
     while (is_running(stop_token)) [[likely]] {
       std::optional opt_in_work = in_functor(stop_token);
       if (!is_running(stop_token) || !opt_in_work) [[unlikely]] {
@@ -133,7 +136,9 @@ class pipe {
       out_functor(stop_token, out_work);
       SRTB_LOGD << tag << "work finished" << srtb::endl;
     }
+
     srtb::pipeline::running_pipe_count--;
+    SRTB_LOGD << tag << "stopped" << srtb::endl;
   }
 };
 
