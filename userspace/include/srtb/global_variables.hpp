@@ -126,6 +126,11 @@ inline std::atomic<bool> need_more_work = false;
  */
 inline std::atomic<bool> no_more_work = false;
 
+/**
+ * @brief count of works in a pipeline.
+ */
+inline std::atomic<int32_t> work_in_pipeline_count = 0;
+
 }  // namespace pipeline
 
 // termination_handler_v in termination_handler.hpp because termination_handler needs it.

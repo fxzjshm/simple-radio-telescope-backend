@@ -254,6 +254,11 @@ int main(int argc, char** argv) {
           srtb::pipeline::queue_out_functor{srtb::baseband_output_queue});
 
   std::jthread baseband_output_thread;
+  auto decrease_work_count = []([[maybe_unused]] std::stop_token stop_token,
+                                [[maybe_unused]] auto work) {
+    srtb::pipeline::work_in_pipeline_count--;
+    assert(srtb::pipeline::work_in_pipeline_count >= 0);
+  };
   if (srtb::config.baseband_write_all) {
     SRTB_LOGW << " [main] "
               << "Writing all baseband data, take care of disk space!"
@@ -263,14 +268,14 @@ int main(int argc, char** argv) {
             /* continuous_write = */ true> >(
             srtb::queue,
             srtb::pipeline::queue_in_functor{srtb::baseband_output_queue},
-            srtb::pipeline::dummy_out_functor<srtb::work::dummy_work>{});
+            decrease_work_count);
   } else {
     baseband_output_thread =
         srtb::pipeline::start_pipe<srtb::pipeline::baseband_output_pipe<
             /* continuous_write = */ false> >(
             srtb::queue,
             srtb::pipeline::queue_in_functor{srtb::baseband_output_queue},
-            srtb::pipeline::dummy_out_functor<srtb::work::dummy_work>{});
+            decrease_work_count);
   }
 
   std::jthread simplify_spectrum_thread;
@@ -306,7 +311,21 @@ int main(int argc, char** argv) {
               << "Reading file " << input_file_path << srtb::endl;
     input_thread.push_back(
         srtb::pipeline::start_pipe<srtb::pipeline::read_file_pipe>(
-            srtb::queue, srtb::pipeline::dummy_in_functor{},
+            srtb::queue,
+            // wait until last work finishes
+            [](std::stop_token stop_token) {
+              while ((!(stop_token.stop_possible() &&
+                        stop_token.stop_requested())) &&
+                     srtb::pipeline::work_in_pipeline_count != 0) {
+                std::this_thread::sleep_for(std::chrono::nanoseconds(
+                    srtb::config.thread_query_work_wait_time));
+              }
+              if (stop_token.stop_requested()) {
+                return std::optional<srtb::work::dummy_work>{};
+              }
+              srtb::pipeline::work_in_pipeline_count++;
+              return std::optional{srtb::work::dummy_work{}};
+            },
             srtb::pipeline::queue_out_functor{srtb::copy_to_device_queue}));
     input_pipe_count = 1;
   } else {
@@ -321,7 +340,12 @@ int main(int argc, char** argv) {
     for (size_t i = 0; i < input_pipe_count; i++) {
       input_thread.push_back(
           srtb::pipeline::start_pipe<srtb::pipeline::udp_receiver_pipe>(
-              srtb::queue, srtb::pipeline::dummy_in_functor{},
+              srtb::queue,
+              // don't wait for last work
+              []([[maybe_unused]] std::stop_token stop_token) {
+                srtb::pipeline::work_in_pipeline_count++;
+                return std::optional{srtb::work::dummy_work{}};
+              },
               srtb::pipeline::queue_out_functor{srtb::copy_to_device_queue},
               /* id = */ i));
     }
