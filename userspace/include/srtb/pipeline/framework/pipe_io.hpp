@@ -95,12 +95,12 @@ class loose_queue_out_functor {
 
 /** @brief This functor copies work and give it to multiple out functors. */
 template <typename... OutFunctors>
-class multiple_out_functor {
+class multiple_out_functors_functor {
   // ref: https://stackoverflow.com/questions/54631547/using-stdapply-with-variadic-packs/54631721
  public:
   std::tuple<OutFunctors...> out_functors;
 
-  explicit multiple_out_functor(OutFunctors... out_functors_)
+  explicit multiple_out_functors_functor(OutFunctors... out_functors_)
       : out_functors{out_functors_...} {}
 
   template <typename Work>
@@ -108,6 +108,27 @@ class multiple_out_functor {
     std::apply(
         [=](auto&... out_functor) { (out_functor(stop_token, work), ...); },
         out_functors);
+  }
+};
+
+/** 
+ * @brief This functor iterates over container and extract all of them.
+ *        Useful if a pipe input 1 work but output multiple works
+ */
+template <typename OutFunctor>
+class multiple_works_out_functor {
+  // ref: https://stackoverflow.com/questions/54631547/using-stdapply-with-variadic-packs/54631721
+ public:
+  OutFunctor out_functor;
+
+  template <typename WorkContainer>
+  auto operator()(std::stop_token stop_token, WorkContainer work_container) {
+    for (auto&& work : work_container) {
+      if (stop_token.stop_requested()) {
+        return;
+      }
+      out_functor(stop_token, work);
+    }
   }
 };
 
