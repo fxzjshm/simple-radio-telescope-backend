@@ -100,7 +100,7 @@ class multiple_out_functor {
  public:
   std::tuple<OutFunctors...> out_functors;
 
-  explicit multiple_out_functor(OutFunctors&&... out_functors_)
+  explicit multiple_out_functor(OutFunctors... out_functors_)
       : out_functors{out_functors_...} {}
 
   template <typename Work>

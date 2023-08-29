@@ -305,6 +305,11 @@ int main(int argc, char** argv) {
                size_t{1});
 
   std::vector<std::jthread> input_thread;
+  auto increase_work_count = []([[maybe_unused]] std::stop_token stop_token,
+                                [[maybe_unused]] auto work) {
+    srtb::pipeline::work_in_pipeline_count++;
+    assert(srtb::pipeline::work_in_pipeline_count >= 0);
+  };
   auto input_file_path = srtb::config.input_file_path;
   if (std::filesystem::exists(input_file_path)) {
     SRTB_LOGI << " [main] "
@@ -323,10 +328,11 @@ int main(int argc, char** argv) {
               if (stop_token.stop_requested()) {
                 return std::optional<srtb::work::dummy_work>{};
               }
-              srtb::pipeline::work_in_pipeline_count++;
               return std::optional{srtb::work::dummy_work{}};
             },
-            srtb::pipeline::queue_out_functor{srtb::copy_to_device_queue}));
+            srtb::pipeline::multiple_out_functor{
+                srtb::pipeline::queue_out_functor{srtb::copy_to_device_queue},
+                increase_work_count}));
     input_pipe_count = 1;
   } else {
     if (input_file_path != "") {
@@ -346,7 +352,9 @@ int main(int argc, char** argv) {
                 srtb::pipeline::work_in_pipeline_count++;
                 return std::optional{srtb::work::dummy_work{}};
               },
-              srtb::pipeline::queue_out_functor{srtb::copy_to_device_queue},
+              srtb::pipeline::multiple_out_functor{
+                  srtb::pipeline::queue_out_functor{srtb::copy_to_device_queue},
+                  increase_work_count},
               /* id = */ i));
     }
   }
@@ -378,13 +386,29 @@ int main(int argc, char** argv) {
     return_value = srtb::gui::show_gui(argc, argv, std::move(threads));
   } else {
 #endif  // SRTB_ENABLE_GUI
-    while (!(srtb::pipeline::no_more_work &&
-             srtb::baseband_output_queue.read_available() == 0)) {
+
+    // wait for first work
+    while (srtb::pipeline::work_in_pipeline_count == 0) {
       std::this_thread::sleep_for(
           std::chrono::nanoseconds(srtb::config.thread_query_work_wait_time));
     }
+
+    // TODO: assume threads at beginning are work producers
+    for (size_t i = 0; i < input_pipe_count; i++) {
+      if (threads.at(i).joinable()) {
+        threads.at(i).join();
+      }
+    }
+
+    // wait for last work
+    while (srtb::pipeline::work_in_pipeline_count != 0) {
+      std::this_thread::sleep_for(
+          std::chrono::nanoseconds(srtb::config.thread_query_work_wait_time));
+    }
+
     srtb::pipeline::on_exit(std::move(threads));
     return_value = EXIT_SUCCESS;
+
 #if SRTB_ENABLE_GUI
   }
 #endif  // SRTB_ENABLE_GUI
