@@ -44,14 +44,6 @@ class udp_receiver_pipe {
   // init of worker is deferred because this pipe may not be used,
   // and failure of binding address will result in a error
   udp_receiver_pipe(sycl::queue q_, size_t id_ = 0) : q{q_}, id{id_} {
-    // wait until other pipes have set up
-    while (srtb::pipeline::running_pipe_count !=
-           srtb::pipeline::expected_running_pipe_count -
-               srtb::pipeline::expected_input_pipe_count) {
-      std::this_thread::sleep_for(
-          std::chrono::nanoseconds(srtb::config.thread_query_work_wait_time));
-    }
-
     std::string sender_address;
     {
       const auto& sender_addresses = srtb::config.udp_receiver_sender_address;

@@ -373,12 +373,6 @@ int main(int argc, char** argv) {
   threads.push_back(std::move(baseband_output_thread));
   threads.push_back(std::move(simplify_spectrum_thread));
 
-  // assuming pipe threads are joinable
-  srtb::pipeline::expected_running_pipe_count =
-      std::count_if(threads.begin(), threads.end(),
-                    [](std::jthread& thread) { return thread.joinable(); });
-  srtb::pipeline::expected_input_pipe_count = input_pipe_count;
-
   int return_value;
 
 #if SRTB_ENABLE_GUI

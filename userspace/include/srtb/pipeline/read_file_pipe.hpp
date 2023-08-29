@@ -36,15 +36,6 @@ class read_file_pipe {
 
  public:
   read_file_pipe(sycl::queue q_) : q{q_} {
-    //// wait until other pipes have set up
-    //while (srtb::pipeline::running_pipe_count !=
-    //           srtb::pipeline::expected_running_pipe_count -
-    //               srtb::pipeline::expected_input_pipe_count ||
-    //       stop_token.stop_requested()) {
-    //  std::this_thread::sleep_for(
-    //      std::chrono::nanoseconds(srtb::config.thread_query_work_wait_time));
-    //}
-
     auto file_path = srtb::config.input_file_path;
     auto input_file_offset_bytes = srtb::config.input_file_offset_bytes;
 
