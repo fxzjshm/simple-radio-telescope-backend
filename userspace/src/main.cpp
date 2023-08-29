@@ -214,10 +214,21 @@ int main(int argc, char** argv) {
   // setup threads for pipes
   using namespace srtb::pipeline;
 
-  std::jthread unpack_thread = srtb::pipeline::start_pipe<
-      composite_pipe<copy_to_device_pipe, unpack_pipe> >(
-      q, queue_in_functor{copy_to_device_queue},
-      queue_out_functor{fft_1d_r2c_queue});
+  std::jthread unpack_thread;
+  if (srtb::config.baseband_format_type.starts_with("interleaved_samples_2")) {
+    unpack_thread = srtb::pipeline::start_pipe<composite_pipe<
+        copy_to_device_pipe, unpack_interleaved_samples_2_pipe> >(
+        q, queue_in_functor{copy_to_device_queue},
+        multiple_works_out_functor{queue_out_functor{fft_1d_r2c_queue}});
+  } else if (srtb::config.baseband_format_type == "simple") {
+    unpack_thread = srtb::pipeline::start_pipe<
+        composite_pipe<copy_to_device_pipe, unpack_pipe> >(
+        q, queue_in_functor{copy_to_device_queue},
+        queue_out_functor{fft_1d_r2c_queue});
+  } else {
+    throw std::runtime_error{"[main] Unknown baseband_format_type = " +
+                             srtb::config.baseband_format_type};
+  }
 
   std::jthread fft_1d_r2c_thread = srtb::pipeline::start_pipe<fft_1d_r2c_pipe>(
       q, queue_in_functor{fft_1d_r2c_queue},
@@ -253,7 +264,7 @@ int main(int argc, char** argv) {
   //    srtb::pipeline::start_pipe<signal_detect_pipe>(
   //        q,
   //        queue_in_functor{srtb::signal_detect_queue},
-  //        multiple_out_functor{
+  //        multiple_out_functors_functor{
   //            queue_out_functor{srtb::baseband_output_queue},
   //            queue_out_functor{
   //                srtb::simplify_spectrum_queue}});
@@ -261,7 +272,7 @@ int main(int argc, char** argv) {
   std::jthread rfi_mitigation_s2_thread =
       srtb::pipeline::start_pipe<rfi_mitigation_s2_pipe>(
           q, queue_in_functor{rfi_mitigation_s2_queue},
-          multiple_out_functor{
+          multiple_out_functors_functor{
               queue_out_functor{signal_detect_queue},
               loose_queue_out_functor{simplify_spectrum_queue}});
 
@@ -337,7 +348,7 @@ int main(int argc, char** argv) {
           }
           return std::optional{srtb::work::dummy_work{}};
         },
-        multiple_out_functor{queue_out_functor{copy_to_device_queue},
+        multiple_out_functors_functor{queue_out_functor{copy_to_device_queue},
                              increase_work_count}));
     input_pipe_count = 1;
   } else {
@@ -358,7 +369,7 @@ int main(int argc, char** argv) {
             (*work_in_pipeline_count)++;
             return std::optional{srtb::work::dummy_work{}};
           },
-          multiple_out_functor{queue_out_functor{copy_to_device_queue},
+          multiple_out_functors_functor{queue_out_functor{copy_to_device_queue},
                                increase_work_count},
           /* id = */ i));
     }

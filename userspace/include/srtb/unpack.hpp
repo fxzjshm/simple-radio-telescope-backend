@@ -204,6 +204,86 @@ inline void unpack(InputIterator d_in, OutputIterator d_out,
                                        srtb::algorithm::map_identity(), q);
 }
 
+// ----------------------------------------------------------------
+
+/** 
+ * @brief 2 basebands in one packet -> 2 segments of 1 baseband, 
+ *        in "1" "2" "1" "2" mode
+ */
+template <int IN_NBITS, typename InputIterator, typename OutputIterator,
+          typename TransformFunctor,
+          typename = typename std::enable_if<
+              (IN_NBITS == sizeof(typename std::iterator_traits<
+                                  InputIterator>::value_type) *
+                               srtb::BITS_PER_BYTE),
+              void>::type>
+inline void unpack_item(InputIterator in, OutputIterator out_1,
+                        OutputIterator out_2, const size_t x,
+                        TransformFunctor transform) {
+  using out_type = typename std::iterator_traits<OutputIterator>::value_type;
+
+  const auto in_val_1 = in[2 * x], in_val_2 = in[2 * x + 1];
+  out_1[x] = transform(x, static_cast<out_type>(in_val_1));
+  out_2[x] = transform(x, static_cast<out_type>(in_val_2));
+}
+
+template <int IN_NBITS, typename InputIterator, typename OutputIterator,
+          typename TransformFunctor>
+inline void unpack(InputIterator d_in, OutputIterator d_out_1,
+                   OutputIterator d_out_2, const size_t out_count,
+                   TransformFunctor transform, sycl::queue& q) {
+  using input_type = typename std::iterator_traits<InputIterator>::value_type;
+  static_assert((srtb::BITS_PER_BYTE * sizeof(input_type) == IN_NBITS));
+
+  const size_t range_size = out_count;
+
+  q.parallel_for(sycl::range<1>(range_size), [=](sycl::item<1> id) {
+     unpack_item<IN_NBITS>(d_in, d_out_1, d_out_2, id.get_id(0), transform);
+   }).wait();
+}
+
+// ----------------------------------------------------------------
+
+/** 
+ * @brief 2 basebands in one packet -> 2 segments of 1 baseband, 
+ *        in "1" "1" "2" "2" mode
+ */
+template <int IN_NBITS, typename InputIterator, typename OutputIterator,
+          typename TransformFunctor,
+          typename = typename std::enable_if<
+              (IN_NBITS == sizeof(typename std::iterator_traits<
+                                  InputIterator>::value_type) *
+                               srtb::BITS_PER_BYTE),
+              void>::type>
+inline void unpack_snap1_item(InputIterator in, OutputIterator out_1,
+                              OutputIterator out_2, const size_t x,
+                              TransformFunctor transform) {
+  using out_type = typename std::iterator_traits<OutputIterator>::value_type;
+
+  const auto in_val_1 = in[4 * x], in_val_2 = in[4 * x + 1],
+             in_val_3 = in[4 * x + 2], in_val_4 = in[4 * x + 3];
+  out_1[2 * x] = transform(2 * x, static_cast<out_type>(in_val_1));
+  out_1[2 * x + 1] = transform(2 * x + 1, static_cast<out_type>(in_val_2));
+  out_2[2 * x] = transform(2 * x, static_cast<out_type>(in_val_3));
+  out_2[2 * x + 1] = transform(2 * x + 1, static_cast<out_type>(in_val_4));
+}
+
+template <int IN_NBITS, typename InputIterator, typename OutputIterator,
+          typename TransformFunctor>
+inline void unpack_snap1(InputIterator d_in, OutputIterator d_out_1,
+                         OutputIterator d_out_2, const size_t out_count,
+                         TransformFunctor transform, sycl::queue& q) {
+  using input_type = typename std::iterator_traits<InputIterator>::value_type;
+  static_assert((srtb::BITS_PER_BYTE * sizeof(input_type) == IN_NBITS));
+
+  const size_t range_size = out_count / 2;
+
+  q.parallel_for(sycl::range<1>(range_size), [=](sycl::item<1> id) {
+     unpack_snap1_item<IN_NBITS>(d_in, d_out_1, d_out_2, id.get_id(0),
+                                 transform);
+   }).wait();
+}
+
 // runtime dispatch moved to unpack_pipe because reinterpret_cast is not generally available
 // for iterator of std::byte -> iterator of other types
 

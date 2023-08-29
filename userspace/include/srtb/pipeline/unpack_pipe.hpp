@@ -24,6 +24,8 @@ namespace pipeline {
 /**
  * @brief this pipe reads from @c srtb::unpack_queue, unpack and apply FFT window
  *        to input baseband data, then push work to @c srtb::fft_1d_r2c_queue
+ * @note this trivial unpack pipe unpacks 1 data source to 1 polarization,
+ *       correspond baseband_format_type = "simple"
  */
 class unpack_pipe {
  protected:
@@ -128,6 +130,127 @@ class unpack_pipe {
     fft_1d_r2c_work.ptr = d_out_shared;
     fft_1d_r2c_work.count = out_count;
     return std::optional{fft_1d_r2c_work};
+  }
+};
+
+/**
+ * @brief this pipe reads from @c srtb::unpack_queue, unpack and apply FFT window
+ *        to input baseband data, then push work to @c srtb::fft_1d_r2c_queue.
+ * @note this pipe unpacks interleaved 2 polarizations into 2 segments, each contains 1 polariztion.
+ *       pay attention that when 1 work is eaten by this pipe, 2 works are given out.
+ *       correspond baseband_format_type = "interleaved_samples_2"
+ */
+class unpack_interleaved_samples_2_pipe {
+ public:
+  using in_work_type = srtb::work::unpack_work;
+  using out_work_type = srtb::work::fft_1d_r2c_work;
+
+ protected:
+  sycl::queue q;
+  srtb::fft::fft_window_functor_manager<srtb::real, srtb::fft::default_window>
+      window_functor_manager;
+
+ public:
+  unpack_interleaved_samples_2_pipe(sycl::queue q_)
+      : q{q_},
+        window_functor_manager{srtb::fft::default_window{},
+                               /* n = */ srtb::config.baseband_input_count, q} {
+  }
+
+  auto operator()([[maybe_unused]] std::stop_token stop_token,
+                  srtb::work::unpack_work unpack_work) {
+    const int baseband_input_bits = srtb::config.baseband_input_bits;
+    // out_count is count in each d_out, so / 2 here
+    const size_t out_count = unpack_work.count * srtb::BITS_PER_BYTE /
+                             std::abs(baseband_input_bits) / 2;
+
+    // re-construct fft_window_functor_manager if length mismatch
+    if (out_count != window_functor_manager.functor.n) [[unlikely]] {
+      SRTB_LOGW << " [unpack pipe] "
+                << "re-construct fft_window_functor_manager of size "
+                << out_count << srtb::endl;
+      window_functor_manager =
+          srtb::fft::fft_window_functor_manager<srtb::real,
+                                                srtb::fft::default_window>{
+              srtb::fft::default_window{}, out_count, q};
+    }
+
+    auto& d_in_shared = unpack_work.ptr;
+    // size += 2 because fft_pipe may operate in-place
+    auto d_out_1_shared =
+        srtb::device_allocator.allocate_shared<srtb::real>(out_count + 2);
+    auto d_out_2_shared =
+        srtb::device_allocator.allocate_shared<srtb::real>(out_count + 2);
+    auto d_in = d_in_shared.get();
+    auto d_out_1 = d_out_1_shared.get();
+    auto d_out_2 = d_out_2_shared.get();
+
+    // runtime dispatch of different input bits
+    // TODO: baseband_input_bits = 1, 2, 4
+    if (baseband_input_bits == sizeof(uint8_t) * srtb::BITS_PER_BYTE) {
+      // 8 -> uint8_t / unsigned char / u8
+      using T = uint8_t;
+      srtb::unpack::unpack<sizeof(T) * srtb::BITS_PER_BYTE>(
+          reinterpret_cast<T*>(d_in), d_out_1, d_out_2, out_count,
+          window_functor_manager.functor, q);
+
+    } else if (baseband_input_bits ==
+               -int{sizeof(int8_t) * srtb::BITS_PER_BYTE}) {
+      // -8 -> int8_t / signed char / i8
+      using T = int8_t;
+      // std::string.contains (c++23) :(
+      if (srtb::config.baseband_format_type.find("snap1") !=
+          std::string::npos) {
+        srtb::unpack::unpack_snap1<sizeof(T) * srtb::BITS_PER_BYTE>(
+            reinterpret_cast<T*>(d_in), d_out_1, d_out_2, out_count,
+            window_functor_manager.functor, q);
+      } else {
+        srtb::unpack::unpack<sizeof(T) * srtb::BITS_PER_BYTE>(
+            reinterpret_cast<T*>(d_in), d_out_1, d_out_2, out_count,
+            window_functor_manager.functor, q);
+      }
+    } else if (baseband_input_bits ==
+               int{sizeof(uint16_t) * srtb::BITS_PER_BYTE}) {
+      // 16 -> uint16_t / unsigned short int / u16
+      using T = uint16_t;
+      srtb::unpack::unpack<sizeof(T) * srtb::BITS_PER_BYTE>(
+          reinterpret_cast<T*>(d_in), d_out_1, d_out_2, out_count,
+          window_functor_manager.functor, q);
+    } else if (baseband_input_bits ==
+               -int{sizeof(int16_t) * srtb::BITS_PER_BYTE}) {
+      // -16 -> int16_t / signed short int / i16
+      using T = int16_t;
+      srtb::unpack::unpack<sizeof(T) * srtb::BITS_PER_BYTE>(
+          reinterpret_cast<T*>(d_in), d_out_1, d_out_2, out_count,
+          window_functor_manager.functor, q);
+    } else if (baseband_input_bits == sizeof(float) * srtb::BITS_PER_BYTE) {
+      // 32 -> float / f32
+      using T = float;
+      srtb::unpack::unpack<sizeof(T) * srtb::BITS_PER_BYTE>(
+          reinterpret_cast<T*>(d_in), d_out_1, d_out_2, out_count,
+          window_functor_manager.functor, q);
+    } else if (baseband_input_bits == sizeof(double) * srtb::BITS_PER_BYTE) {
+      // 64 -> double / f64
+      using T = double;
+      srtb::unpack::unpack<sizeof(T) * srtb::BITS_PER_BYTE>(
+          reinterpret_cast<T*>(d_in), d_out_1, d_out_2, out_count,
+          window_functor_manager.functor, q);
+    } else {
+      throw std::runtime_error(
+          "[unpack_2pol_interleave_pipe] unsupported baseband_input_bits = " +
+          std::to_string(baseband_input_bits));
+    }
+    d_in = nullptr;
+    d_in_shared.reset();
+
+    srtb::work::fft_1d_r2c_work fft_1d_r2c_work_1, fft_1d_r2c_work_2;
+    fft_1d_r2c_work_1.copy_parameter_from(unpack_work);
+    fft_1d_r2c_work_1.ptr = d_out_1_shared;
+    fft_1d_r2c_work_1.count = out_count;
+    fft_1d_r2c_work_2.copy_parameter_from(unpack_work);
+    fft_1d_r2c_work_2.ptr = d_out_2_shared;
+    fft_1d_r2c_work_2.count = out_count;
+    return std::optional{std::array{fft_1d_r2c_work_1, fft_1d_r2c_work_2}};
   }
 };
 
