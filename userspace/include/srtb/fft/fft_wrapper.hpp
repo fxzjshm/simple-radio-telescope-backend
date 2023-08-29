@@ -38,8 +38,7 @@ enum class type {
  * @tparam T Data type
  * @tparam C Complex type of T, default to srtb::complex<T>
  */
-template <typename Derived,
-          srtb::fft::type fft_type, std::floating_point T,
+template <typename Derived, srtb::fft::type fft_type, std::floating_point T,
           typename C = srtb::complex<T> >
 class fft_wrapper {
  public:
@@ -75,8 +74,7 @@ class fft_wrapper {
   }
 
  public:
-  fft_wrapper(size_t n_, size_t batch_size_ = 1,
-              sycl::queue& queue_ = srtb::queue) {
+  fft_wrapper(size_t n_, size_t batch_size_, sycl::queue& queue_) {
     create(n_, batch_size_, queue_);
   }
 

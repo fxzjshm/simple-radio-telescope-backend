@@ -36,8 +36,8 @@ template <typename T = srtb::real, typename C = srtb::complex<srtb::real>,
           typename DeviceInputAccessor = C*, typename DeviceOutputAccessor = T*>
 void simplify_spectrum_calculate_norm(DeviceInputAccessor d_in, size_t in_count,
                                       DeviceOutputAccessor d_out,
-                                      size_t out_count, size_t batch_size = 1,
-                                      sycl::queue& q = srtb::queue) {
+                                      size_t out_count, size_t batch_size,
+                                      sycl::queue& q) {
   static_assert(sizeof(T) * 2 == sizeof(C));
   constexpr auto norm = [=](srtb::complex<srtb::real> c) {
     return srtb::norm(c);
@@ -622,9 +622,9 @@ inline void resample_spectrum_3(DeviceInputAccessor d_in, size_t in_width,
  * @return average value
  */
 template <typename T = srtb::real, typename DeviceInputAccessor = T*>
-auto simplify_spectrum_normalize_with_average_value(
-    DeviceInputAccessor d_in, size_t in_count, sycl::queue& q = srtb::queue)
-    -> T {
+auto simplify_spectrum_normalize_with_average_value(DeviceInputAccessor d_in,
+                                                    size_t in_count,
+                                                    sycl::queue& q) -> T {
   auto d_avg_val_shared = srtb::algorithm::map_average(
       d_in, in_count, srtb::algorithm::map_identity(), q);
   auto d_avg_val = d_avg_val_shared.get();

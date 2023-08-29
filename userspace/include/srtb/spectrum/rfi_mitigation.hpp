@@ -40,7 +40,7 @@ template <typename T = srtb::real, typename C = srtb::complex<srtb::real>,
           typename DeviceComplexInputAccessor = C*>
 inline void mitigate_rfi_average_method(DeviceComplexInputAccessor d_in,
                                         size_t in_count, srtb::real threshold,
-                                        sycl::queue& q = srtb::queue) {
+                                        sycl::queue& q) {
   auto d_norm_avg_shared = srtb::algorithm::map_average(
       d_in, in_count,
       []([[maybe_unused]] size_t pos, C c) { return srtb::norm(c); }, q);
@@ -97,7 +97,7 @@ inline void mitigate_rfi_manual(DeviceComplexInputAccessor d_in,
                                 size_t in_count, srtb::real baseband_freq_low,
                                 srtb::real baseband_bandwidth,
                                 const std::vector<rfi_range_type>& rfi_ranges,
-                                sycl::queue& q = srtb::queue) {
+                                sycl::queue& q) {
   const srtb::real baseband_freq_high = baseband_freq_low + baseband_bandwidth;
   std::vector<sycl::event> events{rfi_ranges.size()};
   for (size_t i = 0; i < rfi_ranges.size(); i++) {
@@ -182,7 +182,7 @@ template <typename T = srtb::real, typename C = srtb::complex<srtb::real>,
           typename DeviceComplexInputAccessor = C*, bool normalization = false>
 inline void mitigate_rfi_spectral_kurtosis_method(
     DeviceComplexInputAccessor d_in, size_t fft_bins, size_t time_counts,
-    T sk_threshold, sycl::queue& q = srtb::queue) {
+    T sk_threshold, sycl::queue& q) {
   // sometimes float is not enough, change to double if so
   using sum_real_t = T;
   // notice the difference of definition of spectral kurtosis (constant can be -1 or -2)

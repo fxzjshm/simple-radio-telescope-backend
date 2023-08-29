@@ -51,13 +51,19 @@ class cosine_sum_window {
 
 template <typename T = srtb::real>
 struct hann : cosine_sum_window<2, T> {
-  hann() : cosine_sum_window<2, T>{T{0.5}, T{0.5}} {}
+  hann() : cosine_sum_window<2, T> {
+    T{0.5}, T { 0.5 }
+  }
+  {}
   using cosine_sum_window<2, T>::operator();
 };
 
 template <typename T = srtb::real>
 struct hamming : cosine_sum_window<2, T> {
-  hamming() : cosine_sum_window<2, T>{T{25.0 / 46.0}, T{21.0 / 46.0}} {}
+  hamming() : cosine_sum_window<2, T> {
+    T{25.0 / 46.0}, T { 21.0 / 46.0 }
+  }
+  {}
   using cosine_sum_window<2, T>::operator();
 };
 
@@ -146,7 +152,7 @@ class fft_window_functor_manager<T, Window, true> {
  public:
   template <typename TrueWindow>
   fft_window_functor_manager(const TrueWindow& window, size_t n_,
-                             sycl::queue& q = srtb::queue)
+                             sycl::queue& q)
       : n{n_},
         shared_coefficients{srtb::device_allocator.allocate_shared<T>(n_)},
         functor{n_, shared_coefficients.get()} {
@@ -186,8 +192,7 @@ class fft_window_functor_manager<T, Window, false> {
   fft_window_functor<T, Iterator> functor;
 
  public:
-  fft_window_functor_manager(Window window, size_t n_,
-                             sycl::queue& q = srtb::queue)
+  fft_window_functor_manager(Window window, size_t n_, sycl::queue& q)
       : n{n_}, coefficients{n_, window}, functor{n_, coefficients} {
     (void)q;
     static_assert(std::is_convertible_v<decltype(window(T{0})), T>);

@@ -41,9 +41,6 @@ inline srtb::configs config;
 /** @brief names and expressions of changed items of @c srtb::config */
 inline std::map<std::string, std::string> changed_configs;
 
-/** @brief default queue for all operations if no queue is specified */
-inline sycl::queue queue;
-
 /** @brief record start time of program, used in log to indicate relative time */
 inline auto program_start_time = std::chrono::system_clock::now();
 
@@ -59,18 +56,17 @@ namespace srtb {
 
 inline srtb::memory::cached_allocator<sycl::usm_allocator<
     std::byte, sycl::usm::alloc::host, srtb::MEMORY_ALIGNMENT> >
-    host_allocator{queue};
+    host_allocator{sycl::queue{}};
 
 #ifdef SRTB_USE_USM_SHARED_MEMORY
 inline srtb::memory::cached_allocator<sycl::usm_allocator<
     std::byte, sycl::usm::alloc::shared, srtb::MEMORY_ALIGNMENT> >
-    device_allocator{queue};
+    device_allocator{sycl::queue{}};
 #else
 inline srtb::memory::cached_allocator<
     srtb::memory::device_allocator<std::byte, srtb::MEMORY_ALIGNMENT> >
-    device_allocator{queue};
+    device_allocator{sycl::queue{}};
 #endif
-
 
 // termination_handler_v in termination_handler.hpp because termination_handler needs it.
 
