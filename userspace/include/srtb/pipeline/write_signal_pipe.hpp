@@ -11,8 +11,8 @@
  ******************************************************************************/
 
 #pragma once
-#ifndef __SRTB_PIPELINE_FILE_PIPE__
-#define __SRTB_PIPELINE_FILE_PIPE__
+#ifndef __SRTB_PIPELINE_WRITE_SIGNAL_PIPE__
+#define __SRTB_PIPELINE_WRITE_SIGNAL_PIPE__
 
 // https://stackoverflow.com/questions/11350878/how-can-i-determine-if-the-operating-system-is-posix-in-c/67627964#67627964
 #if __has_include(<unistd.h>)
@@ -36,94 +36,18 @@
 
 #include "cnpy.h"
 #include "matplotlibcpp.h"
-#include "srtb/coherent_dedispersion.hpp"
 #include "srtb/commons.hpp"
 #include "srtb/pipeline/framework/pipe.hpp"
 
 namespace srtb {
 namespace pipeline {
 
-/**
- * @brief this pipe reads from baseband output pipe and write it to file.
+/** 
+ * @brief this pipe writes signals, related spectrum & time series onto disk.
+ *        works without signals are ignored.
+ * @see srtb::pipeline::write_file_pipe
  */
-template <bool continuous_write = false>
-class baseband_output_pipe;
-
-template <>
-class baseband_output_pipe</* continuous_write = */ true> {
- protected:
-  std::optional<std::ofstream> opt_file_output_stream;
-  std::string file_path;
-  sycl::queue q;
-
- public:
-  baseband_output_pipe(sycl::queue q_) : q{q_} {}
-
-  auto operator()([[maybe_unused]] std::stop_token stop_token,
-                  srtb::work::baseband_output_work baseband_output_work) {
-    //srtb::work::baseband_output_work baseband_output_work;
-    //SRTB_POP_WORK_OR_RETURN(" [baseband_output_pipe] ",
-    //                        srtb::baseband_output_queue, baseband_output_work,
-    //                        stop_token);
-
-    // file name need time stamp, so cannot create early
-    if (!opt_file_output_stream) [[unlikely]] {
-      auto file_counter = baseband_output_work.udp_packet_counter;
-      if (file_counter == baseband_output_work.no_udp_packet_counter) {
-        file_counter = baseband_output_work.timestamp;
-      }
-      file_path = srtb::config.baseband_output_file_prefix +
-                  std::to_string(file_counter) + ".bin";
-      opt_file_output_stream.emplace(file_path.c_str(), std::ios::binary);
-      if (!opt_file_output_stream || !opt_file_output_stream.value())
-          [[unlikely]] {
-        std::string err = "Cannot open file " + file_path;
-        SRTB_LOGE << " [baseband_output_pipe] " << err << srtb::endl;
-        throw std::runtime_error{err};
-      }
-    }
-
-    auto& file_output_stream = opt_file_output_stream.value();
-
-    const char* ptr = reinterpret_cast<char*>(
-        baseband_output_work.baseband_data.baseband_ptr.get());
-    const size_t baseband_input_count =
-        baseband_output_work.baseband_data.baseband_input_bytes;
-    size_t write_count;
-
-    // reserved some samples for next round
-    const size_t nsamps_reserved = srtb::codd::nsamps_reserved();
-    const size_t nbytes_reserved = nsamps_reserved *
-                                   srtb::config.baseband_input_bits /
-                                   srtb::BITS_PER_BYTE;
-
-    if (nbytes_reserved < baseband_input_count) {
-      write_count = baseband_input_count - nbytes_reserved;
-      SRTB_LOGD << " [baseband_output_pipe] "
-                << "reserved " << nbytes_reserved << " bytes" << srtb::endl;
-    } else {
-      SRTB_LOGW << " [baseband_output_pipe] "
-                << "baseband_input_count = " << baseband_input_count
-                << " >= nbytes_reserved = " << nbytes_reserved << srtb::endl;
-      write_count = baseband_input_count;
-    }
-    file_output_stream.write(
-        ptr, write_count * sizeof(decltype(baseband_output_work.baseband_data
-                                               .baseband_ptr)::element_type));
-    if (!file_output_stream) [[unlikely]] {
-      std::string err = "Cannot write to " + file_path;
-      SRTB_LOGE << " [baseband_output_pipe] " << err << srtb::endl;
-      throw std::runtime_error{err};
-    }
-
-    return std::optional{srtb::work::dummy_work{}};
-  }
-};
-
-// --------------------------------------------------------------------
-
-template <>
-class baseband_output_pipe</* continuous_write = */ false> {
+class write_signal_pipe {
   /** @brief local container of recent works with no signal detected (negative) */
   std::deque<srtb::work::baseband_output_work> recent_negative_works;
   /** @brief local container of timestamps of recent works with signal detected (positive) */
@@ -139,7 +63,7 @@ class baseband_output_pipe</* continuous_write = */ false> {
   sycl::queue q;
 
  public:
-  baseband_output_pipe(sycl::queue q_) : q{q_} {
+  write_signal_pipe(sycl::queue q_) : q{q_} {
     // check if directory is writable, also record start time
     std::string check_file_path = srtb::config.baseband_output_file_prefix +
                                   "begin_" + generate_time_tag();
@@ -148,13 +72,13 @@ class baseband_output_pipe</* continuous_write = */ false> {
           baseband_output_stream{check_file_path,
                                  BOOST_IOS::binary | BOOST_IOS::out};
     } catch (const boost::wrapexcept<std::ios_base::failure>& error) {
-      SRTB_LOGE << " [baseband_output_pipe] "
+      SRTB_LOGE << " [write_signal_pipe] "
                 << "cannot open file " << check_file_path << srtb::endl;
       throw error;
     }
   }
 
-  ~baseband_output_pipe() {
+  ~write_signal_pipe() {
     // record end time
     // TODO: log file
     std::string check_file_path =
@@ -164,7 +88,7 @@ class baseband_output_pipe</* continuous_write = */ false> {
           baseband_output_stream{check_file_path,
                                  BOOST_IOS::binary | BOOST_IOS::out};
     } catch (const boost::wrapexcept<std::ios_base::failure>& error) {
-      SRTB_LOGE << " [baseband_output_pipe] "
+      SRTB_LOGE << " [write_signal_pipe] "
                 << "cannot open file " << check_file_path << srtb::endl;
       throw error;
     }
@@ -183,7 +107,7 @@ class baseband_output_pipe</* continuous_write = */ false> {
   auto operator()([[maybe_unused]] std::stop_token stop_token,
                   srtb::work::baseband_output_work baseband_output_work) {
     //srtb::work::baseband_output_work baseband_output_work;
-    //SRTB_POP_WORK_OR_RETURN(" [baseband_output_pipe] ",
+    //SRTB_POP_WORK_OR_RETURN(" [write_signal_pipe] ",
     //                        srtb::baseband_output_queue, baseband_output_work,
     //                        stop_token);
     std::optional<srtb::work::baseband_output_work> opt_work_to_write;
@@ -257,7 +181,7 @@ class baseband_output_pipe</* continuous_write = */ false> {
       if (file_counter == work_to_write.no_udp_packet_counter) {
         file_counter = work_to_write.timestamp;
       }
-      SRTB_LOGI << " [baseband_output_pipe] "
+      SRTB_LOGI << " [write_signal_pipe] "
                 << "Begin writing baseband data, file_counter = "
                 << file_counter << srtb::endl;
 
@@ -286,7 +210,7 @@ class baseband_output_pipe</* continuous_write = */ false> {
                       sizeof(
                           decltype(baseband_data.baseband_ptr)::element_type));
             } else {
-              SRTB_LOGE << " [baseband_output_pipe] "
+              SRTB_LOGE << " [write_signal_pipe] "
                         << "baseband pointer not valid!" << srtb::endl;
             }
             baseband_output_stream.flush();
@@ -300,16 +224,16 @@ class baseband_output_pipe</* continuous_write = */ false> {
                                 int>) {
                 const int err = ::fdatasync(baseband_output_stream->handle());
                 if (err != 0) [[unlikely]] {
-                  SRTB_LOGW << " [baseband_output_pipe] "
+                  SRTB_LOGW << " [write_signal_pipe] "
                             << "Failed to call ::fdatasync" << srtb::endl;
                 }
               }
 #endif
-              SRTB_LOGI << " [baseband_output_pipe] "
+              SRTB_LOGI << " [write_signal_pipe] "
                         << "Finished writing baseband data, file_counter = "
                         << file_counter << srtb::endl;
             } else [[unlikely]] {
-              SRTB_LOGW << " [baseband_output_pipe] "
+              SRTB_LOGW << " [write_signal_pipe] "
                         << "Failed to write baseband data! file_counter = "
                         << file_counter << srtb::endl;
             }
@@ -386,7 +310,7 @@ class baseband_output_pipe</* continuous_write = */ false> {
                 plt::save(time_series_picture_file_path);
                 plt::cla();
               } catch (const std::runtime_error& error) {
-                SRTB_LOGW << " [baseband_output_pipe] "
+                SRTB_LOGW << " [write_signal_pipe] "
                           << "Failed to plot time series: " << error.what()
                           << srtb::endl;
               }
@@ -401,4 +325,4 @@ class baseband_output_pipe</* continuous_write = */ false> {
 }  // namespace pipeline
 }  // namespace srtb
 
-#endif  // __SRTB_PIPELINE_FILE_PIPE__
+#endif  // __SRTB_PIPELINE_WRITE_SIGNAL_PIPE__

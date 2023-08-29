@@ -25,7 +25,6 @@
 #include "srtb/coherent_dedispersion.hpp"
 #include "srtb/commons.hpp"
 #include "srtb/io/udp_receiver.hpp"
-#include "srtb/pipeline/baseband_output_pipe.hpp"
 #include "srtb/pipeline/copy_to_device_pipe.hpp"
 #include "srtb/pipeline/dedisperse_pipe.hpp"
 #include "srtb/pipeline/framework/exit_handler.hpp"
@@ -40,6 +39,8 @@
 #include "srtb/pipeline/spectrum_pipe.hpp"
 #include "srtb/pipeline/udp_receiver_pipe.hpp"
 #include "srtb/pipeline/unpack_pipe.hpp"
+#include "srtb/pipeline/write_file_pipe.hpp"
+#include "srtb/pipeline/write_signal_pipe.hpp"
 #include "srtb/program_options.hpp"
 
 #if SRTB_ENABLE_GUI
@@ -264,15 +265,13 @@ int main(int argc, char** argv) {
               << "Writing all baseband data, take care of disk space!"
               << srtb::endl;
     baseband_output_thread =
-        srtb::pipeline::start_pipe<srtb::pipeline::baseband_output_pipe<
-            /* continuous_write = */ true> >(
+        srtb::pipeline::start_pipe<srtb::pipeline::write_file_pipe>(
             srtb::queue,
             srtb::pipeline::queue_in_functor{srtb::baseband_output_queue},
             decrease_work_count);
   } else {
     baseband_output_thread =
-        srtb::pipeline::start_pipe<srtb::pipeline::baseband_output_pipe<
-            /* continuous_write = */ false> >(
+        srtb::pipeline::start_pipe<srtb::pipeline::write_signal_pipe>(
             srtb::queue,
             srtb::pipeline::queue_in_functor{srtb::baseband_output_queue},
             decrease_work_count);
