@@ -71,35 +71,6 @@ inline srtb::memory::cached_allocator<
     device_allocator{queue};
 #endif
 
-// work queues
-// TODO: global work queues seem ugly (no extensibility), better ideas ?
-inline srtb::work_queue<srtb::work::copy_to_device_work, /* spsc = */ false>
-    copy_to_device_queue;
-inline srtb::work_queue<srtb::work::unpack_work, /* spsc = */ false>
-    unpack_queue;
-inline srtb::work_queue<srtb::work::fft_1d_r2c_work> fft_1d_r2c_queue;
-inline srtb::work_queue<srtb::work::rfi_mitigation_s1_work>
-    rfi_mitigation_s1_queue;
-inline srtb::work_queue<srtb::work::dedisperse_work> dedisperse_queue;
-inline srtb::work_queue<srtb::work::ifft_1d_c2c_work> ifft_1d_c2c_queue;
-inline srtb::work_queue<srtb::work::refft_1d_c2c_work> refft_1d_c2c_queue;
-inline srtb::work_queue<srtb::work::rfi_mitigation_s2_work>
-    rfi_mitigation_s2_queue;
-inline srtb::work_queue<srtb::work::simplify_spectrum_work>
-    simplify_spectrum_queue;
-inline srtb::work_queue<srtb::work::draw_spectrum_work> draw_spectrum_queue;
-inline srtb::work_queue<srtb::work::draw_spectrum_work_2> draw_spectrum_queue_2;
-inline srtb::work_queue<srtb::work::signal_detect_work> signal_detect_queue;
-inline srtb::work_queue<srtb::work::baseband_output_work> baseband_output_queue;
-
-namespace pipeline {
-
-/**
- * @brief count of works in a pipeline.
- */
-inline std::atomic<int32_t> work_in_pipeline_count = 0;
-
-}  // namespace pipeline
 
 // termination_handler_v in termination_handler.hpp because termination_handler needs it.
 

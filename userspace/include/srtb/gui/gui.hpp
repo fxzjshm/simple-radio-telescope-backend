@@ -31,7 +31,7 @@ namespace gui {
 
 // QML related things in src/main.qml, which is treated as a .cpp file.
 
-inline int show_gui(int argc, char **argv) {
+inline int show_gui(int argc, char **argv, auto &draw_spectrum_queue_2) {
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
   QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
 #endif
@@ -41,7 +41,8 @@ inline int show_gui(int argc, char **argv) {
   // an explicit operator new here because "The QQmlEngine takes ownership of provider."
   // otherwise a double free is going to happen
   QPointer spectrum_image_provider_ptr{
-      new srtb::gui::spectrum::SimpleSpectrumImageProvider{}};
+      new srtb::gui::spectrum::SimpleSpectrumImageProvider{
+          /* parent = */ nullptr, draw_spectrum_queue_2}};
   engine.addImageProvider(QLatin1String("spectrum-image-provider"),
                           spectrum_image_provider_ptr);
   const QUrl url(QStringLiteral("qrc:/main.qml"));

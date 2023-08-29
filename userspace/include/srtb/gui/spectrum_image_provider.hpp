@@ -137,8 +137,10 @@ class draw_spectrum_work_holder {
    *         @c false if no work available and @c work unchanged.
    *         same as lockfree queue's pop().
    */
-  bool get_lines(draw_spectrum_lines_work& draw_lines_work,
-                 const size_t n_lines_requested = 1) {
+  bool get_lines(
+      srtb::work_queue<srtb::work::draw_spectrum_work>& draw_spectrum_queue,
+      draw_spectrum_lines_work& draw_lines_work,
+      const size_t n_lines_requested = 1) {
     if (draw_spectrum_work.batch_size > 0 &&
         work_counter > draw_spectrum_work.batch_size) [[unlikely]] {
       throw std::runtime_error{
@@ -151,7 +153,7 @@ class draw_spectrum_work_holder {
     }
     if (work_counter == draw_spectrum_work.batch_size) {
       // last received work done, get new set of works
-      bool ret = srtb::draw_spectrum_queue.pop(draw_spectrum_work);
+      bool ret = draw_spectrum_queue.pop(draw_spectrum_work);
       if (!ret) {
         // no work available in work queue.
         return false;
@@ -185,13 +187,17 @@ class SpectrumImageProvider : public QObject, public QQuickImageProvider {
   int spectrum_update_counter = 0;
   request_size_scheduler request_size_scheduler;
   draw_spectrum_work_holder work_holder;
+  srtb::work_queue<srtb::work::draw_spectrum_work>& draw_spectrum_queue;
 
  public:
-  explicit SpectrumImageProvider(QObject* parent = nullptr)
+  explicit SpectrumImageProvider(
+      QObject* parent,
+      srtb::work_queue<srtb::work::draw_spectrum_work>& draw_spectrum_queue_)
       : QObject{parent},
         QQuickImageProvider{QQuickImageProvider::Pixmap},
         pixmap{static_cast<int>(srtb::config.gui_pixmap_width),
-               static_cast<int>(srtb::config.gui_pixmap_height)} {}
+               static_cast<int>(srtb::config.gui_pixmap_height)},
+        draw_spectrum_queue{draw_spectrum_queue_} {}
 
  public Q_SLOTS:
   void update_pixmap() {
@@ -203,7 +209,7 @@ class SpectrumImageProvider : public QObject, public QQuickImageProvider {
     std::vector<draw_spectrum_lines_work> works;
     bool ret = true;
     while (requested_lines_count_remained > 0) {
-      ret = work_holder.get_lines(draw_lines_work,
+      ret = work_holder.get_lines(draw_spectrum_queue, draw_lines_work,
                                   requested_lines_count_remained);
       if (ret) {
         requested_lines_count_remained -= draw_lines_work.batch_size;
@@ -329,21 +335,24 @@ class SimpleSpectrumImageProvider : public QObject, public QQuickImageProvider {
   // currently alpha channel of all color used are 0xFF
   static constexpr QImage::Format image_format = QImage::Format_RGB32;
   int spectrum_update_counter = 0;
+  srtb::work_queue<srtb::work::draw_spectrum_work_2>& draw_spectrum_queue_2;
   std::jthread checker_thread;
   QPointer<QObject> parent;
 
  public:
-  explicit SimpleSpectrumImageProvider(QObject* parent_ = nullptr)
+  explicit SimpleSpectrumImageProvider(
+      QObject* parent_, srtb::work_queue<srtb::work::draw_spectrum_work_2>&
+                            draw_spectrum_queue_2_)
       : QObject{parent_},
         QQuickImageProvider{QQuickImageProvider::Pixmap},
         image{static_cast<int>(srtb::config.gui_pixmap_width),
               static_cast<int>(srtb::config.gui_pixmap_height), image_format},
+        draw_spectrum_queue_2{draw_spectrum_queue_2_},
         parent{parent_} {
     checker_thread = std::jthread{[this](std::stop_token stop_token) {
       while (!stop_token.stop_requested()) [[likely]] {
         srtb::work::draw_spectrum_work_2 draw_spectrum_work;
-        const bool got_work =
-            srtb::draw_spectrum_queue_2.pop(draw_spectrum_work);
+        const bool got_work = draw_spectrum_queue_2.pop(draw_spectrum_work);
         if (got_work) {
           Q_EMIT new_pixmap_available(draw_spectrum_work);
         }
