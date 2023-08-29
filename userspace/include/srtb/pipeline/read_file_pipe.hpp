@@ -119,10 +119,7 @@ class read_file_pipe {
       return std::optional{copy_to_device_work};
       //SRTB_PUSH_WORK_OR_RETURN(" [read_file] ", srtb::unpack_queue,
       //                         unpack_work, stop_token);
-
-      //srtb::pipeline::wait_for_notify(stop_token);
     } else {
-      srtb::pipeline::no_more_work = true;
       // nothing to do ...
       // NOTE: here is 1000x sleep time, because thread_query_work_wait_time is of nanosecond
       std::this_thread::sleep_for(

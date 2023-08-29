@@ -180,45 +180,6 @@ static std::jthread start_pipe(sycl::queue q, InFunctor in_functor,
   return jthread;
 }
 
-inline void wait_for_notify(std::stop_token stop_token) {
-  while (true) {
-    bool b = true;  // expected
-    constexpr bool desired = false;
-    /*
-    compare and exchange / compare and swap (CAS):
-    ```
-    synchronized {
-      if (*this == expected){
-        *this <- desired;
-      } else {
-        expected <- *this
-      }
-    }
-    ```
-    */
-    srtb::pipeline::need_more_work.compare_exchange_weak(/* expected = */ b,
-                                                         desired);
-    // now b is actural value of srtb::pipeline::need_more_work
-    if (b) {
-      break;
-    }
-    if (stop_token.stop_requested()) [[unlikely]] {
-      break;
-    }
-    std::this_thread::sleep_for(
-        std::chrono::nanoseconds(srtb::config.thread_query_work_wait_time));
-  }
-
-  SRTB_LOGD << " [pipeline] "
-            << "received notify." << srtb::endl;
-}
-
-inline void notify() {
-  need_more_work = true;
-  SRTB_LOGD << " [pipeline] "
-            << "notified pipeline source for more work." << srtb::endl;
-}
-
 }  // namespace pipeline
 }  // namespace srtb
 

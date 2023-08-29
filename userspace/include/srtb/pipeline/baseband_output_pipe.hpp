@@ -116,7 +116,6 @@ class baseband_output_pipe</* continuous_write = */ true> {
       throw std::runtime_error{err};
     }
 
-    srtb::pipeline::notify();
     return std::optional{srtb::work::dummy_work{}};
   }
 };
@@ -395,7 +394,6 @@ class baseband_output_pipe</* continuous_write = */ false> {
           });
     }  // if (opt_work_to_write.has_value())
 
-    srtb::pipeline::notify();
     return std::optional{srtb::work::dummy_work{}};
   }  // auto operator()
 };

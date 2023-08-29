@@ -115,18 +115,6 @@ inline size_t expected_running_pipe_count = -233;
 inline size_t expected_input_pipe_count = -42;
 
 /**
- * @brief used for end of pipeline to send a signal to start of the pipeline,
- * @note currently enabled only when input source is a file
- */
-inline std::atomic<bool> need_more_work = false;
-
-/**
- * @brief used for start of pipeline to send a signal to main thread
- * @note currently enabled only when input source is a file
- */
-inline std::atomic<bool> no_more_work = false;
-
-/**
  * @brief count of works in a pipeline.
  */
 inline std::atomic<int32_t> work_in_pipeline_count = 0;
