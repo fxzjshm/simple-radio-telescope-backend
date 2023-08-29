@@ -63,7 +63,7 @@ class unpack_pipe {
     auto d_in = d_in_shared.get();
     auto d_out = d_out_shared.get();
     // runtime dispatch of different input bits
-    // TODO: baseband_input_bits = -4, 16, -16
+    // TODO: baseband_input_bits = -4
     if (baseband_input_bits == 1) {
       // 1 -> std::byte
       srtb::unpack::unpack<1>(d_in, d_out, out_count,
@@ -89,14 +89,28 @@ class unpack_pipe {
       srtb::unpack::unpack<sizeof(T) * srtb::BITS_PER_BYTE>(
           reinterpret_cast<T*>(d_in), d_out, out_count,
           window_functor_manager.functor, q);
+    } else if (baseband_input_bits ==
+               int{sizeof(uint16_t) * srtb::BITS_PER_BYTE}) {
+      // 16 -> uint16_t / unsigned short int / u16
+      using T = uint16_t;
+      srtb::unpack::unpack<sizeof(T) * srtb::BITS_PER_BYTE>(
+          reinterpret_cast<T*>(d_in), d_out, out_count,
+          window_functor_manager.functor, q);
+    } else if (baseband_input_bits ==
+               -int{sizeof(int16_t) * srtb::BITS_PER_BYTE}) {
+      // -16 -> int16_t / signed short int / i16
+      using T = int16_t;
+      srtb::unpack::unpack<sizeof(T) * srtb::BITS_PER_BYTE>(
+          reinterpret_cast<T*>(d_in), d_out, out_count,
+          window_functor_manager.functor, q);
     } else if (baseband_input_bits == sizeof(float) * srtb::BITS_PER_BYTE) {
-      // 32 -> float/f32
+      // 32 -> float / f32
       using T = float;
       srtb::unpack::unpack<sizeof(T) * srtb::BITS_PER_BYTE>(
           reinterpret_cast<T*>(d_in), d_out, out_count,
           window_functor_manager.functor, q);
     } else if (baseband_input_bits == sizeof(double) * srtb::BITS_PER_BYTE) {
-      // 64 -> double/f64
+      // 64 -> double / f64
       using T = double;
       srtb::unpack::unpack<sizeof(T) * srtb::BITS_PER_BYTE>(
           reinterpret_cast<T*>(d_in), d_out, out_count,
