@@ -19,11 +19,13 @@
 // ref: https://www.boost.org/doc/libs/1_80_0/doc/html/stacktrace/getting_started.html
 //      https://stackoverflow.com/a/77336
 
+#include <array>
 #include <boost/stacktrace.hpp>
 #include <csignal>
 #include <cstdlib>    // std::abort
 #include <exception>  // std::set_terminate
 #include <iostream>   // std::cerr
+#include <map>
 
 #include "srtb/log/log.hpp"
 
@@ -36,17 +38,25 @@ inline void signal_handler(int signal);
 class termination_handler_t {
  public:
   std::terminate_handler original_terminate_handler;
-  sighandler_t original_SIGILL_handler;
-  sighandler_t original_SIGFPE_handler;
-  sighandler_t original_SIGSEGV_handler;
+  std::map<int, sighandler_t> original_handlers;
+  constexpr static std::array tracked_signals = {SIGTERM, SIGSEGV, SIGINT,
+                                                 SIGILL,  SIGABRT, SIGFPE};
 
-  // this constructor registers handlers to runtime
+  /** @brief this constructor registers handlers to runtime */
   termination_handler_t() {
     original_terminate_handler = std::set_terminate(&srtb::termination_handler);
-    // remember to set the behaviour in signal_handler
-    original_SIGILL_handler = std::signal(SIGILL, srtb::signal_handler);
-    original_SIGFPE_handler = std::signal(SIGFPE, srtb::signal_handler);
-    original_SIGSEGV_handler = std::signal(SIGSEGV, srtb::signal_handler);
+    for (auto tracked_signal : tracked_signals) {
+      original_handlers[tracked_signal] =
+          std::signal(tracked_signal, srtb::signal_handler);
+    }
+  }
+
+  /** @brief revert signal handlers */
+  ~termination_handler_t() {
+    std::set_terminate(original_terminate_handler);
+    for (auto tracked_signal : tracked_signals) {
+      std::signal(tracked_signal, original_handlers[tracked_signal]);
+    }
   }
 };
 
@@ -81,7 +91,7 @@ constexpr std::string_view get_signal_name(int signal) {
     case SIGFPE:
       return "SIGFPE";
     default:
-      return "";
+      return "<unknown>";
   }
 }
 
@@ -91,19 +101,10 @@ inline void signal_handler(int signal) {
             << '\n';
   print_stacktrace();
   sighandler_t next_handler;
-  switch (signal) {
-    case SIGSEGV:
-      next_handler = termination_handler_v.original_SIGSEGV_handler;
-      break;
-    case SIGILL:
-      next_handler = termination_handler_v.original_SIGILL_handler;
-      break;
-    case SIGFPE:
-      next_handler = termination_handler_v.original_SIGFPE_handler;
-      break;
-    default:
-      next_handler = SIG_DFL;
-      break;
+  if (termination_handler_v.original_handlers.contains(signal)) {
+    next_handler = termination_handler_v.original_handlers[signal];
+  } else {
+    next_handler = SIG_DFL;
   }
   std::signal(signal, next_handler);
 }
