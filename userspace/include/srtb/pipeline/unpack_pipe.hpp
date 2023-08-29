@@ -40,10 +40,6 @@ class unpack_pipe {
 
   auto operator()([[maybe_unused]] std::stop_token stop_token,
                   srtb::work::unpack_work unpack_work) {
-    //srtb::work::unpack_work unpack_work;
-    //SRTB_POP_WORK_OR_RETURN(" [unpack pipe] ", srtb::unpack_queue, unpack_work,
-    //                        stop_token);
-
     // data length after unpack
     const int baseband_input_bits = srtb::config.baseband_input_bits;
     const size_t out_count =
@@ -117,8 +113,6 @@ class unpack_pipe {
     fft_1d_r2c_work.move_parameter_from(std::move(unpack_work));
     fft_1d_r2c_work.ptr = d_out_shared;
     fft_1d_r2c_work.count = out_count;
-    //SRTB_PUSH_WORK_OR_RETURN(" [unpack pipe] ", srtb::fft_1d_r2c_queue,
-    //                         fft_1d_r2c_work, stop_token);
     return std::optional{fft_1d_r2c_work};
   }
 };

@@ -33,11 +33,6 @@ class simplify_spectrum_pipe {
  public:
   auto operator()([[maybe_unused]] std::stop_token stop_token,
                   srtb::work::simplify_spectrum_work simplify_spectrum_work) {
-    //srtb::work::simplify_spectrum_work simplify_spectrum_work;
-    //SRTB_POP_WORK_OR_RETURN(" [simplify spectrum pipe] ",
-    //                        srtb::simplify_spectrum_queue,
-    //                        simplify_spectrum_work, stop_token);
-
     const size_t in_count = simplify_spectrum_work.count;
     const size_t out_count = srtb::config.gui_pixmap_width;
     const size_t batch_size = simplify_spectrum_work.batch_size;
@@ -99,11 +94,6 @@ class simplify_spectrum_pipe_2 {
 
   auto operator()([[maybe_unused]] std::stop_token stop_token,
                   srtb::work::simplify_spectrum_work simplify_spectrum_work) {
-    //srtb::work::simplify_spectrum_work simplify_spectrum_work;
-    //SRTB_POP_WORK_OR_RETURN(" [simplify spectrum pipe] ",
-    //                        srtb::simplify_spectrum_queue,
-    //                        simplify_spectrum_work, stop_token);
-
     const size_t in_width = simplify_spectrum_work.count;
     const size_t in_height = simplify_spectrum_work.batch_size;
     const size_t out_width = srtb::config.gui_pixmap_width;
@@ -154,19 +144,6 @@ class simplify_spectrum_pipe_2 {
     draw_spectrum_work.ptr = h_image_shared;
     draw_spectrum_work.width = out_width;
     draw_spectrum_work.height = out_height;
-    //// same as SRTB_PUSH_WORK_OR_RETURN(), but supressed logs
-    //{
-    //  bool success = false;
-    //  do {
-    //    if (stop_token.stop_requested()) [[unlikely]] {
-    //      return std::optional<srtb::work::dummy_work>{};
-    //    }
-    //    std::this_thread::sleep_for(
-    //        std::chrono::nanoseconds(srtb::config.thread_query_work_wait_time));
-    //    success = srtb::draw_spectrum_queue_2.push(draw_spectrum_work);
-    //  } while (!success);
-    //}
-
     return std::optional{draw_spectrum_work};
   }
 };

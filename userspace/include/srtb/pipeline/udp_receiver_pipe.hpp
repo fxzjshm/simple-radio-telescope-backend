@@ -138,38 +138,6 @@ class udp_receiver_pipe {
         std::chrono::system_clock::now().time_since_epoch().count();
 
     srtb::work::baseband_data_holder baseband_data{h_ptr, baseband_input_bytes};
-    //if ((srtb::config.baseband_write_all && (!srtb::config.gui_enable))) {
-    //// no need to process data if just recording baseband data & not showing spectrum
-    //srtb::work::baseband_output_work baseband_output_work;
-    //baseband_output_work.ptr = nullptr;
-    //baseband_output_work.count = 0;
-    //baseband_output_work.batch_size = 0;
-    //baseband_output_work.baseband_data = std::move(baseband_data);
-    //baseband_output_work.timestamp = timestamp;
-    //baseband_output_work.udp_packet_counter = first_counter;
-    //SRTB_PUSH_WORK_OR_RETURN(" [udp receiver pipe] ",
-    //                         srtb::baseband_output_queue,
-    //                         baseband_output_work, stop_token);
-    //} else {
-    //  // flush input of baseband_input_bytes
-    //  std::shared_ptr<std::byte> d_ptr =
-    //      srtb::device_allocator.allocate_shared<std::byte>(
-    //          baseband_input_bytes);
-    //  sycl::event host_to_devive_copy_event =
-    //      q.copy(h_ptr.get(), /* -> */ d_ptr.get(), baseband_input_bytes);
-
-    //  srtb::work::unpack_work unpack_work;
-    //  unpack_work.ptr = d_ptr;
-    //  unpack_work.count = baseband_input_bytes;
-    //  unpack_work.baseband_data = std::move(baseband_data);
-    //  unpack_work.baseband_input_bits = baseband_input_bits;
-    //  unpack_work.timestamp = timestamp;
-    //  unpack_work.udp_packet_counter = first_counter;
-    //  unpack_work.copy_event = host_to_devive_copy_event;
-    //  SRTB_PUSH_WORK_OR_RETURN(" [udp receiver pipe] ", srtb::unpack_queue,
-    //                           unpack_work, stop_token);
-    //}
-
     srtb::work::copy_to_device_work copy_to_device_work;
     copy_to_device_work.ptr = nullptr;
     copy_to_device_work.count = 0;

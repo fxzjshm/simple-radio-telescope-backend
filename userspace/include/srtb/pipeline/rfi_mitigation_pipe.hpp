@@ -42,11 +42,6 @@ class rfi_mitigation_s1_pipe {
 
   auto operator()([[maybe_unused]] std::stop_token stop_token,
                   srtb::work::rfi_mitigation_s1_work rfi_mitigation_s1_work) {
-    //srtb::work::rfi_mitigation_s1_work rfi_mitigation_s1_work;
-    //SRTB_POP_WORK_OR_RETURN(" [rfi mitigation pipe] ",
-    //                        srtb::rfi_mitigation_s1_queue, rfi_mitigation_s1_work,
-    //                        stop_token);
-
     auto d_in_shared = rfi_mitigation_s1_work.ptr;
     auto d_in = d_in_shared.get();
     const size_t in_count = rfi_mitigation_s1_work.count;
@@ -98,21 +93,10 @@ class rfi_mitigation_s1_pipe {
                                           baseband_bandwidth, rfi_ranges, q);
     }
 
-    // shortcut
-    //srtb::work::simplify_spectrum_work simplify_spectrum_work;
-    //simplify_spectrum_work.move_parameter_from(std::move(rfi_mitigation_s1_work));
-    //simplify_spectrum_work.ptr = d_in_shared;
-    //simplify_spectrum_work.count = in_count;
-    //simplify_spectrum_work.batch_size = 1;
-    //SRTB_PUSH_WORK_OR_RETURN(" [rfi mitigation pipe] ", srtb::simplify_spectrum_queue,
-    //               simplify_spectrum_work);
-
     srtb::work::dedisperse_work dedisperse_work;
     dedisperse_work.move_parameter_from(std::move(rfi_mitigation_s1_work));
     dedisperse_work.ptr = d_in_shared;
     dedisperse_work.count = in_count;
-    //SRTB_PUSH_WORK_OR_RETURN(" [rfi mitigation pipe] ", srtb::dedisperse_queue,
-    //                         dedisperse_work, stop_token);
     return std::optional{dedisperse_work};
   }
 };

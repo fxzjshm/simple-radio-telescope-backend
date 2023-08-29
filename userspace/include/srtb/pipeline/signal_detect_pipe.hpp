@@ -34,8 +34,6 @@ namespace pipeline {
 /**
  * @brief this pipe reads from refft-ed spectrum, sum it into time series,
  *        and detect if there's signal in it.
- *        If yes, notify someone to write the original baseband data;
- *        otherwise, just drop it.
  * @note In this variant, @code count is @code spectrum_channel_count and
  *       @code batch_size is count of time series
  *        frequency
@@ -60,10 +58,6 @@ class signal_detect_pipe {
 
   auto operator()([[maybe_unused]] std::stop_token stop_token,
                   srtb::work::signal_detect_work signal_detect_work) {
-    //srtb::work::signal_detect_work signal_detect_work;
-    //SRTB_POP_WORK_OR_RETURN(" [signal_detect_pipe] ", srtb::signal_detect_queue,
-    //                        signal_detect_work, stop_token);
-
     auto& d_in_shared = signal_detect_work.ptr;
     auto d_in = d_in_shared.get();
     const size_t count_per_batch = signal_detect_work.count;
@@ -231,9 +225,6 @@ class signal_detect_pipe {
       SRTB_LOGD << " [signal_detect_pipe] "
                 << "no signal detected" << srtb::endl;
     }
-    //SRTB_PUSH_WORK_OR_RETURN(" [signal_detect_pipe] ",
-    //                         srtb::baseband_output_queue, baseband_output_work,
-    //                         stop_token);
     return std::optional{baseband_output_work};
   }
 };
@@ -241,8 +232,6 @@ class signal_detect_pipe {
 /**
  * @brief this pipe reads from refft-ed spectrum, sum it into time series,
  *        and detect if there's signal in it.
- *        If yes, notify someone to write the original baseband data;
- *        otherwise, just drop it.
  * @note In this variant, @code count is @code count of time series, and
  *       @code batch_size is spectrum_channel_count
  *          time
@@ -262,11 +251,6 @@ class signal_detect_pipe_2 {
 
   auto operator()([[maybe_unused]] std::stop_token stop_token,
                   srtb::work::signal_detect_work signal_detect_work) {
-    //srtb::work::signal_detect_work signal_detect_work;
-    //SRTB_POP_WORK_OR_RETURN(" [signal_detect_pipe_2] ",
-    //                        srtb::signal_detect_queue, signal_detect_work,
-    //                        stop_token);
-
     auto& d_in_shared = signal_detect_work.ptr;
     auto d_in = d_in_shared.get();
     const size_t time_sample_count = signal_detect_work.count;
@@ -454,9 +438,6 @@ class signal_detect_pipe_2 {
       SRTB_LOGD << " [signal_detect_pipe_2] "
                 << "no signal detected" << srtb::endl;
     }
-    //SRTB_PUSH_WORK_OR_RETURN(" [signal_detect_pipe_2] ",
-    //                         srtb::baseband_output_queue, baseband_output_work,
-    //                         stop_token);
     return std::optional{baseband_output_work};
   }
 };

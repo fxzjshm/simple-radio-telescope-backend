@@ -32,7 +32,6 @@ class read_file_pipe {
   sycl::queue q;
   std::ifstream input_file_stream;
   std::streampos logical_file_pos;
-  bool log_given;
 
  public:
   read_file_pipe(sycl::queue q_) : q{q_} {
@@ -53,8 +52,6 @@ class read_file_pipe {
     //                    <-------------|
     //                     samples reserved because of coherent dedispersion
     logical_file_pos = input_file_offset_bytes;
-
-    log_given = false;
   }
 
   auto operator()([[maybe_unused]] std::stop_token stop_token,
@@ -108,20 +105,12 @@ class read_file_pipe {
       copy_to_device_work.udp_packet_counter =
           copy_to_device_work.no_udp_packet_counter;
       return std::optional{copy_to_device_work};
-      //SRTB_PUSH_WORK_OR_RETURN(" [read_file] ", srtb::unpack_queue,
-      //                         unpack_work, stop_token);
     } else {
       // nothing to do ...
-      // NOTE: here is 1000x sleep time, because thread_query_work_wait_time is of nanosecond
-      std::this_thread::sleep_for(
-          std::chrono::microseconds(srtb::config.thread_query_work_wait_time));
+      auto file_path = srtb::config.input_file_path;
+      SRTB_LOGI << " [read_file] " << file_path << " has been read"
+                << srtb::endl;
 
-      if (!log_given) {
-        log_given = true;
-        auto file_path = srtb::config.input_file_path;
-        SRTB_LOGI << " [read_file] " << file_path << " has been read"
-                  << srtb::endl;
-      }
       return std::optional<srtb::work::copy_to_device_work>{};
     }
   }

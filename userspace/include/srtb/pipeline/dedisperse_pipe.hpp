@@ -30,8 +30,6 @@ class dedisperse_pipe {
 
   auto operator()([[maybe_unused]] std::stop_token stop_token,
                   srtb::work::dedisperse_work work) {
-    //SRTB_POP_WORK_OR_RETURN(" [dedisperse pipe] ", srtb::dedisperse_queue, work,
-    //                        stop_token);
     const size_t N = work.count;
     const srtb::real df = srtb::config.baseband_bandwidth / N;
     auto& d_in_shared = work.ptr;
@@ -42,20 +40,10 @@ class dedisperse_pipe {
     srtb::coherent_dedispersion::coherent_dedispertion(d_in, N, f_min, f_c, df,
                                                        dm, q);
 
-    // shortcut
-    //srtb::work::simplify_spectrum_work simplify_spectrum_work;
-    //simplify_spectrum_work.ptr = d_in_shared;
-    //simplify_spectrum_work.count = N;
-    //simplify_spectrum_work.batch_size = 1;
-    //SRTB_PUSH_WORK_OR_RETURN(" [dedisperse pipe] ", srtb::simplify_spectrum_queue,
-    //               simplify_spectrum_work, stop_token);
-
     srtb::work::ifft_1d_c2c_work ifft_1d_c2c_work;
     ifft_1d_c2c_work.move_parameter_from(std::move(work));
     ifft_1d_c2c_work.ptr = d_in_shared;
     ifft_1d_c2c_work.count = N;
-    //SRTB_PUSH_WORK_OR_RETURN(" [dedisperse pipe] ", srtb::ifft_1d_c2c_queue,
-    //                         ifft_1d_c2c_work, stop_token);
     return std::optional{ifft_1d_c2c_work};
   }
 };
