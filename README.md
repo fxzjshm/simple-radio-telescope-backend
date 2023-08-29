@@ -19,7 +19,7 @@ It reads raw "baseband"/"intermediate frequency" voltage data and should be capa
 
 Possible future plans include DPDK integration, search of disperse measurements, etc.
 
-Due to **vendor neutrality** and API complexity,
+Due to **vendor independence** and API complexity,
 [SYCL 2020](https://www.khronos.org/sycl/) from Khronos Group is chosen as target API,
 Mainly used SYCL implementations are [hipSYCL](https://github.com/illuhad/hipSYCL) and [intel/llvm](https://github.com/intel/llvm/).
 Tested setups are listed below.
@@ -80,6 +80,17 @@ mindmap
         AMD GPU
       ["[DATA EXPUNGED]"]
         ["[DATA EXPUNGED]"]
+      OpenCL_SPIRV [OpenCL + SPIR-V]
+        PoCL
+          CPU
+          ... ?
+        Mesa rusticl
+          llvmpipe
+          nouveau ?
+          radeonsi ?
+          iris ?
+        clspv + clvk ? <br/> on Vulkan
+        any other devices <br/> with support
     Intel oneAPI DPC++
       CUDA
         NVIDIA GPU
@@ -89,6 +100,8 @@ mindmap
         Intel GPU ?
       OpenCL_SPIRV [OpenCL + SPIR-V]
         PoCL
+          CPU
+          ... ?
         Mesa rusticl ?
           llvmpipe ?
           nouveau ?
@@ -103,30 +116,36 @@ mindmap
 *Schemantic of main SYCL implementations and theirs backends. Devices marked "?" have not been successfully tested.*
 
 Tested setup:
-* AMD Rembrandt CPU + AMD GPU (gfx906; gfx1035)
-  * with hipSYCL HIP backend & intel/llvm HIP backend
-  * hipfft interop disabled for gfx1035 due to Segmentation Fault (as it is unsupported hardware)
-* Intel Ice Lake CPU + NVIDIA GPU (GA102; GA104)
-  * with hipSYCL CUDA backend & intel/llvm CUDA backend
-* Intel Ice Lake CPU
-  * with hipSYCL CPU backend (CBS enabled), which may extended to any CPU with C++ support
+
+* AMD GPU (gfx906; gfx1035)
+  * hipSYCL HIP backend
+  * intel/llvm HIP backend
+* Moore Threads MTT GPU (mp_21)
+  * hipSYCL MUSA backend [(working-in-progress)](https://github.com/OpenSYCL/OpenSYCL/pull/1095)
+    * waiting for optimization of library from this device vendor
+* [DATA EXPUNGED] ("Device X from Vendor V")
+* NVIDIA GPU (sm_86)
+  * hipSYCL CUDA backend
+  * intel/llvm CUDA backend
 * AMD Rembrandt CPU
-  * same as above
-  * also with intel/llvm OpenCL SPIR-V backend + [intel/opencl-intercept-layer](https://github.com/intel/opencl-intercept-layer) + [PoCL](http://portablecl.org/) CPU backend
-    * intel/opencl-intercept-layer used for SYCL USM -> OpenCL SVM emulation (not required fot PoCL now, though):
+  * hipSYCL CPU backend (+CBS), which may extended to any CPU with C++ support
+  * hipSYCL OpenCL backend + PoCL
+  * hipSYCL OpenCL backend + Mesa Rusticl + llvmpipe
+  * intel/llvm OpenCL backend + [intel/opencl-intercept-layer](https://github.com/intel/opencl-intercept-layer) + [PoCL](http://portablecl.org/) CPU backend
+    * intel/opencl-intercept-layer used for SYCL USM -> OpenCL SVM emulation (not required for PoCL now, though):
 ```bash
 export LD_PRELOAD=/opt/opencl-intercept-layer/lib/libOpenCL.so
 export CLI_Emulate_cl_intel_unified_shared_memory=1
 export CLI_SuppressLogging=1
 ```
-* [DATA EXPUNGED] CPU + [DATA EXPUNGED] ("Device X")
-* Intel Alder Lake CPU + [DATA EXPUNGED]
-  * waiting for optimization of library from this device vendor
+* Intel Ice Lake CPU
+  * hipSYCL CPU backend (+CBS)
 * QEMU emulated RISC-V 64 CPU
+  * hipSYCL CPU backend
 
 To be tested:
-* Mesa rusticl!
-  * blocked by SPIR-V -> NIR (`nir_deref_mode_is_in_set` assertion failure), similar issues tracked [here](https://gitlab.freedesktop.org/mesa/mesa/-/issues/9061)
+* Rusticl (except llvmpipe) & PoCL (except CPU)
+  * no device...
   * some backends has no SVM support, like radeonsi
 * clspv + clvk
   * blocked by SVM support...
@@ -286,7 +305,7 @@ sudo numactl --preferred $NODE nice $NICE simple-radio-telescope-backend
   * `work`: defines input of each pipe
   * `global_variables`: stores *almost* all global variables, mainly work queues of pipes (TODO: better ways?)
   * `pipeline/`: components of the pipeline
-    * each pipe defines its input work type in `work.hpp`, reads work from the `work_queue` defined in `global_variables.hpp`, do some transformations on the data, and wrap it as the work type of next pipe.
+    * each pipe defines its input work type in `work.hpp`, reads work from the `work_queue`, do some transformations on the data, and wrap it as the work type of next pipe.
   * `fft/`: wrappers of FFT libraries like fftw, cufft and hipfft
   * `gui/`: user interface to show spectrum, based on Qt5
   * `io/`: read raw "baseband" data

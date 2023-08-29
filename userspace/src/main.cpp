@@ -61,7 +61,7 @@ inline namespace detail {
  *                         but allocation of device memory is quick
  *       & VRAM is usually limited.
  * 
- * this function is quite ugly, and should be updated once pipeline structure chnages.
+ * this function is quite ugly, and should be updated once pipeline structure changes.
  */
 inline void allocate_memory_regions(size_t input_pipe_count) {
   // hold all pointers; using RAII

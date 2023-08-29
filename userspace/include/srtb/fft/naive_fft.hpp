@@ -34,6 +34,12 @@ struct builtin_bit_reverse {
   static constexpr bool available = false;
 };
 
+
+/**
+ * @note not supported on: 
+ *         * MUSA (1.4)
+ *         * Rusticl (OpBitReverse, only 32bit working)
+ */
 #define SRTB_NAIVE_FFT_BUILTIN_BIT_REVERSE(bit)                 \
   template <>                                                   \
   struct builtin_bit_reverse<bit> {                             \
