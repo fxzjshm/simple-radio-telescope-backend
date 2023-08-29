@@ -24,7 +24,6 @@
 #include <QQmlComponent>
 #include <QQuickWindow>
 
-#include "srtb/gui/exit_handler.hpp"
 #include "srtb/gui/spectrum_image_provider.hpp"
 
 namespace srtb {
@@ -32,7 +31,7 @@ namespace gui {
 
 // QML related things in src/main.qml, which is treated as a .cpp file.
 
-inline int show_gui(int argc, char **argv, std::vector<std::jthread> threads) {
+inline int show_gui(int argc, char **argv) {
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
   QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
 #endif
@@ -62,10 +61,6 @@ inline int show_gui(int argc, char **argv, std::vector<std::jthread> threads) {
       },
       Qt::QueuedConnection);
   engine.load(url);
-
-  ExitHandler exit_handler{std::move(threads)};
-  QObject::connect(&app, &QCoreApplication::aboutToQuit, &exit_handler,
-                   &srtb::gui::ExitHandler::onExit);
 
   return app.exec();
 }

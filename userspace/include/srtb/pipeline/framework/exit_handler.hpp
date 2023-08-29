@@ -25,7 +25,6 @@ namespace pipeline {
 /** 
  * @brief this function requests every thread to stop and wait for them
  *        when the program is about to (normally) exit.
- * @note extracted from srtb::gui::ExitHandler for no-GUI use
  * @see srtb::termination_handler for handler of unexpected exit
  */
 inline void on_exit(std::vector<std::jthread> threads) {

@@ -28,7 +28,7 @@
 #include "srtb/pipeline/baseband_output_pipe.hpp"
 #include "srtb/pipeline/copy_to_device_pipe.hpp"
 #include "srtb/pipeline/dedisperse_pipe.hpp"
-#include "srtb/pipeline/exit_handler.hpp"
+#include "srtb/pipeline/framework/exit_handler.hpp"
 #include "srtb/pipeline/fft_pipe.hpp"
 #include "srtb/pipeline/framework/composite_pipe.hpp"
 #include "srtb/pipeline/framework/dummy_pipe.hpp"
@@ -383,7 +383,7 @@ int main(int argc, char** argv) {
 
 #if SRTB_ENABLE_GUI
   if (srtb::config.gui_enable) {
-    return_value = srtb::gui::show_gui(argc, argv, std::move(threads));
+    return_value = srtb::gui::show_gui(argc, argv);
   } else {
 #endif  // SRTB_ENABLE_GUI
 
@@ -406,12 +406,13 @@ int main(int argc, char** argv) {
           std::chrono::nanoseconds(srtb::config.thread_query_work_wait_time));
     }
 
-    srtb::pipeline::on_exit(std::move(threads));
     return_value = EXIT_SUCCESS;
 
 #if SRTB_ENABLE_GUI
   }
 #endif  // SRTB_ENABLE_GUI
+
+  srtb::pipeline::on_exit(std::move(threads));
 
   SRTB_LOGI << " [main] "
             << "Exiting." << srtb::endl;

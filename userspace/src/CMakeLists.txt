@@ -5,7 +5,6 @@ if(SRTB_ENABLE_GUI)
     ${SRTB_MAIN_SOURCE_FILES}
     qml.qrc 
     ../include/srtb/gui/spectrum_image_provider.hpp
-    ../include/srtb/gui/exit_handler.hpp
   )
 endif()
 add_executable(simple-radio-telescope-backend ${SRTB_MAIN_SOURCE_FILES})
@@ -35,7 +34,6 @@ if(SRTB_ENABLE_GUI)
     test-gui.cpp
     qml.qrc
     ../include/srtb/gui/spectrum_image_provider.hpp
-    ../include/srtb/gui/exit_handler.hpp
   )
   srtb_add_dependency(test-gui)
 endif()
