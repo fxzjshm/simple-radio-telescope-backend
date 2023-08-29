@@ -79,6 +79,11 @@ namespace program_options {
        "Length of a single input data, used in unpack. "
        "Negative value is signed integers. "
        "Currently supported: 1(uint1), 2(uint2), 4(uint4), 8(uint8), -8(int8), 32(float), 64(double)")
+      ("baseband_format_type", boost::program_options::value<std::string>(),
+       "Type of baseband format: "
+       "simple (just stream of samples from 1 source), "
+       "interleaved_samples_2 (interleaved 2 stream, each sample from one stream, in '1' '2' '1' '2' ... format), "
+       "interleaved_samples_2:snap1 (interleaved 2 stream, each sample from one stream, in '1' '1' '2' '2' ... format)")
       ("baseband_freq_low", boost::program_options::value<std::string>(),
        "Lowerest frequency of received baseband signal, in MHz. ")
       ("baseband_bandwidth", boost::program_options::value<std::string>(),
@@ -253,6 +258,7 @@ inline void evaluate_and_apply_changed_config(const std::string& name,
   ;  // <- for clang-format
   SRTB_PARSE(baseband_input_count)
   SRTB_PARSE(baseband_input_bits)
+  SRTB_ASSIGN(baseband_format_type)
   SRTB_PARSE(baseband_freq_low)
   SRTB_PARSE(baseband_bandwidth)
   SRTB_PARSE(baseband_sample_rate)

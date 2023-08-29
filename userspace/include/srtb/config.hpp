@@ -108,6 +108,13 @@ struct configs {
   int baseband_input_bits = 8;
 
   /**
+   * @brief Type of baseband format: 
+   *          simple (just stream of samples from 1 source), 
+   *          interleaved_samples_2 (interleaved 2 stream, each sample from one stream)
+   */
+  std::string baseband_format_type = "simple";
+
+  /**
    * @brief Lowerest frequency of received baseband signal, in MHz.
    */
   srtb::real baseband_freq_low = 1000.0;
