@@ -108,8 +108,14 @@ class simplify_spectrum_pipe_2 {
     SRTB_LOGD << " [simplify spectrum pipe] "
               << " start simplifying" << srtb::endl;
 
-    srtb::spectrum::resample_spectrum_3(d_in, in_width, in_height, d_out,
-                                        out_width, out_height, q);
+    srtb::spectrum::resample_spectrum_3(
+        d_in, in_width, in_height,
+        /* transform = */
+        [](auto&& x) {
+          // use log(norm(x)) if needed
+          return srtb::norm(x);
+        },
+        d_out, out_width, out_height, q);
     d_in = nullptr;
     d_in_shared.reset();
 

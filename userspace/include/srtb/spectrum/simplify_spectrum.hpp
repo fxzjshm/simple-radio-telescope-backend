@@ -128,14 +128,15 @@ void simplify_spectrum_calculate_norm(DeviceInputAccessor d_in, size_t in_count,
  * @param d_in iterator of input complex spectrum, with time as x-axis and frequency as y-axis
  * @param in_width count in x-axis (time) of d_in
  * @param in_height count in y-axis (frequency) of d_in
+ * @param transform functor with operator()(complex) -> real
  * @param d_out iterator of output intensity (real), axis same as d_in
  * @param out_width count in x-axis (time) of d_out
  * @param out_height count in y-axis (frequency) of d_out
  * @param q SYCL queue to submit kernel
  */
-template <typename DeviceInputAccessor, typename DeviceOutputAccessor>
+template <typename DeviceInputAccessor, typename Transform, typename DeviceOutputAccessor>
 inline void resample_spectrum_1(DeviceInputAccessor d_in, size_t in_width,
-                                size_t in_height, DeviceOutputAccessor d_out,
+                                size_t in_height, Transform transform, DeviceOutputAccessor d_out,
                                 size_t out_width, size_t out_height,
                                 sycl::queue& q) {
   using T = typename std::iterator_traits<DeviceOutputAccessor>::value_type;
@@ -175,8 +176,8 @@ inline void resample_spectrum_1(DeviceInputAccessor d_in, size_t in_width,
      SRTB_ASSERT_IN_KERNEL(right_portion >= 0);
 
      const auto sample = [=](size_t y) {
-       return left_portion * srtb::norm(d_in[y * in_width + left_int]) +
-              right_portion * srtb::norm(d_in[y * in_width + right_int]);
+       return left_portion * transform(d_in[y * in_width + left_int]) +
+              right_portion * transform(d_in[y * in_width + right_int]);
      };
 
      T sum = 0;
@@ -265,14 +266,15 @@ inline void resample_spectrum_1(DeviceInputAccessor d_in, size_t in_width,
  * @param d_in iterator of input complex spectrum, with time as x-axis and frequency as y-axis
  * @param in_width count in x-axis (time) of d_in
  * @param in_height count in y-axis (frequency) of d_in
+ * @param transform functor with operator()(complex) -> real
  * @param d_out iterator of output intensity (real), axis same as d_in
  * @param out_width count in x-axis (time) of d_out
  * @param out_height count in y-axis (frequency) of d_out
  * @param q SYCL queue to submit kernel
  */
-template <typename DeviceInputAccessor, typename DeviceOutputAccessor>
+template <typename DeviceInputAccessor, typename Transform, typename DeviceOutputAccessor>
 inline void resample_spectrum_2(DeviceInputAccessor d_in, size_t in_width,
-                                size_t in_height, DeviceOutputAccessor d_out,
+                                size_t in_height, Transform transform, DeviceOutputAccessor d_out,
                                 size_t out_width, size_t out_height,
                                 sycl::queue& q) {
   using T = typename std::iterator_traits<DeviceOutputAccessor>::value_type;
@@ -306,11 +308,11 @@ inline void resample_spectrum_2(DeviceInputAccessor d_in, size_t in_width,
          // const size_t left_right = left;
          SRTB_ASSERT_IN_KERNEL(left_left < in_width);
          sum += (left_real - left_accurate) *
-                srtb::norm(d_in[y * in_width + left_left]);
+                transform(d_in[y * in_width + left_left]);
        }
        for (size_t x = left_int; x < right_int; x++) {
          SRTB_ASSERT_IN_KERNEL(x < in_width);
-         sum += srtb::norm(d_in[y * in_width + x]);
+         sum += transform(d_in[y * in_width + x]);
        }
        SRTB_ASSERT_IN_KERNEL(right_accurate >= right_real);
        if (right_accurate > right_real) [[likely]] {
@@ -319,7 +321,7 @@ inline void resample_spectrum_2(DeviceInputAccessor d_in, size_t in_width,
          // right_right == static_cast<size_t>(sycl::ceil(right_real));
          SRTB_ASSERT_IN_KERNEL(right_left < in_width);
          sum += (right_accurate - right_left) *
-                srtb::norm(d_in[y * in_width + right_left]);
+                transform(d_in[y * in_width + right_left]);
        }
        return sum;
      };
@@ -412,16 +414,17 @@ inline void resample_spectrum_2(DeviceInputAccessor d_in, size_t in_width,
  * @param d_in iterator of input complex spectrum, with time as x-axis and frequency as y-axis
  * @param in_width count in x-axis (time) of d_in
  * @param in_height count in y-axis (frequency) of d_in
+ * @param transform functor with operator()(complex) -> real
  * @param d_out iterator of output intensity (real), axis same as d_in
  * @param out_width count in x-axis (time) of d_out
  * @param out_height count in y-axis (frequency) of d_out
  * @param q SYCL queue to submit kernel
  */
-template <typename DeviceInputAccessor, typename DeviceOutputAccessor>
+template <typename DeviceInputAccessor, typename Transform, typename DeviceOutputAccessor>
 inline void resample_spectrum_3(DeviceInputAccessor d_in, size_t in_width,
-                                size_t in_height, DeviceOutputAccessor d_out,
-                                size_t out_width, size_t out_height,
-                                sycl::queue& q) {
+                                size_t in_height, Transform transform,
+                                DeviceOutputAccessor d_out, size_t out_width,
+                                size_t out_height, sycl::queue& q) {
   using T = typename std::iterator_traits<DeviceOutputAccessor>::value_type;
 
   const srtb::real in_width_real = static_cast<srtb::real>(in_width);
@@ -532,13 +535,13 @@ inline void resample_spectrum_3(DeviceInputAccessor d_in, size_t in_width,
                  // const size_t left_right = left;
                  SRTB_ASSERT_IN_KERNEL(left_left < in_width);
                  partial_x_sum += (left_real - left_accurate) *
-                                  srtb::norm(d_in[y * in_width + left_left]);
+                                  transform(d_in[y * in_width + left_left]);
                }
              }
              for (size_t x = left_int + local_idx; x < right_int;
                   x += nb_work_item) {
                SRTB_ASSERT_IN_KERNEL(x < in_width);
-               partial_x_sum += srtb::norm(d_in[y * in_width + x]);
+               partial_x_sum += transform(d_in[y * in_width + x]);
              }
              if (local_idx == nb_work_item - 1) {
                SRTB_ASSERT_IN_KERNEL(right_accurate >= right_real);
@@ -548,7 +551,7 @@ inline void resample_spectrum_3(DeviceInputAccessor d_in, size_t in_width,
                  // right_right == static_cast<size_t>(sycl::ceil(right_real));
                  SRTB_ASSERT_IN_KERNEL(right_left < in_width);
                  partial_x_sum += (right_accurate - right_left) *
-                                  srtb::norm(d_in[y * in_width + right_left]);
+                                  transform(d_in[y * in_width + right_left]);
                }
              }
              return partial_x_sum;
