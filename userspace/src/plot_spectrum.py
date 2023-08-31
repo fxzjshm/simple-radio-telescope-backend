@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 ################################################################################
 # Copyright (c) 2023 fxzjshm
 # This software is licensed under Mulan PubL v2.
@@ -15,7 +16,6 @@ import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import argparse
-import seaborn as sns
 import scipy
 
 def main():
@@ -25,29 +25,42 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("file_path")
     parser.add_argument("--zoom_x", required=False, default=0.1)
-    parser.add_argument("--zoom_y", required=False, default=0.1)
+    parser.add_argument("--zoom_y", required=False, default=1)
     args = parser.parse_args()
     file_path = args.file_path
     zoom_x = args.zoom_x
     zoom_y = args.zoom_y
 
+    mpl.use("TkAgg")
+    print("matplotlib backend = ", mpl.get_backend())
+
     spec_complex = np.load(file_path)
-    spec_intensity = (np.abs(spec_complex)**2)
+    print("spec_complex.dtype = ", spec_complex.dtype)
+    print("spec_complex.shape = ", spec_complex.shape)
+    spec_real = (np.abs(spec_complex))
     del spec_complex
-    spec_zoomed = scipy.ndimage.zoom(spec_intensity, (float(zoom_x), float(zoom_y)), order=1)
-    del spec_intensity
+    spec_zoomed = scipy.ndimage.zoom(spec_real, (float(zoom_x), float(zoom_y)), order=1)
+    print("spec_zoomed.shape = ", spec_zoomed.shape)
+    del spec_real
     spec_average = np.average(spec_zoomed)
     print("avg = ", spec_average)
 
-    time_series = np.sum(spec_zoomed, axis=1)
+    time_series = np.sum(spec_zoomed, axis=0)
     time_series_average = np.average(time_series);
     time_series -= time_series_average
+    print("time_series.shape = ", time_series.shape)
+
+    freq_dist = np.sum(spec_zoomed, axis=1)
+    print("freq_dist.shape = ", freq_dist.shape)
 
     mpl.rcParams['agg.path.chunksize'] = 10000
     # https://stackoverflow.com/questions/42973223/how-to-share-x-axes-of-two-subplots-after-they-have-been-created
-    fig, (ax1, ax2) = plt.subplots(nrows=2, sharex=True)
-    sns.heatmap(spec_zoomed.T, vmin=0.0, vmax=2*spec_average, ax=ax1, cbar=False)
-    ax2.plot(time_series)
+    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, gridspec_kw={'width_ratios': [3, 1], 'height_ratios': [3, 1]})
+    ax1.get_shared_x_axes().join(ax1, ax3)
+    ax1.get_shared_y_axes().join(ax1, ax2)
+    ax1.pcolormesh(spec_zoomed, vmin=0.0, vmax=2*spec_average)
+    ax2.plot(freq_dist, np.array(range(freq_dist.shape[0])))
+    ax3.plot(time_series)
     plt.show()
 
 if __name__ == '__main__':
