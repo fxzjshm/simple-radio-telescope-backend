@@ -21,7 +21,7 @@
 #include "sycl/execution_policy"
 // --- divide line for clang-format
 #include "srtb/commons.hpp"
-#include "srtb/pipeline/pipe.hpp"
+#include "srtb/pipeline/framework/pipe.hpp"
 // --- divide line for clang-format
 #include "srtb/algorithm/map_reduce.hpp"
 #include "srtb/algorithm/multi_reduce.hpp"
@@ -34,8 +34,6 @@ namespace pipeline {
 /**
  * @brief this pipe reads from refft-ed spectrum, sum it into time series,
  *        and detect if there's signal in it.
- *        If yes, notify someone to write the original baseband data;
- *        otherwise, just drop it.
  * @note In this variant, @code count is @code spectrum_channel_count and
  *       @code batch_size is count of time series
  *        frequency
@@ -50,18 +48,16 @@ namespace pipeline {
  * TODO: separate this into 2 pipes ? 
  *       (one for sum into time series, one for actual signal detect)
  */
-class signal_detect_pipe : public pipe<signal_detect_pipe> {
-  friend pipe<signal_detect_pipe>;
-
+class signal_detect_pipe {
  protected:
-  sycl::sycl_execution_policy<> execution_policy{q};
+  sycl::queue q;
+  sycl::sycl_execution_policy<> execution_policy;
 
- protected:
-  void run_once_impl(std::stop_token stop_token) {
-    srtb::work::signal_detect_work signal_detect_work;
-    SRTB_POP_WORK_OR_RETURN(" [signal_detect_pipe] ", srtb::signal_detect_queue,
-                            signal_detect_work, stop_token);
+ public:
+  signal_detect_pipe(sycl::queue q_) : q{q_}, execution_policy{q} {}
 
+  auto operator()([[maybe_unused]] std::stop_token stop_token,
+                  srtb::work::signal_detect_work signal_detect_work) {
     auto& d_in_shared = signal_detect_work.ptr;
     auto d_in = d_in_shared.get();
     const size_t count_per_batch = signal_detect_work.count;
@@ -90,17 +86,6 @@ class signal_detect_pipe : public pipe<signal_detect_pipe> {
           sycl::plus<size_t>(), q);
       auto d_zero_count = d_zero_count_shared.get();
       q.copy(d_zero_count, &zero_count, 1).wait();
-    }
-
-    if (SRTB_ENABLE_GUI && srtb::config.gui_enable) {
-      // temporary work: spectrum analyzer
-      srtb::work::simplify_spectrum_work simplify_spectrum_work;
-      simplify_spectrum_work.ptr = d_in_shared;
-      simplify_spectrum_work.count = count_per_batch;
-      simplify_spectrum_work.batch_size = batch_size;
-      simplify_spectrum_work.timestamp = signal_detect_work.timestamp;
-      // just try once, in case GUI is stuck (e.g. when using X forwarding on SSH)
-      srtb::simplify_spectrum_queue.push(simplify_spectrum_work);
     }
 
     // time series
@@ -138,14 +123,10 @@ class signal_detect_pipe : public pipe<signal_detect_pipe> {
     // time series is now available
 
     srtb::work::baseband_output_work baseband_output_work;
-    baseband_output_work.ptr = nullptr;
-    baseband_output_work.count = 0;
-    baseband_output_work.batch_size = 0;
-    baseband_output_work.baseband_data =
-        std::move(signal_detect_work.baseband_data);
-    baseband_output_work.timestamp = signal_detect_work.timestamp;
-    baseband_output_work.udp_packet_counter =
-        signal_detect_work.udp_packet_counter;
+    baseband_output_work.move_parameter_from(std::move(signal_detect_work));
+    baseband_output_work.ptr = std::move(d_in_shared);
+    baseband_output_work.count = count_per_batch;
+    baseband_output_work.batch_size = batch_size;
 
     // if too many frequency channels are masked, result is often inaccurate
     if (zero_count <
@@ -236,9 +217,6 @@ class signal_detect_pipe : public pipe<signal_detect_pipe> {
 
     const bool has_signal = (baseband_output_work.time_series.size() > 0);
     if (has_signal) {
-      baseband_output_work.ptr = std::move(d_in_shared);
-      baseband_output_work.count = signal_detect_work.count;
-      baseband_output_work.batch_size = signal_detect_work.batch_size;
       SRTB_LOGI << " [signal_detect_pipe] "
                 << " signal detected in "
                 << baseband_output_work.time_series.size() << " time series"
@@ -247,17 +225,13 @@ class signal_detect_pipe : public pipe<signal_detect_pipe> {
       SRTB_LOGD << " [signal_detect_pipe] "
                 << "no signal detected" << srtb::endl;
     }
-    SRTB_PUSH_WORK_OR_RETURN(" [signal_detect_pipe] ",
-                             srtb::baseband_output_queue, baseband_output_work,
-                             stop_token);
+    return std::optional{baseband_output_work};
   }
 };
 
 /**
  * @brief this pipe reads from refft-ed spectrum, sum it into time series,
  *        and detect if there's signal in it.
- *        If yes, notify someone to write the original baseband data;
- *        otherwise, just drop it.
  * @note In this variant, @code count is @code count of time series, and
  *       @code batch_size is spectrum_channel_count
  *          time
@@ -267,31 +241,22 @@ class signal_detect_pipe : public pipe<signal_detect_pipe> {
  *          ....      |                .
  *     1111......1111 v                x
  */
-class signal_detect_pipe_2 : public pipe<signal_detect_pipe_2> {
-  friend pipe<signal_detect_pipe_2>;
-
+class signal_detect_pipe_2 {
  protected:
-  sycl::sycl_execution_policy<> execution_policy{q};
+  sycl::queue q;
+  sycl::sycl_execution_policy<> execution_policy;
 
- protected:
-  void run_once_impl(std::stop_token stop_token) {
-    srtb::work::signal_detect_work signal_detect_work;
-    SRTB_POP_WORK_OR_RETURN(" [signal_detect_pipe_2] ",
-                            srtb::signal_detect_queue, signal_detect_work,
-                            stop_token);
+ public:
+  signal_detect_pipe_2(sycl::queue q_) : q{q_}, execution_policy{q} {}
 
+  auto operator()([[maybe_unused]] std::stop_token stop_token,
+                  srtb::work::signal_detect_work signal_detect_work) {
     auto& d_in_shared = signal_detect_work.ptr;
     auto d_in = d_in_shared.get();
     const size_t time_sample_count = signal_detect_work.count;
     const size_t frequency_bin_count = signal_detect_work.batch_size;
 
-    srtb::spectrum::mitigate_rfi_spectral_kurtosis_method_2(
-        d_in, time_sample_count, frequency_bin_count,
-        srtb::config.mitigate_rfi_spectral_kurtosis_threshold, q);
-
-    SRTB_LOGD << " [signal_detect_pipe_2] "
-              << "mitigate_rfi_spectral_kurtosis_method_2 finished"
-              << srtb::endl;
+    // RFI mitigation stage 2 moved to separate pipe
 
     size_t zero_count = 0;
     // count masked channels
@@ -315,18 +280,7 @@ class signal_detect_pipe_2 : public pipe<signal_detect_pipe_2> {
       auto d_zero_count = d_zero_count_shared.get();
       q.copy(d_zero_count, &zero_count, 1).wait();
       SRTB_LOGD << " [signal_detect_pipe_2] "
-                 << "zero_count = " << zero_count << srtb::endl;
-    }
-
-    if (SRTB_ENABLE_GUI && srtb::config.gui_enable) {
-      // temporary work: spectrum analyzer
-      srtb::work::simplify_spectrum_work simplify_spectrum_work;
-      simplify_spectrum_work.ptr = d_in_shared;
-      simplify_spectrum_work.count = time_sample_count;
-      simplify_spectrum_work.batch_size = frequency_bin_count;
-      simplify_spectrum_work.timestamp = signal_detect_work.timestamp;
-      // just try once, in case GUI is stuck (e.g. when using X forwarding on SSH)
-      srtb::simplify_spectrum_queue.push(simplify_spectrum_work);
+                << "zero_count = " << zero_count << srtb::endl;
     }
 
     // time series
@@ -381,14 +335,10 @@ class signal_detect_pipe_2 : public pipe<signal_detect_pipe_2> {
     // time series is now available
 
     srtb::work::baseband_output_work baseband_output_work;
-    baseband_output_work.ptr = nullptr;
-    baseband_output_work.count = 0;
-    baseband_output_work.batch_size = 0;
-    baseband_output_work.baseband_data =
-        std::move(signal_detect_work.baseband_data);
-    baseband_output_work.timestamp = signal_detect_work.timestamp;
-    baseband_output_work.udp_packet_counter =
-        signal_detect_work.udp_packet_counter;
+    baseband_output_work.move_parameter_from(std::move(signal_detect_work));
+    baseband_output_work.ptr = std::move(d_in_shared);
+    baseband_output_work.count = time_sample_count;
+    baseband_output_work.batch_size = frequency_bin_count;
 
     // if too many frequency channels are masked, result is often inaccurate
     if (zero_count <
@@ -480,9 +430,6 @@ class signal_detect_pipe_2 : public pipe<signal_detect_pipe_2> {
 
     const bool has_signal = (baseband_output_work.time_series.size() > 0);
     if (has_signal) {
-      baseband_output_work.ptr = std::move(d_in_shared);
-      baseband_output_work.count = signal_detect_work.count;
-      baseband_output_work.batch_size = signal_detect_work.batch_size;
       SRTB_LOGI << " [signal_detect_pipe_2] "
                 << " signal detected in "
                 << baseband_output_work.time_series.size() << " time series"
@@ -491,9 +438,7 @@ class signal_detect_pipe_2 : public pipe<signal_detect_pipe_2> {
       SRTB_LOGD << " [signal_detect_pipe_2] "
                 << "no signal detected" << srtb::endl;
     }
-    SRTB_PUSH_WORK_OR_RETURN(" [signal_detect_pipe_2] ",
-                             srtb::baseband_output_queue, baseband_output_work,
-                             stop_token);
+    return std::optional{baseband_output_work};
   }
 };
 

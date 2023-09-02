@@ -17,7 +17,7 @@
 #include <boost/algorithm/string/replace.hpp>
 #include <string>
 
-#include "srtb/pipeline/pipe.hpp"
+#include "srtb/pipeline/framework/pipe.hpp"
 #include "srtb/spectrum/simplify_spectrum.hpp"
 
 namespace srtb {
@@ -26,19 +26,13 @@ namespace pipeline {
 /**
  * @brief This temporary pipe reads FFT-ed data and adapt it to lines on GUI pixmap.
  */
-class simplify_spectrum_pipe : public pipe<simplify_spectrum_pipe> {
-  friend pipe<simplify_spectrum_pipe>;
+class simplify_spectrum_pipe {
+ protected:
+  sycl::queue q;
 
  public:
-  simplify_spectrum_pipe() = default;
-
- protected:
-  void run_once_impl(std::stop_token stop_token) {
-    srtb::work::simplify_spectrum_work simplify_spectrum_work;
-    SRTB_POP_WORK_OR_RETURN(" [simplify spectrum pipe] ",
-                            srtb::simplify_spectrum_queue,
-                            simplify_spectrum_work, stop_token);
-
+  auto operator()([[maybe_unused]] std::stop_token stop_token,
+                  srtb::work::simplify_spectrum_work simplify_spectrum_work) {
     const size_t in_count = simplify_spectrum_work.count;
     const size_t out_count = srtb::config.gui_pixmap_width;
     const size_t batch_size = simplify_spectrum_work.batch_size;
@@ -73,37 +67,23 @@ class simplify_spectrum_pipe : public pipe<simplify_spectrum_pipe> {
     d_out_shared.reset();
 
     srtb::work::draw_spectrum_work draw_spectrum_work;
+    draw_spectrum_work.move_parameter_from(std::move(simplify_spectrum_work));
     draw_spectrum_work.ptr = h_out_shared;
     draw_spectrum_work.count = out_count;
     draw_spectrum_work.batch_size = batch_size;
-    draw_spectrum_work.baseband_data = simplify_spectrum_work.baseband_data;
-    draw_spectrum_work.timestamp = simplify_spectrum_work.timestamp;
-    draw_spectrum_work.udp_packet_counter =
-        simplify_spectrum_work.udp_packet_counter;
-    // same as SRTB_PUSH_WORK_OR_RETURN(), but supressed logs
-    {
-      bool success = false;
-      do {
-        if (stop_token.stop_requested()) [[unlikely]] {
-          return;
-        }
-        std::this_thread::sleep_for(
-            std::chrono::nanoseconds(srtb::config.thread_query_work_wait_time));
-        success = srtb::draw_spectrum_queue.push(draw_spectrum_work);
-      } while (!success);
-    }
+
+    return std::optional{draw_spectrum_work};
   }
 };
 
 /**
  * @brief This temporary pipe reads FFT-ed data and generate thumbnail of the spectrum to draw it on GUI pixmap.
  */
-class simplify_spectrum_pipe_2 : public pipe<simplify_spectrum_pipe_2> {
-  friend pipe<simplify_spectrum_pipe_2>;
+class simplify_spectrum_pipe_2 {
+ public:
+  sycl::queue q;
 
  public:
-  simplify_spectrum_pipe_2() = default;
-
   auto color_cast(std::string str) -> uint32_t {
     if (str.starts_with("#")) {
       boost::replace_first(str, "#", "0x");
@@ -112,13 +92,8 @@ class simplify_spectrum_pipe_2 : public pipe<simplify_spectrum_pipe_2> {
         std::stoul(str, /* index = */ nullptr, /* base = */ 0));
   }
 
- protected:
-  void run_once_impl(std::stop_token stop_token) {
-    srtb::work::simplify_spectrum_work simplify_spectrum_work;
-    SRTB_POP_WORK_OR_RETURN(" [simplify spectrum pipe] ",
-                            srtb::simplify_spectrum_queue,
-                            simplify_spectrum_work, stop_token);
-
+  auto operator()([[maybe_unused]] std::stop_token stop_token,
+                  srtb::work::simplify_spectrum_work simplify_spectrum_work) {
     const size_t in_width = simplify_spectrum_work.count;
     const size_t in_height = simplify_spectrum_work.batch_size;
     const size_t out_width = srtb::config.gui_pixmap_width;
@@ -169,18 +144,7 @@ class simplify_spectrum_pipe_2 : public pipe<simplify_spectrum_pipe_2> {
     draw_spectrum_work.ptr = h_image_shared;
     draw_spectrum_work.width = out_width;
     draw_spectrum_work.height = out_height;
-    // same as SRTB_PUSH_WORK_OR_RETURN(), but supressed logs
-    {
-      bool success = false;
-      do {
-        if (stop_token.stop_requested()) [[unlikely]] {
-          return;
-        }
-        std::this_thread::sleep_for(
-            std::chrono::nanoseconds(srtb::config.thread_query_work_wait_time));
-        success = srtb::draw_spectrum_queue_2.push(draw_spectrum_work);
-      } while (!success);
-    }
+    return std::optional{draw_spectrum_work};
   }
 };
 

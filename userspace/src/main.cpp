@@ -25,20 +25,26 @@
 #include "srtb/coherent_dedispersion.hpp"
 #include "srtb/commons.hpp"
 #include "srtb/io/udp_receiver.hpp"
-#include "srtb/pipeline/baseband_output_pipe.hpp"
+#include "srtb/pipeline/copy_to_device_pipe.hpp"
 #include "srtb/pipeline/dedisperse_pipe.hpp"
-#include "srtb/pipeline/exit_handler.hpp"
 #include "srtb/pipeline/fft_pipe.hpp"
+#include "srtb/pipeline/framework/composite_pipe.hpp"
+#include "srtb/pipeline/framework/dummy_pipe.hpp"
+#include "srtb/pipeline/framework/exit_handler.hpp"
+#include "srtb/pipeline/framework/pipe.hpp"
+#include "srtb/pipeline/framework/pipe_io.hpp"
 #include "srtb/pipeline/read_file_pipe.hpp"
 #include "srtb/pipeline/rfi_mitigation_pipe.hpp"
 #include "srtb/pipeline/signal_detect_pipe.hpp"
+#include "srtb/pipeline/spectrum_pipe.hpp"
 #include "srtb/pipeline/udp_receiver_pipe.hpp"
 #include "srtb/pipeline/unpack_pipe.hpp"
+#include "srtb/pipeline/write_file_pipe.hpp"
+#include "srtb/pipeline/write_signal_pipe.hpp"
 #include "srtb/program_options.hpp"
 
 #if SRTB_ENABLE_GUI
 #include "srtb/gui/gui.hpp"
-#include "srtb/pipeline/spectrum_pipe.hpp"
 #endif  // SRTB_ENABLE_GUI
 
 namespace srtb {
@@ -55,7 +61,7 @@ inline namespace detail {
  *                         but allocation of device memory is quick
  *       & VRAM is usually limited.
  * 
- * this function is quite ugly, and should be updated once pipeline structure chnages.
+ * this function is quite ugly, and should be updated once pipeline structure changes.
  */
 inline void allocate_memory_regions(size_t input_pipe_count) {
   // hold all pointers; using RAII
@@ -145,9 +151,13 @@ int main(int argc, char** argv) {
   cudaSetDeviceFlags(cudaDeviceScheduleYield);
 #endif  // SRTB_ENABLE_CUDA_INTEROP
 
+  sycl::queue q;
+  srtb::host_allocator = decltype(srtb::host_allocator){q};
+  srtb::device_allocator = decltype(srtb::device_allocator){q};
+
   SRTB_LOGI << " [main] "
             << "device name = "
-            << srtb::queue.get_device().get_info<sycl::info::device::name>()
+            << q.get_device().get_info<sycl::info::device::name>()
             << srtb::endl;
 
   {
@@ -163,37 +173,7 @@ int main(int argc, char** argv) {
   {
     auto d_out_unique = srtb::device_allocator.allocate_unique<srtb::real>(1);
     auto d_out = d_out_unique.get();
-    srtb::queue.single_task([=]() { (*d_out) = srtb::real{42}; }).wait();
-  }
-
-  // TODO: maybe multiple file input or something else
-  size_t input_pipe_count =
-      std::max(std::max(srtb::config.udp_receiver_sender_address.size(),
-                        srtb::config.udp_receiver_sender_port.size()),
-               size_t{1});
-
-  // TODO std::jthread for other pipelines
-
-  std::vector<std::jthread> input_thread;
-  auto input_file_path = srtb::config.input_file_path;
-  if (std::filesystem::exists(input_file_path)) {
-    SRTB_LOGI << " [main] "
-              << "Reading file " << input_file_path << srtb::endl;
-    input_thread.push_back(srtb::pipeline::read_file_pipe::start());
-    input_pipe_count = 1;
-  } else {
-    if (input_file_path != "") {
-      SRTB_LOGE << " [main] "
-                << "Cannot read file " << input_file_path << srtb::endl;
-      return EXIT_FAILURE;
-    }
-    SRTB_LOGI << " [main] "
-              << "Receiving UDP packets" << srtb::endl;
-    allocate_memory_regions(input_pipe_count);
-    for (size_t i = 0; i < input_pipe_count; i++) {
-      input_thread.push_back(
-          srtb::pipeline::udp_receiver_pipe::start(/* id = */ i));
-    }
+    q.single_task([=]() { (*d_out) = srtb::real{42}; }).wait();
   }
 
   // init matplotlib
@@ -211,85 +191,227 @@ int main(int argc, char** argv) {
     plt::cla();
   }
 
-  std::jthread unpack_thread = srtb::pipeline::unpack_pipe::start();
+  // work queues
+  srtb::work_queue<srtb::work::copy_to_device_work, /* spsc = */ false>
+      copy_to_device_queue;
+  srtb::work_queue<srtb::work::unpack_work, /* spsc = */ false> unpack_queue;
+  srtb::work_queue<srtb::work::fft_1d_r2c_work> fft_1d_r2c_queue;
+  srtb::work_queue<srtb::work::rfi_mitigation_s1_work> rfi_mitigation_s1_queue;
+  srtb::work_queue<srtb::work::dedisperse_work> dedisperse_queue;
+  srtb::work_queue<srtb::work::ifft_1d_c2c_work> ifft_1d_c2c_queue;
+  //srtb::work_queue<srtb::work::refft_1d_c2c_work> refft_1d_c2c_queue;
+  srtb::work_queue<srtb::work::rfi_mitigation_s2_work> rfi_mitigation_s2_queue;
+  srtb::work_queue<srtb::work::simplify_spectrum_work> simplify_spectrum_queue;
+  //srtb::work_queue<srtb::work::draw_spectrum_work> draw_spectrum_queue;
+  srtb::work_queue<srtb::work::draw_spectrum_work_2> draw_spectrum_queue_2;
+  srtb::work_queue<srtb::work::signal_detect_work> signal_detect_queue;
+  srtb::work_queue<srtb::work::baseband_output_work> baseband_output_queue;
 
-  std::jthread fft_1d_r2c_thread = srtb::pipeline::fft_1d_r2c_pipe::start();
+  /** @brief count of works in a pipeline. */
+  std::shared_ptr<std::atomic<int32_t> > work_in_pipeline_count =
+      std::make_shared<std::atomic<int32_t> >(0);
 
-  std::jthread rfi_mitigation_thread =
-      srtb::pipeline::rfi_mitigation_pipe::start();
+  // setup threads for pipes
+  using namespace srtb::pipeline;
 
-  std::jthread dedisperse_thread = srtb::pipeline::dedisperse_pipe::start();
+  std::jthread unpack_thread = srtb::pipeline::start_pipe<
+      composite_pipe<copy_to_device_pipe, unpack_pipe> >(
+      q, queue_in_functor{copy_to_device_queue},
+      queue_out_functor{fft_1d_r2c_queue});
 
-  //std::jthread ifft_1d_c2c_thread = srtb::pipeline::ifft_1d_c2c_pipe::start();
+  std::jthread fft_1d_r2c_thread = srtb::pipeline::start_pipe<fft_1d_r2c_pipe>(
+      q, queue_in_functor{fft_1d_r2c_queue},
+      queue_out_functor{rfi_mitigation_s1_queue});
 
-  //std::jthread refft_1d_c2c_thread = srtb::pipeline::refft_1d_c2c_pipe::start();
+  std::jthread rfi_mitigation_s1_thread =
+      srtb::pipeline::start_pipe<rfi_mitigation_s1_pipe>(
+          q, queue_in_functor{rfi_mitigation_s1_queue},
+          queue_out_functor{dedisperse_queue});
+
+  std::jthread dedisperse_thread = srtb::pipeline::start_pipe<dedisperse_pipe>(
+      q, queue_in_functor{dedisperse_queue},
+      queue_out_functor{ifft_1d_c2c_queue});
+
+  //std::jthread ifft_1d_c2c_thread =
+  //    srtb::pipeline::start_pipe<ifft_1d_c2c_pipe>(
+  //        q,
+  //        queue_in_functor{ifft_1d_c2c_queue},
+  //        queue_out_functor{refft_1d_c2c_queue});
+
+  //std::jthread refft_1d_c2c_thread =
+  //    srtb::pipeline::start_pipe<refft_1d_c2c_pipe>(
+  //        q,
+  //        queue_in_functor{refft_1d_c2c_queue},
+  //        queue_out_functor{signal_detect_queue});
 
   std::jthread watfft_1d_c2c_thread =
-      srtb::pipeline::watfft_1d_c2c_pipe::start();
+      srtb::pipeline::start_pipe<watfft_1d_c2c_pipe>(
+          q, queue_in_functor{ifft_1d_c2c_queue},
+          queue_out_functor{rfi_mitigation_s2_queue});
 
   //std::jthread signal_detect_thread =
-  //    srtb::pipeline::signal_detect_pipe::start();
+  //    srtb::pipeline::start_pipe<signal_detect_pipe>(
+  //        q,
+  //        queue_in_functor{srtb::signal_detect_queue},
+  //        multiple_out_functor{
+  //            queue_out_functor{srtb::baseband_output_queue},
+  //            queue_out_functor{
+  //                srtb::simplify_spectrum_queue}});
+
+  std::jthread rfi_mitigation_s2_thread =
+      srtb::pipeline::start_pipe<rfi_mitigation_s2_pipe>(
+          q, queue_in_functor{rfi_mitigation_s2_queue},
+          multiple_out_functor{
+              queue_out_functor{signal_detect_queue},
+              loose_queue_out_functor{simplify_spectrum_queue}});
 
   std::jthread signal_detect_thread =
-      srtb::pipeline::signal_detect_pipe_2::start();
+      srtb::pipeline::start_pipe<signal_detect_pipe_2>(
+          q, queue_in_functor{signal_detect_queue},
+          queue_out_functor{baseband_output_queue});
 
   std::jthread baseband_output_thread;
+  auto decrease_work_count = [work_in_pipeline_count](
+                                 [[maybe_unused]] std::stop_token stop_token,
+                                 [[maybe_unused]] auto work) {
+    (*work_in_pipeline_count)--;
+    assert((*work_in_pipeline_count) >= 0);
+  };
   if (srtb::config.baseband_write_all) {
     SRTB_LOGW << " [main] "
               << "Writing all baseband data, take care of disk space!"
               << srtb::endl;
-    baseband_output_thread = srtb::pipeline::baseband_output_pipe<
-        /* continuous_write = */ true>::start();
+    baseband_output_thread = srtb::pipeline::start_pipe<write_file_pipe>(
+        q, queue_in_functor{baseband_output_queue}, decrease_work_count);
   } else {
-    baseband_output_thread = srtb::pipeline::baseband_output_pipe<
-        /* continuous_write = */ false>::start();
+    baseband_output_thread = srtb::pipeline::start_pipe<write_signal_pipe>(
+        q, queue_in_functor{baseband_output_queue}, decrease_work_count);
   }
 
   std::jthread simplify_spectrum_thread;
-#if SRTB_ENABLE_GUI
-  if (srtb::config.gui_enable) {
-    //simplify_spectrum_thread = srtb::pipeline::simplify_spectrum_pipe::start();
+  if (SRTB_ENABLE_GUI && srtb::config.gui_enable) {
+    //simplify_spectrum_thread =
+    //    srtb::pipeline::start_pipe<simplify_spectrum_pipe>(
+    //        q,
+    //        queue_in_functor{srtb::simplify_spectrum_queue},
+    //        queue_out_functor{srtb::draw_spectrum_queue});
     simplify_spectrum_thread =
-        srtb::pipeline::simplify_spectrum_pipe_2::start();
+        srtb::pipeline::start_pipe<simplify_spectrum_pipe_2>(
+            q, queue_in_functor{simplify_spectrum_queue},
+            queue_out_functor{draw_spectrum_queue_2});
+  } else {
+    simplify_spectrum_thread = srtb::pipeline::start_pipe<dummy_pipe<> >(
+        q, queue_in_functor{simplify_spectrum_queue},
+        dummy_out_functor<srtb::work::dummy_work>{});
   }
-#endif  // SRTB_ENABLE_GUI
+
+  // TODO: maybe multiple file input or something else
+  size_t input_pipe_count =
+      std::max(std::max(srtb::config.udp_receiver_sender_address.size(),
+                        srtb::config.udp_receiver_sender_port.size()),
+               size_t{1});
+
+  std::vector<std::jthread> input_thread;
+  auto increase_work_count = [work_in_pipeline_count](
+                                 [[maybe_unused]] std::stop_token stop_token,
+                                 [[maybe_unused]] auto work) {
+    (*work_in_pipeline_count)++;
+    assert((*work_in_pipeline_count) >= 0);
+  };
+  auto input_file_path = srtb::config.input_file_path;
+  if (std::filesystem::exists(input_file_path)) {
+    SRTB_LOGI << " [main] "
+              << "Reading file " << input_file_path << srtb::endl;
+    input_thread.push_back(srtb::pipeline::start_pipe<read_file_pipe>(
+        q,
+        // wait until last work finishes
+        [work_in_pipeline_count](std::stop_token stop_token) {
+          while (
+              (!(stop_token.stop_possible() && stop_token.stop_requested())) &&
+              (*work_in_pipeline_count) != 0) {
+            std::this_thread::sleep_for(std::chrono::nanoseconds(
+                srtb::config.thread_query_work_wait_time));
+          }
+          if (stop_token.stop_requested()) {
+            return std::optional<srtb::work::dummy_work>{};
+          }
+          return std::optional{srtb::work::dummy_work{}};
+        },
+        multiple_out_functor{queue_out_functor{copy_to_device_queue},
+                             increase_work_count}));
+    input_pipe_count = 1;
+  } else {
+    if (input_file_path != "") {
+      SRTB_LOGE << " [main] "
+                << "Cannot read file " << input_file_path << srtb::endl;
+      return EXIT_FAILURE;
+    }
+    SRTB_LOGI << " [main] "
+              << "Receiving UDP packets" << srtb::endl;
+    allocate_memory_regions(input_pipe_count);
+    for (size_t i = 0; i < input_pipe_count; i++) {
+      input_thread.push_back(srtb::pipeline::start_pipe<udp_receiver_pipe>(
+          q,
+          // don't wait for last work
+          [work_in_pipeline_count](
+              [[maybe_unused]] std::stop_token stop_token) {
+            (*work_in_pipeline_count)++;
+            return std::optional{srtb::work::dummy_work{}};
+          },
+          multiple_out_functor{queue_out_functor{copy_to_device_queue},
+                               increase_work_count},
+          /* id = */ i));
+    }
+  }
 
   std::vector<std::jthread> threads;
   threads = std::move(input_thread);
   threads.push_back(std::move(unpack_thread));
   threads.push_back(std::move(fft_1d_r2c_thread));
-  threads.push_back(std::move(rfi_mitigation_thread));
+  threads.push_back(std::move(rfi_mitigation_s1_thread));
   threads.push_back(std::move(dedisperse_thread));
   //threads.push_back(std::move(ifft_1d_c2c_thread));
   //threads.push_back(std::move(refft_1d_c2c_thread));
   threads.push_back(std::move(watfft_1d_c2c_thread));
+  threads.push_back(std::move(rfi_mitigation_s2_thread));
   threads.push_back(std::move(signal_detect_thread));
   threads.push_back(std::move(baseband_output_thread));
   threads.push_back(std::move(simplify_spectrum_thread));
-
-  // assuming pipe threads are joinable
-  srtb::pipeline::expected_running_pipe_count =
-      std::count_if(threads.begin(), threads.end(),
-                    [](std::jthread& thread) { return thread.joinable(); });
-  srtb::pipeline::expected_input_pipe_count = input_pipe_count;
 
   int return_value;
 
 #if SRTB_ENABLE_GUI
   if (srtb::config.gui_enable) {
-    return_value = srtb::gui::show_gui(argc, argv, std::move(threads));
+    return_value = srtb::gui::show_gui(argc, argv, draw_spectrum_queue_2);
   } else {
 #endif  // SRTB_ENABLE_GUI
-    while (!(srtb::pipeline::no_more_work &&
-             srtb::baseband_output_queue.read_available() == 0)) {
+
+    // wait for first work
+    while ((*work_in_pipeline_count) == 0) {
       std::this_thread::sleep_for(
           std::chrono::nanoseconds(srtb::config.thread_query_work_wait_time));
     }
-    srtb::pipeline::on_exit(std::move(threads));
+
+    // TODO: assume threads at beginning are work producers
+    for (size_t i = 0; i < input_pipe_count; i++) {
+      if (threads.at(i).joinable()) {
+        threads.at(i).join();
+      }
+    }
+
+    // wait for last work
+    while ((*work_in_pipeline_count) != 0) {
+      std::this_thread::sleep_for(
+          std::chrono::nanoseconds(srtb::config.thread_query_work_wait_time));
+    }
+
     return_value = EXIT_SUCCESS;
+
 #if SRTB_ENABLE_GUI
   }
 #endif  // SRTB_ENABLE_GUI
+
+  srtb::pipeline::on_exit(std::move(threads));
 
   SRTB_LOGI << " [main] "
             << "Exiting." << srtb::endl;

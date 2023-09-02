@@ -15,7 +15,7 @@
 #define __SRTB_PIPELINE_UNPACK_PIPE__
 
 #include "srtb/fft/fft_window.hpp"
-#include "srtb/pipeline/pipe.hpp"
+#include "srtb/pipeline/framework/pipe.hpp"
 #include "srtb/unpack.hpp"
 
 namespace srtb {
@@ -25,26 +25,23 @@ namespace pipeline {
  * @brief this pipe reads from @c srtb::unpack_queue, unpack and apply FFT window
  *        to input baseband data, then push work to @c srtb::fft_1d_r2c_queue
  */
-class unpack_pipe : public pipe<unpack_pipe> {
-  friend pipe<unpack_pipe>;
-
+class unpack_pipe {
  protected:
+  sycl::queue q;
   srtb::fft::fft_window_functor_manager<srtb::real, srtb::fft::default_window>
       window_functor_manager;
 
  public:
-  unpack_pipe()
-      : window_functor_manager{srtb::fft::default_window{},
+  unpack_pipe(sycl::queue q_)
+      : q{q_},
+        window_functor_manager{srtb::fft::default_window{},
                                /* n = */ srtb::config.baseband_input_count, q} {
   }
 
- protected:
-  void run_once_impl(std::stop_token stop_token) {
-    srtb::work::unpack_work unpack_work;
-    SRTB_POP_WORK_OR_RETURN(" [unpack pipe] ", srtb::unpack_queue, unpack_work,
-                            stop_token);
+  auto operator()([[maybe_unused]] std::stop_token stop_token,
+                  srtb::work::unpack_work unpack_work) {
     // data length after unpack
-    const int baseband_input_bits = unpack_work.baseband_input_bits;
+    const int baseband_input_bits = srtb::config.baseband_input_bits;
     const size_t out_count =
         unpack_work.count * srtb::BITS_PER_BYTE / std::abs(baseband_input_bits);
 
@@ -58,9 +55,6 @@ class unpack_pipe : public pipe<unpack_pipe> {
                                                 srtb::fft::default_window>{
               srtb::fft::default_window{}, out_count, q};
     }
-
-    // wait for host to device copy complete
-    unpack_work.copy_event.wait();
 
     auto& d_in_shared = unpack_work.ptr;
     // size += 2 because fft_pipe may operate in-place
@@ -116,13 +110,10 @@ class unpack_pipe : public pipe<unpack_pipe> {
     d_in_shared.reset();
 
     srtb::work::fft_1d_r2c_work fft_1d_r2c_work;
+    fft_1d_r2c_work.move_parameter_from(std::move(unpack_work));
     fft_1d_r2c_work.ptr = d_out_shared;
     fft_1d_r2c_work.count = out_count;
-    fft_1d_r2c_work.baseband_data = std::move(unpack_work.baseband_data);
-    fft_1d_r2c_work.timestamp = unpack_work.timestamp;
-    fft_1d_r2c_work.udp_packet_counter = unpack_work.udp_packet_counter;
-    SRTB_PUSH_WORK_OR_RETURN(" [unpack pipe] ", srtb::fft_1d_r2c_queue,
-                             fft_1d_r2c_work, stop_token);
+    return std::optional{fft_1d_r2c_work};
   }
 };
 

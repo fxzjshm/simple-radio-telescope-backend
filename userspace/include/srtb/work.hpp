@@ -22,43 +22,6 @@
 #include "concurrentqueue.h"
 #include "srtb/config.hpp"
 
-#define SRTB_PUSH_WORK_OR_RETURN(tag, work_queue, work, stop_token)        \
-  {                                                                        \
-    bool ret = work_queue.push(work);                                      \
-    if (!ret) [[unlikely]] {                                               \
-      SRTB_LOGW << tag                                                     \
-                << " Pipeline stuck: Pushing " #work " to " #work_queue    \
-                   " failed! Retrying."                                    \
-                << srtb::endl;                                             \
-      while (!ret) {                                                       \
-        if (stop_token.stop_requested()) [[unlikely]] {                    \
-          return;                                                          \
-        }                                                                  \
-        std::this_thread::yield(); /* TODO: spin lock here? */             \
-        std::this_thread::sleep_for(std::chrono::nanoseconds(              \
-            srtb::config.thread_query_work_wait_time));                    \
-        ret = work_queue.push(work);                                       \
-      }                                                                    \
-    }                                                                      \
-    SRTB_LOGD << tag << " Pushed " #work " to " #work_queue << srtb::endl; \
-  }
-
-#define SRTB_POP_WORK_OR_RETURN(tag, work_queue, work, stop_token) \
-  {                                                                \
-    bool ret = work_queue.pop(work);                               \
-    if (!ret) [[unlikely]] {                                       \
-      while (!ret) {                                               \
-        if (stop_token.stop_requested()) [[unlikely]] {            \
-          return;                                                  \
-        }                                                          \
-        std::this_thread::yield(); /* TODO: spin lock here? */     \
-        std::this_thread::sleep_for(std::chrono::nanoseconds(      \
-            srtb::config.thread_query_work_wait_time));            \
-        ret = work_queue.pop(work);                                \
-      }                                                            \
-    }                                                              \
-  }
-
 namespace srtb {
 
 // definition of work queue, a container of works to be processed.
@@ -72,12 +35,15 @@ template <typename T, size_t capacity>
 class work_queue<T, true, true, capacity>
     : public boost::lockfree::spsc_queue<T,
                                          boost::lockfree::capacity<capacity> > {
+ public:
+  using work_type = T;
 };
 
 template <typename T, size_t initial_capacity>
 class work_queue<T, true, false, initial_capacity>
     : public boost::lockfree::spsc_queue<T> {
  public:
+  using work_type = T;
   using super_class = boost::lockfree::spsc_queue<T>;
   work_queue(size_t initial_capacity_ = initial_capacity)
       : super_class{initial_capacity_} {}
@@ -87,6 +53,7 @@ template <typename T, bool unused_1, size_t unused_2>
 class work_queue<T, false, unused_1, unused_2>
     : public moodycamel::ConcurrentQueue<T> {
  public:
+  using work_type = T;
   using super_class = moodycamel::ConcurrentQueue<T>;
   template <typename... Args>
   inline decltype(auto) push(Args&&... args) {
@@ -106,8 +73,14 @@ class work_queue<T, false, unused_1, unused_2>
 /**
  * @brief This namespace contains work types that defines the input of a pipe.
  *        Ideally all info needed to execute the pipeline should be written in a POD work class.
+ * TODO: refactor work types
  */
 namespace work {
+
+/**
+ * @brief Dummy work as place holder for work queue / pipe work transfer
+ */
+struct dummy_work {};
 
 /**
  * @brief this holds ownership of original baseband data & its size
@@ -134,10 +107,15 @@ struct work {
    */
   T ptr;
   /**
-   * @brief count of data in @c ptr; some may also have @c batch_size
-   *        refer to specialized work types for detail
+   * @brief shape[0] of data in @c ptr, refer to specialized work types for detail
+   * @see batch_size
    */
   size_t count;
+  /**
+   * @brief shape[1] of data in @c ptr, refer to specialized work types for detail
+   * @see count
+   */
+  size_t batch_size;
   /**
    * @brief time stamp of these data, currectly 64-bit unix timestamp from server time
    */
@@ -154,7 +132,26 @@ struct work {
    * @brief original baseband input correspond to this work
    */
   baseband_data_holder baseband_data;
+
+  template <typename U>
+  inline void move_parameter_from(work<U>&& other) {
+    timestamp = std::move(other.timestamp);
+    udp_packet_counter = std::move(other.udp_packet_counter);
+    baseband_data = std::move(other.baseband_data);
+  }
+
+  template <typename U>
+  inline void copy_parameter_from(const work<U>& other) {
+    timestamp = other.timestamp;
+    udp_packet_counter = other.udp_packet_counter;
+    baseband_data = other.baseband_data;
+  }
 };
+
+/**
+ * @brief copy input from host to device
+ */
+using copy_to_device_work = srtb::work::work<std::shared_ptr<std::byte> >;
 
 /**
  * @brief contains a chunk of @c std::byte of size @c count, which is 
@@ -162,20 +159,7 @@ struct work {
  * @note count is count of std::byte, not of output time series,
  *       and should equal to `srtb::config.baseband_input_count * srtb::config.baseband_input_bits / srtb::BITS_PER_BYTE`
  */
-struct unpack_work : public srtb::work::work<std::shared_ptr<std::byte> > {
-  /**
-   * @brief length of a single time sample in the input, come from @c srtb::config.baseband_input_bits
-   *        currently 1, 2, 4 and 8 bit(s) baseband input is implemented,
-   *        others will result in ... undefined behaviour.
-   */
-  int baseband_input_bits;
-  /**
-   * @brief let unpack_pipe to wait for host to device copy, so that
-   *        udp receiver pipe may lose less packet.
-   *        May be empty for other data sources that is not real-time.
-   */
-  sycl::event copy_event;
-};
+using unpack_work = srtb::work::work<std::shared_ptr<std::byte> >;
 
 /**
  * @brief contains a chunk of @c srtb::real that is to be FFT-ed.
@@ -185,24 +169,21 @@ struct unpack_work : public srtb::work::work<std::shared_ptr<std::byte> > {
 using fft_1d_r2c_work = srtb::work::work<std::shared_ptr<srtb::real> >;
 
 /**
- * @brief comtains a block of @c srtb::complex<srtb::real> with radio interference
+ * @brief contains a block of @c srtb::complex<srtb::real> with radio interference
  *        to be cleared out
+ * @note stage 1: whole data is frequency domain, i,e, batch_size = 1.
  */
-using rfi_mitigation_work =
+using rfi_mitigation_s1_work =
     srtb::work::work<std::shared_ptr<srtb::complex<srtb::real> > >;
 
 /**
  * @brief contains a piece of @c srtb::complex<srtb::real> to be coherently dedispersed
  */
-struct dedisperse_work
-    : public srtb::work::work<std::shared_ptr<srtb::complex<srtb::real> > > {
-  srtb::real dm;
-  srtb::real baseband_freq_low;
-  srtb::real baseband_sample_rate;
-};
+using dedisperse_work =
+    srtb::work::work<std::shared_ptr<srtb::complex<srtb::real> > >;
 
 /**
- * @brief contains @c batch_size * @c count of @c srtb::complex<srtb::real>
+ * @brief contains @c count of @c srtb::complex<srtb::real> in frequency domain
  *        to be inversed FFT-ed
  */
 using ifft_1d_c2c_work =
@@ -217,39 +198,27 @@ using refft_1d_c2c_work =
     srtb::work::work<std::shared_ptr<srtb::complex<srtb::real> > >;
 
 /**
- * @brief contains @c srtb::complex<srtb::real> to be simplified into
- *        ~10^3 @c srtb::real to be displayed on GUI.
- * @note temporary work, just do a software-defined-radio receiver job.
+ * @brief contains complex dedispersed baseband data of total length @c count
+ *        to be FFT-ed with length @c spectrum_channel_count to get spectrum with
+ *        much higher time resolution.
  */
-struct simplify_spectrum_work
-    : public srtb::work::work<std::shared_ptr<srtb::complex<srtb::real> > > {
-  size_t batch_size;
-};
+using watfft_1d_c2c_work =
+    srtb::work::work<std::shared_ptr<srtb::complex<srtb::real> > >;
 
 /**
- * @brief contains ~10^3 * @c batch_size of @c srtb::real to be summed and drawn
- *        to a line of a pixmap. @c ptr should be host pointer.
- * @note temporary work, see above.
+ * @brief contains a block of @c srtb::complex<srtb::real> with radio interference
+ *        to be cleared out
+ * @note stage 2: work on dynamic spectrum, count: count in time axis, batch_size: count in frequency axis
  */
-struct draw_spectrum_work
-    : public srtb::work::work<std::shared_ptr<srtb::real> > {
-  size_t batch_size;
-};
-
-/**
- * @brief contains ARGB8888 @c uint32_t of width * height, to be drawn onto screen
- */
-struct draw_spectrum_work_2 {
-  std::shared_ptr<uint32_t> ptr;
-  size_t width;
-  size_t height;
-};
+using rfi_mitigation_s2_work =
+    srtb::work::work<std::shared_ptr<srtb::complex<srtb::real> > >;
 
 /**
  * @brief contains @c srtb::complex<srtb::real> to be taken norm and summed into
  *        time series, then try tp find signal in it.
  */
-using signal_detect_work = simplify_spectrum_work;
+using signal_detect_work =
+    srtb::work::work<std::shared_ptr<srtb::complex<srtb::real> > >;
 
 /**
  * @brief contains info for a time series of a spectrum
@@ -268,8 +237,30 @@ struct time_series_holder {
  */
 struct baseband_output_work
     : public srtb::work::work<std::shared_ptr<srtb::complex<srtb::real> > > {
-  size_t batch_size;
   std::vector<time_series_holder> time_series;
+};
+
+/**
+ * @brief contains @c srtb::complex<srtb::real> to be simplified into
+ *        ~10^3 @c srtb::real to be displayed on GUI.
+ *        Just like a software-defined-radio receiver.
+ */
+using simplify_spectrum_work =
+    srtb::work::work<std::shared_ptr<srtb::complex<srtb::real> > >;
+
+/**
+ * @brief contains ~10^3 * @c batch_size of @c srtb::real to be summed and drawn
+ *        to a line of a pixmap. @c ptr should be host pointer.
+ */
+using draw_spectrum_work = srtb::work::work<std::shared_ptr<srtb::real> >;
+
+/**
+ * @brief contains ARGB8888 @c uint32_t of width * height, to be drawn onto screen
+ */
+struct draw_spectrum_work_2 {
+  std::shared_ptr<uint32_t> ptr;
+  size_t width;
+  size_t height;
 };
 
 // work queues are in global_variables.hpp

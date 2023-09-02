@@ -15,6 +15,7 @@
 #define __SRTB_PROGRAM_OPTIONS__
 
 #include <boost/program_options.hpp>
+#include <boost/algorithm/string.hpp>
 #include <filesystem>
 #include <string>
 

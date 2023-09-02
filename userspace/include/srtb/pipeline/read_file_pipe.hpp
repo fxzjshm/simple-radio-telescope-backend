@@ -19,7 +19,7 @@
 
 #include "srtb/coherent_dedispersion.hpp"
 #include "srtb/commons.hpp"
-#include "srtb/pipeline/pipe.hpp"
+#include "srtb/pipeline/framework/pipe.hpp"
 
 namespace srtb {
 namespace pipeline {
@@ -27,28 +27,15 @@ namespace pipeline {
 /**
  * @brief this pipe reads from baseband file and push into @c srtb::unpack_queue
  */
-class read_file_pipe : public pipe<read_file_pipe> {
-  friend pipe<read_file_pipe>;
-
+class read_file_pipe {
  protected:
+  sycl::queue q;
   std::ifstream input_file_stream;
   std::streampos logical_file_pos;
-  bool log_given;
 
- protected:
-  void setup_impl(std::stop_token stop_token) {
-    // wait until other pipes have set up
-    while (srtb::pipeline::running_pipe_count !=
-               srtb::pipeline::expected_running_pipe_count -
-                   srtb::pipeline::expected_input_pipe_count ||
-           stop_token.stop_requested()) {
-      std::this_thread::sleep_for(
-          std::chrono::nanoseconds(srtb::config.thread_query_work_wait_time));
-    }
-
+ public:
+  read_file_pipe(sycl::queue q_) : q{q_} {
     auto file_path = srtb::config.input_file_path;
-    auto baseband_input_count = srtb::config.baseband_input_count;
-    auto baseband_input_bits = srtb::config.baseband_input_bits;
     auto input_file_offset_bytes = srtb::config.input_file_offset_bytes;
 
     input_file_stream =
@@ -65,11 +52,10 @@ class read_file_pipe : public pipe<read_file_pipe> {
     //                    <-------------|
     //                     samples reserved because of coherent dedispersion
     logical_file_pos = input_file_offset_bytes;
-
-    log_given = false;
   }
 
-  void run_once_impl(std::stop_token stop_token) {
+  auto operator()([[maybe_unused]] std::stop_token stop_token,
+                  srtb::work::dummy_work) {
     if (input_file_stream) {
       auto baseband_input_count = srtb::config.baseband_input_count;
       auto baseband_input_bits = srtb::config.baseband_input_bits;
@@ -90,22 +76,6 @@ class read_file_pipe : public pipe<read_file_pipe> {
       char* d_in = d_in_shared.get();
       q.copy(h_in, /* -> */ d_in, time_sample_bytes).wait();
 
-      const uint64_t timestamp =
-          std::chrono::system_clock::now().time_since_epoch().count();
-      {
-        srtb::work::unpack_work unpack_work;
-        unpack_work.ptr = std::reinterpret_pointer_cast<std::byte>(d_in_shared);
-        unpack_work.count = time_sample_bytes;
-        unpack_work.baseband_data = {
-            std::reinterpret_pointer_cast<std::byte>(h_in_shared),
-            time_sample_bytes};
-        unpack_work.timestamp = timestamp;
-        unpack_work.udp_packet_counter = unpack_work.no_udp_packet_counter;
-        unpack_work.baseband_input_bits = baseband_input_bits;
-        SRTB_PUSH_WORK_OR_RETURN(" [read_file] ", srtb::unpack_queue,
-                                 unpack_work, stop_token);
-      }
-
       // reserved some samples for next round
       const size_t nsamps_reserved = srtb::codd::nsamps_reserved();
       const std::streamoff reserved_bytes =
@@ -121,20 +91,27 @@ class read_file_pipe : public pipe<read_file_pipe> {
                   << " >= reserved_bytes = " << reserved_bytes << srtb::endl;
       }
 
-      srtb::pipeline::wait_for_notify(stop_token);
-    } else {
-      srtb::pipeline::no_more_work = true;
-      // nothing to do ...
-      // NOTE: here is 1000x sleep time, because thread_query_work_wait_time is of nanosecond
-      std::this_thread::sleep_for(
-          std::chrono::microseconds(srtb::config.thread_query_work_wait_time));
+      const uint64_t timestamp =
+          std::chrono::system_clock::now().time_since_epoch().count();
 
-      if (!log_given) {
-        log_given = true;
-        auto file_path = srtb::config.input_file_path;
-        SRTB_LOGI << " [read_file] " << file_path << " has been read"
-                  << srtb::endl;
-      }
+      srtb::work::copy_to_device_work copy_to_device_work;
+      copy_to_device_work.ptr =
+          std::reinterpret_pointer_cast<std::byte>(d_in_shared);
+      copy_to_device_work.count = time_sample_bytes;
+      copy_to_device_work.baseband_data = {
+          std::reinterpret_pointer_cast<std::byte>(h_in_shared),
+          time_sample_bytes};
+      copy_to_device_work.timestamp = timestamp;
+      copy_to_device_work.udp_packet_counter =
+          copy_to_device_work.no_udp_packet_counter;
+      return std::optional{copy_to_device_work};
+    } else {
+      // nothing to do ...
+      auto file_path = srtb::config.input_file_path;
+      SRTB_LOGI << " [read_file] " << file_path << " has been read"
+                << srtb::endl;
+
+      return std::optional<srtb::work::copy_to_device_work>{};
     }
   }
 };

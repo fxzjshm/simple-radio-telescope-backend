@@ -17,7 +17,7 @@
 #include "srtb/commons.hpp"
 #include "srtb/fft/fft.hpp"
 #include "srtb/fft/fft_window.hpp"
-#include "srtb/pipeline/pipe.hpp"
+#include "srtb/pipeline/framework/pipe.hpp"
 #include "srtb/spectrum/rfi_mitigation.hpp"
 
 namespace srtb {
@@ -25,30 +25,25 @@ namespace pipeline {
 
 /**
  * @brief This pipe reads from @c srtb::fft_1d_r2c_queue , perform FFT by calling
- *        @c srtb::fft::dispatch_1d_r2c , then push result to @c srtb::rfi_mitigation_queue
+ *        @c srtb::fft::dispatch_1d_r2c , then push result to @c srtb::rfi_mitigation_s1_queue
  */
-class fft_1d_r2c_pipe : public pipe<fft_1d_r2c_pipe> {
-  friend pipe<fft_1d_r2c_pipe>;
-
+class fft_1d_r2c_pipe {
  protected:
+  sycl::queue q;
   std::optional<srtb::fft::fft_1d_dispatcher<srtb::fft::type::R2C_1D> >
       opt_dispatcher;
 
  public:
-  fft_1d_r2c_pipe() = default;
-
- protected:
-  void setup_impl([[maybe_unused]] std::stop_token stop_token) {
+  fft_1d_r2c_pipe(sycl::queue q_) : q{q_} {
     opt_dispatcher.emplace(/* n = */ srtb::config.baseband_input_count,
                            /* batch_size = */ 1, q);
   }
 
-  void run_once_impl(std::stop_token stop_token) {
+  auto operator()([[maybe_unused]] std::stop_token stop_token,
+                  srtb::work::fft_1d_r2c_work fft_1d_r2c_work) {
     // assume opt_dispatcher has value
     auto& dispatcher = opt_dispatcher.value();
-    srtb::work::fft_1d_r2c_work fft_1d_r2c_work;
-    SRTB_POP_WORK_OR_RETURN(" [fft 1d r2c pipe] ", srtb::fft_1d_r2c_queue,
-                            fft_1d_r2c_work, stop_token);
+
     const size_t in_count = fft_1d_r2c_work.count;
     const size_t out_count = in_count / 2 + 1;
     // reset FFT plan if mismatch
@@ -68,23 +63,17 @@ class fft_1d_r2c_pipe : public pipe<fft_1d_r2c_pipe> {
     }
     dispatcher.process(d_in_shared.get(), d_out_shared.get());
 
-    // TODO: RF detect pipe
-
     // no need to check if srtb::fft_operate_in_place here
     // because std::reinterpret_pointer_cast() "share ownership with the initial value of r"
     d_in_shared.reset();
 
-    srtb::work::rfi_mitigation_work rfi_mitigation_work;
-    rfi_mitigation_work.ptr = d_out_shared;
+    srtb::work::rfi_mitigation_s1_work rfi_mitigation_s1_work;
+    rfi_mitigation_s1_work.move_parameter_from(std::move(fft_1d_r2c_work));
+    rfi_mitigation_s1_work.ptr = d_out_shared;
     // drop the highest frequency point
     // *Drop*  -- LinusTechTips
-    rfi_mitigation_work.count = out_count - 1;
-    rfi_mitigation_work.baseband_data =
-        std::move(fft_1d_r2c_work.baseband_data);
-    rfi_mitigation_work.timestamp = fft_1d_r2c_work.timestamp;
-    rfi_mitigation_work.udp_packet_counter = fft_1d_r2c_work.udp_packet_counter;
-    SRTB_PUSH_WORK_OR_RETURN(" [fft 1d r2c pipe] ", srtb::rfi_mitigation_queue,
-                             rfi_mitigation_work, stop_token);
+    rfi_mitigation_s1_work.count = out_count - 1;
+    return std::optional{rfi_mitigation_s1_work};
   }
 };
 
@@ -94,24 +83,17 @@ class fft_1d_r2c_pipe : public pipe<fft_1d_r2c_pipe> {
  * @brief This pipe reads from @c srtb::fft_1d_r2c_queue , perform FFT by calling
  *        @c srtb::fft::dispatch_1d_r2c , then push result to ( TODO: @c srtb::frequency_domain_filterbank_queue )
  */
-class ifft_1d_c2c_pipe : public pipe<ifft_1d_c2c_pipe> {
-  friend pipe<ifft_1d_c2c_pipe>;
-
+class ifft_1d_c2c_pipe {
  protected:
+  sycl::queue q;
   std::optional<srtb::fft::fft_1d_dispatcher<srtb::fft::type::C2C_1D_BACKWARD> >
-      //std::optional<
-      //    srtb::fft::naive_fft_1d_wrapper<srtb::fft::type::C2C_1D_BACKWARD,
-      //                                    srtb::real, srtb::complex<srtb::real> > >
       opt_ifft_dispatcher;
   std::optional<srtb::fft::fft_window_functor_manager<
       srtb::real, srtb::fft::default_window> >
       opt_ifft_window_functor_manager;
 
  public:
-  ifft_1d_c2c_pipe() = default;
-
- protected:
-  void setup_impl([[maybe_unused]] std::stop_token stop_token) {
+  ifft_1d_c2c_pipe(sycl::queue q_) : q{q_} {
     // divided by 2 because baseband input is real number, but here is complex
     const size_t input_count = srtb::config.baseband_input_count / 2;
     opt_ifft_dispatcher.emplace(/* n = */ input_count, /* batch_size = */ 1, q);
@@ -119,12 +101,10 @@ class ifft_1d_c2c_pipe : public pipe<ifft_1d_c2c_pipe> {
                                             /* n = */ input_count, q);
   }
 
-  void run_once_impl(std::stop_token stop_token) {
+  auto run_once_impl([[maybe_unused]] std::stop_token stop_token,
+                     srtb::work::ifft_1d_c2c_work ifft_1d_c2c_work) {
     auto& ifft_dispatcher = opt_ifft_dispatcher.value();
 
-    srtb::work::ifft_1d_c2c_work ifft_1d_c2c_work;
-    SRTB_POP_WORK_OR_RETURN(" [ifft 1d c2c pipe] ", srtb::ifft_1d_c2c_queue,
-                            ifft_1d_c2c_work, stop_token);
     const size_t input_count = ifft_1d_c2c_work.count;
 
     // reset FFT plan if mismatch
@@ -180,13 +160,10 @@ class ifft_1d_c2c_pipe : public pipe<ifft_1d_c2c_pipe> {
     }
 
     srtb::work::refft_1d_c2c_work refft_1d_c2c_work;
+    refft_1d_c2c_work.move_parameter_from(std::move(ifft_1d_c2c_work));
     refft_1d_c2c_work.ptr = d_out_shared;
     refft_1d_c2c_work.count = output_count;
-    refft_1d_c2c_work.baseband_data = std::move(ifft_1d_c2c_work.baseband_data);
-    refft_1d_c2c_work.timestamp = ifft_1d_c2c_work.timestamp;
-    refft_1d_c2c_work.udp_packet_counter = ifft_1d_c2c_work.udp_packet_counter;
-    SRTB_PUSH_WORK_OR_RETURN(" [ifft 1d c2c pipe] ", srtb::refft_1d_c2c_queue,
-                             refft_1d_c2c_work, stop_token);
+    return std::optional{refft_1d_c2c_work};
   }
 };
 
@@ -201,24 +178,17 @@ class ifft_1d_c2c_pipe : public pipe<ifft_1d_c2c_pipe> {
  *        already time domain samples of this frequency channel.
  *        (seems common sense, but really didn't know before)
  */
-class refft_1d_c2c_pipe : public pipe<refft_1d_c2c_pipe> {
-  friend pipe<refft_1d_c2c_pipe>;
-
+class refft_1d_c2c_pipe {
  protected:
+  sycl::queue q;
   std::optional<srtb::fft::fft_1d_dispatcher<srtb::fft::type::C2C_1D_FORWARD> >
-      //std::optional<
-      //    srtb::fft::naive_fft_1d_wrapper<srtb::fft::type::C2C_1D_FORWARD,
-      //                                    srtb::real, srtb::complex<srtb::real> > >
       opt_refft_dispatcher;
   std::optional<srtb::fft::fft_window_functor_manager<
       srtb::real, srtb::fft::default_window> >
       opt_refft_window_functor_manager;
 
  public:
-  refft_1d_c2c_pipe() = default;
-
- protected:
-  void setup_impl([[maybe_unused]] std::stop_token stop_token) {
+  refft_1d_c2c_pipe(sycl::queue q_) : q{q_} {
     const auto nsamps_reserved_real =
         srtb::coherent_dedispersion::nsamps_reserved();
     const auto nsamps_reserved_complex = nsamps_reserved_real / 2;
@@ -250,10 +220,8 @@ class refft_1d_c2c_pipe : public pipe<refft_1d_c2c_pipe> {
                                              /* n = */ refft_length, q);
   }
 
-  void run_once_impl(std::stop_token stop_token) {
-    srtb::work::refft_1d_c2c_work refft_1d_c2c_work;
-    SRTB_POP_WORK_OR_RETURN(" [refft 1d c2c pipe] ", srtb::refft_1d_c2c_queue,
-                            refft_1d_c2c_work, stop_token);
+  auto operator()([[maybe_unused]] std::stop_token stop_token,
+                  srtb::work::refft_1d_c2c_work refft_1d_c2c_work) {
     const size_t input_count = refft_1d_c2c_work.count;
 
     auto& refft_dispatcher = opt_refft_dispatcher.value();
@@ -299,16 +267,11 @@ class refft_1d_c2c_pipe : public pipe<refft_1d_c2c_pipe> {
     refft_dispatcher.process(d_in, d_out);
 
     srtb::work::signal_detect_work signal_detect_work;
+    signal_detect_work.move_parameter_from(std::move(refft_1d_c2c_work));
     signal_detect_work.ptr = d_out_shared;
     signal_detect_work.count = refft_length;
     signal_detect_work.batch_size = refft_batch_size;
-    signal_detect_work.baseband_data =
-        std::move(refft_1d_c2c_work.baseband_data);
-    signal_detect_work.timestamp = refft_1d_c2c_work.timestamp;
-    signal_detect_work.udp_packet_counter =
-        refft_1d_c2c_work.udp_packet_counter;
-    SRTB_PUSH_WORK_OR_RETURN(" [refft 1d c2c pipe] ", srtb::signal_detect_queue,
-                             signal_detect_work, stop_token);
+    return std::optional{signal_detect_work};
   }
 };
 
@@ -317,10 +280,9 @@ class refft_1d_c2c_pipe : public pipe<refft_1d_c2c_pipe> {
  * May used to substitute ifft_pipe & refft_pipe, although a transpose may required.
  * @deprecated Not used now because dedispersed baseband may used for other purposes in the future.
  */
-class watfft_1d_c2c_pipe : public pipe<watfft_1d_c2c_pipe> {
-  friend pipe<watfft_1d_c2c_pipe>;
-
+class watfft_1d_c2c_pipe {
  protected:
+  sycl::queue q;
   std::optional<srtb::fft::fft_1d_dispatcher<srtb::fft::type::C2C_1D_BACKWARD> >
       opt_watfft_dispatcher;
   std::optional<srtb::fft::fft_window_functor_manager<
@@ -328,10 +290,7 @@ class watfft_1d_c2c_pipe : public pipe<watfft_1d_c2c_pipe> {
       opt_watfft_window_functor_manager;
 
  public:
-  watfft_1d_c2c_pipe() = default;
-
- protected:
-  void setup_impl([[maybe_unused]] std::stop_token stop_token) {
+  watfft_1d_c2c_pipe(sycl::queue q_) : q{q_} {
     // divided by 2 because baseband input is real number, but here is complex
     const size_t baseband_input_count_complex =
         srtb::config.baseband_input_count / 2;
@@ -349,11 +308,9 @@ class watfft_1d_c2c_pipe : public pipe<watfft_1d_c2c_pipe> {
                                               /* n = */ watfft_length, q);
   }
 
-  void run_once_impl(std::stop_token stop_token) {
-    srtb::work::ifft_1d_c2c_work ifft_1d_c2c_work;
-    SRTB_POP_WORK_OR_RETURN(" [watfft 1d c2c pipe] ", srtb::ifft_1d_c2c_queue,
-                            ifft_1d_c2c_work, stop_token);
-    const size_t input_count = ifft_1d_c2c_work.count;
+  auto operator()([[maybe_unused]] std::stop_token stop_token,
+                  srtb::work::watfft_1d_c2c_work watfft_1d_c2c_work) {
+    const size_t input_count = watfft_1d_c2c_work.count;
 
     auto& watfft_dispatcher = opt_watfft_dispatcher.value();
     const size_t watfft_batch_size =
@@ -368,7 +325,7 @@ class watfft_1d_c2c_pipe : public pipe<watfft_1d_c2c_pipe> {
                                                 /* n = */ watfft_length, q);
     }
 
-    auto& d_in_shared = ifft_1d_c2c_work.ptr;
+    auto& d_in_shared = watfft_1d_c2c_work.ptr;
     auto d_in = d_in_shared.get();
 
     std::shared_ptr<srtb::complex<srtb::real> > d_out_shared;
@@ -404,16 +361,11 @@ class watfft_1d_c2c_pipe : public pipe<watfft_1d_c2c_pipe> {
     //const auto nsamps_reserved_complex = nsamps_reserved_real / 2;
 
     srtb::work::signal_detect_work signal_detect_work;
+    signal_detect_work.move_parameter_from(std::move(watfft_1d_c2c_work));
     signal_detect_work.ptr = d_out_shared;
     signal_detect_work.count = watfft_length;
     signal_detect_work.batch_size = watfft_batch_size;
-    signal_detect_work.timestamp = ifft_1d_c2c_work.timestamp;
-    signal_detect_work.udp_packet_counter = ifft_1d_c2c_work.udp_packet_counter;
-    signal_detect_work.baseband_data =
-        std::move(ifft_1d_c2c_work.baseband_data);
-    SRTB_PUSH_WORK_OR_RETURN(" [watfft 1d c2c pipe] ",
-                             srtb::signal_detect_queue, signal_detect_work,
-                             stop_token);
+    return std::optional{signal_detect_work};
   }
 };
 

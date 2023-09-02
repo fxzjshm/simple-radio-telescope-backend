@@ -17,32 +17,21 @@
 #include <thread>
 #include <vector>
 
-#include "srtb/commons.hpp"
-
 namespace srtb {
 namespace pipeline {
 
 /** 
  * @brief this function requests every thread to stop and wait for them
  *        when the program is about to (normally) exit.
- * @note extracted from srtb::gui::ExitHandler for no-GUI use
  * @see srtb::termination_handler for handler of unexpected exit
  */
 inline void on_exit(std::vector<std::jthread> threads) {
   for (size_t i = 0; i < threads.size(); i++) {
     threads.at(i).request_stop();
   }
-  size_t last_count = 0;
-  while (srtb::pipeline::running_pipe_count != 0) {
-    // sometimes program may stuck here due to deadlock,
-    // but it's safe to Crrl+C (or SIGTERM, if Ctrl+C no effect)
-    // at least better than nothing
-    std::this_thread::sleep_for(
-        std::chrono::nanoseconds(srtb::config.thread_query_work_wait_time));
-
-    // deallocate memory early, in case some thread stucks
-    const size_t current_count = srtb::pipeline::running_pipe_count;
-    if (last_count != current_count) {
+  for (size_t i = 0; i < threads.size(); i++) {
+    if (threads.at(i).joinable()) {
+      threads.at(i).join();
       srtb::device_allocator.deallocate_all_free_ptrs();
       srtb::host_allocator.deallocate_all_free_ptrs();
     }

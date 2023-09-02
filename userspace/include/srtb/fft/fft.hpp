@@ -66,8 +66,7 @@ class fft_1d_dispatcher {
   * @param q_ the sycl queue that operaions will run on
   * @note total_size := n * batch_size
   */
-  fft_1d_dispatcher(size_t n, size_t batch_size = 1,
-                    sycl::queue& q_ = srtb::queue)
+  fft_1d_dispatcher(size_t n, size_t batch_size, sycl::queue& q_)
       : q{q_}, naive_fft_1d_wrapper_instance{n, batch_size, q} {
     auto device = q.get_device();
     SRTB_IF_ENABLED_CUDA_INTEROP({
