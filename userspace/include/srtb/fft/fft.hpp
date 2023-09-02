@@ -19,7 +19,11 @@
 
 #include "srtb/config.hpp"
 #include "srtb/fft/fft_wrapper.hpp"
+#ifdef SRTB_HAS_FFTW
 #include "srtb/fft/fftw_wrapper.hpp"
+#else
+#warning FFTW not found, performance of CPU FFT transformations may be degraded
+#endif  // SRTB_HAS_FFTW
 #ifdef SRTB_ENABLE_CUDA_INTEROP
 #include "srtb/fft/cufft_wrapper.hpp"
 #endif  // SRTB_ENABLE_CUDA_INTEROP
@@ -30,6 +34,12 @@
 #include "srtb/fft/mufft_wrapper.hpp"
 #endif  // SRTB_ENABLE_MUSA_INTEROP
 #include "srtb/fft/naive_fft_wrapper.hpp"
+
+#ifdef SRTB_HAS_FFTW
+#define SRTB_IF_HAS_FFTW(...) __VA_ARGS__
+#else
+#define SRTB_IF_HAS_FFTW(...)
+#endif  // SRTB_HAS_FFTW
 
 #define SRTB_CHECK_FFT(expr)                                          \
   SRTB_CHECK(expr, true, {                                            \
@@ -55,7 +65,9 @@ class fft_1d_dispatcher {
 #ifdef SRTB_ENABLE_MUSA_INTEROP
   std::optional<mufft_1d_wrapper<fft_type, T, C> > mufft_1d_wrapper_instance;
 #endif  // SRTB_ENABLE_MUSA_INTEROP
+#ifdef SRTB_HAS_FFTW
   std::optional<fftw_1d_wrapper<fft_type, T, C> > fftw_1d_wrapper_instance;
+#endif  // SRTB_HAS_FFTW
   naive_fft_1d_wrapper<fft_type, T, C> naive_fft_1d_wrapper_instance;
 
  public:
@@ -93,11 +105,13 @@ class fft_1d_dispatcher {
       }
     });
 
-    if (device.is_cpu()) {
-      fftw_1d_wrapper_instance.emplace(n, batch_size, q);
-      SRTB_CHECK_FFT(fftw_1d_wrapper_instance.has_value());
-      return;
-    }
+    SRTB_IF_HAS_FFTW({
+      if (device.is_cpu()) {
+        fftw_1d_wrapper_instance.emplace(n, batch_size, q);
+        SRTB_CHECK_FFT(fftw_1d_wrapper_instance.has_value());
+        return;
+      }
+    });
   }
 
 #define SRTB_FFT_DISPATCH(func, ...)                                 \
@@ -120,9 +134,11 @@ class fft_1d_dispatcher {
       }                                                              \
     });                                                              \
                                                                      \
-    if (fftw_1d_wrapper_instance.has_value()) {                      \
-      return fftw_1d_wrapper_instance.value().func(__VA_ARGS__);     \
-    }                                                                \
+    SRTB_IF_HAS_FFTW({                                               \
+      if (fftw_1d_wrapper_instance.has_value()) {                    \
+        return fftw_1d_wrapper_instance.value().func(__VA_ARGS__);   \
+      }                                                              \
+    });                                                              \
                                                                      \
     return naive_fft_1d_wrapper_instance.func(__VA_ARGS__);          \
   }

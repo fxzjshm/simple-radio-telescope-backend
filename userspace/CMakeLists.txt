@@ -196,6 +196,16 @@ else()
   message(WARNING "hwloc not found, performance of UDP receivers may be degraded")
 endif()
 
+## FFTW3
+if(PKG_CONFIG_FOUND)
+  find_package(FFTW COMPONENTS FLOAT_LIB DOUBLE_LIB FLOAT_THREADS_LIB DOUBLE_THREADS_LIB)
+endif()
+if(FFTW_FOUND)
+  add_compile_definitions(SRTB_HAS_FFTW=1)
+else()
+  message(WARNING "FFTW not found, performance of CPU FFT transformations may be degraded")
+endif()
+
 ## 3rdparty
 include_directories(SYSTEM "3rdparty/")
 include_directories(SYSTEM "3rdparty/matplotlib-cpp/")
@@ -237,7 +247,10 @@ function(srtb_add_dependency target_name)
     endif()
 
     # add dependency
-    target_link_libraries(${target_name} PUBLIC fftw3_threads fftw3 fftw3f_threads fftw3f Threads::Threads) # TODO maybe findFFTW
+    if(FFTW_FOUND)
+      target_link_libraries(${target_name} PUBLIC FFTW::DoubleThreads FFTW::Double FFTW::FloatThreads FFTW::Float)
+    endif()
+    target_link_libraries(${target_name} PUBLIC Threads::Threads)
     target_link_libraries(${target_name} PUBLIC Boost::program_options Boost::iostreams)
     if(Boost_STACKTRACE_BACKTRACE_FOUND)
       # https://stackoverflow.com/questions/52583544/boost-stack-trace-not-showing-function-names-and-line-numbers/71027489#71027489
