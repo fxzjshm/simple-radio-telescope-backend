@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.12)
 project(simple-radio-telescope-backend_userspace)
 
+# import
+include(CheckCXXCompilerFlag)
 
 # select SYCL implemention
 if(NOT DEFINED SRTB_SYCL_IMPLEMENTATION)
@@ -79,7 +81,10 @@ elseif(SRTB_SYCL_IMPLEMENTATION STREQUAL "intel-llvm")
     # e.g. 
     # CUDA: clang -fsycl -fsycl-targets=nvptx64-nvidia-cuda -Xsycl-target-backend -cuda-gpu-arch=sm_86
     # ROCm: clang -fsycl -fsycl-targets=amdgcn-amd-amdhsa -Xsycl-target-backend --offload-arch=gfx906
-    message(WARNING "Make sure this compiler supports SYCL")
+    check_cxx_compiler_flag("-fsycl" COMPILER_OPT_F_SYCL_SUPPORTED)
+    if(NOT COMPILER_OPT_F_SYCL_SUPPORTED)
+        message(WARNING "flag '-fsycl' not working, make sure this compiler supports SYCL")
+    endif()
     if(SRTB_ENABLE_CUDA AND SRTB_ENABLE_ROCM)
         message(FATAL_ERROR "don't know how to compile for both CUDA and ROCm on intel/llvm (TODO)")
     endif()
@@ -142,7 +147,6 @@ if(NOT CMAKE_BUILD_TYPE MATCHES Debug)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ftree-vectorize ")
   # check whether -march=native is supported
   # https://github.com/weidai11/cryptopp/issues/273#issuecomment-249271818
-  include(CheckCXXCompilerFlag)
   check_cxx_compiler_flag("-march=native" COMPILER_OPT_ARCH_NATIVE_SUPPORTED)
   if (COMPILER_OPT_ARCH_NATIVE_SUPPORTED)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native ")
