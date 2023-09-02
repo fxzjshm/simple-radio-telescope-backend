@@ -14,29 +14,34 @@
 #include <optional>
 
 #include "srtb/commons.hpp"
-#include "srtb/pipeline/baseband_output_pipe.hpp"
 #include "srtb/pipeline/framework/pipe.hpp"
 #include "srtb/pipeline/framework/pipe_io.hpp"
 #include "srtb/pipeline/udp_receiver_pipe.hpp"
+#include "srtb/pipeline/write_file_pipe.hpp"
 #include "srtb/program_options.hpp"
 
 namespace srtb {
 namespace main {
 
+/**
+ * @brief This program receives baseband from UDP port and write to single file
+ *        TODO: need test with real data
+ */
 int baseband_receiver(int argc, char** argv) {
   srtb::changed_configs = srtb::program_options::parse_arguments(
       argc, argv, std::string(srtb::config.config_file_name));
   srtb::program_options::apply_changed_configs(srtb::changed_configs,
                                                srtb::config);
 
-  sycl::queue q = srtb::queue;
+  sycl::queue q;
+  srtb::work_queue<srtb::work::baseband_output_work> baseband_output_queue;
   std::jthread udp_receiver_thread =
       srtb::pipeline::start_pipe<srtb::pipeline::udp_receiver_pipe>(
           q, srtb::pipeline::dummy_in_functor{},
-          srtb::pipeline::queue_out_functor{srtb::baseband_output_queue});
+          srtb::pipeline::queue_out_functor{baseband_output_queue});
   std::jthread baseband_output_thread =
-      srtb::pipeline::start_pipe<srtb::pipeline::baseband_output_pipe<true> >(
-          q, srtb::pipeline::queue_in_functor{srtb::baseband_output_queue},
+      srtb::pipeline::start_pipe<srtb::pipeline::write_file_pipe>(
+          q, srtb::pipeline::queue_in_functor{baseband_output_queue},
           srtb::pipeline::dummy_out_functor{});
   return EXIT_SUCCESS;
 }
