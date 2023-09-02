@@ -14,7 +14,11 @@
 #ifndef __SRTB_THREAD_AFFINITY__
 #define __SRTB_THREAD_AFFINITY__
 
+#include <cstdlib>
+
+#ifdef SRTB_HAS_HWLOC
 #include <hwloc.h>
+#endif
 
 #include "srtb/commons.hpp"
 
@@ -28,6 +32,7 @@ namespace thread_affinity {
  * ref: https://hwloc.readthedocs.io/en/v2.4/group__hwlocality__bitmap.html
  */
 inline int set_thread_affinity(unsigned int target_cpu) {
+#ifdef SRTB_HAS_HWLOC
   hwloc_topology_t topology = nullptr;
   hwloc_bitmap_t set2 = nullptr;
   hwloc_obj_t obj;
@@ -109,6 +114,11 @@ inline int set_thread_affinity(unsigned int target_cpu) {
   } else {
     return EXIT_SUCCESS;
   }
+#else
+#warning hwloc not found, set_thread_affinity has no function
+  (void) target_cpu;
+  return EXIT_FAILURE;
+#endif
 }
 
 }  // namespace thread_affinity

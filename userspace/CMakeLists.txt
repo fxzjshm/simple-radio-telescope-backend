@@ -161,6 +161,14 @@ endif()
 
 
 # dependency
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_LIST_DIR}/3rdparty/cmake")
+
+# pkg-config
+find_package(PkgConfig QUIET)
+if(NOT PKG_CONFIG_FOUND)
+  message(WARNING "pkg-config not found, some dependencies based on pkg-config will not be searched")
+endif()
+
 ## Boost
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
@@ -177,6 +185,16 @@ include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
 ## ref: https://github.com/lava/matplotlib-cpp/blob/master/CMakeLists.txt
 find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
 find_package(Python3 COMPONENTS NumPy)
+
+## hwloc
+if(PKG_CONFIG_FOUND)
+  find_package(hwloc)
+endif()
+if(hwloc_FOUND)
+  add_compile_definitions(SRTB_HAS_HWLOC=1)
+else()
+  message(WARNING "hwloc not found, performance of UDP receivers may be degraded")
+endif()
 
 ## 3rdparty
 include_directories(SYSTEM "3rdparty/")
@@ -226,7 +244,9 @@ function(srtb_add_dependency target_name)
       target_compile_definitions(${target_name} PRIVATE BOOST_STACKTRACE_LINK)
       target_link_libraries(${target_name} PUBLIC boost_stacktrace_backtrace)
     endif()
-    target_link_libraries(${target_name} PUBLIC hwloc)
+    if(hwloc_FOUND)
+      target_link_libraries(${target_name} PUBLIC ${hwloc_LIBRARIES})
+    endif()
     target_link_libraries(${target_name} PUBLIC stdc++ m)  # TODO: this shouldn't be needed
     target_link_libraries(${target_name} PUBLIC ${CMAKE_DL_LIBS})
     if(SRTB_ENABLE_CUDA)
