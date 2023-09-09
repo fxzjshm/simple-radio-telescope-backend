@@ -87,28 +87,37 @@ elseif(SRTB_SYCL_IMPLEMENTATION STREQUAL "intel-llvm")
     # e.g. 
     # CUDA: clang -fsycl -fsycl-targets=nvptx64-nvidia-cuda -Xsycl-target-backend -cuda-gpu-arch=sm_86
     # ROCm: clang -fsycl -fsycl-targets=amdgcn-amd-amdhsa -Xsycl-target-backend --offload-arch=gfx906
+    # mixed: icpx -fsycl -fsycl-targets=amdgcn-amd-amdhsa,nvptx64-nvidia-cuda,spir64 \
+    #             -Xsycl-target-backend=amdgcn-amd-amdhsa --offload-arch=gfx1010 \
+    #             -Xsycl-target-backend=nvptx64-nvidia-cuda --offload-arch=sm_86 \
+    #             -o sycl-app sycl-app.cpp
+    # ref: https://simplecore.intel.com/oneapi-io/wp-content/uploads/sites/98/Rafal-B-Target-NVIDIA-and-AMD-with-oneAPI-and-SYCL.pdf
     check_cxx_compiler_flag("-fsycl" COMPILER_OPT_F_SYCL_SUPPORTED)
     if(NOT COMPILER_OPT_F_SYCL_SUPPORTED)
         message(WARNING "flag '-fsycl' not working, make sure this compiler supports SYCL")
     endif()
-    if(SRTB_ENABLE_CUDA AND SRTB_ENABLE_ROCM)
-        message(FATAL_ERROR "don't know how to compile for both CUDA and ROCm on intel/llvm (TODO)")
-    endif()
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsycl ")
+    set(SRTB_SYCL_FLAGS " -fsycl ")
     ## do not assume id range fit in MAX_INT because baseband_input_count may be very large
     ## when dealing with very high dispersion measurement
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-sycl-id-queries-fit-in-int ")
+    set(SRTB_SYCL_FLAGS "${SRTB_SYCL_FLAGS} -fno-sycl-id-queries-fit-in-int ")
+    set(SRTB_SYCL_TARGETS spir64-unknown-unknown)
+    set(SRTB_SYCL_ARCH_FLAGS "")
     if(SRTB_ENABLE_CUDA)
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsycl-targets=nvptx64-nvidia-cuda ")
+        set(SRTB_SYCL_TARGETS ${SRTB_SYCL_TARGETS} nvptx64-nvidia-cuda)
         if(DEFINED SRTB_CUDA_ARCH)
-            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Xsycl-target-backend --cuda-gpu-arch=${SRTB_CUDA_ARCH}")
+            set(SRTB_SYCL_ARCH_FLAGS "${SRTB_SYCL_ARCH_FLAGS} -Xsycl-target-backend=nvptx64-nvidia-cuda --cuda-gpu-arch=${SRTB_CUDA_ARCH} ")
         endif()
     endif()
     if(SRTB_ENABLE_ROCM)
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsycl-targets=amdgcn-amd-amdhsa -Xsycl-target-backend --offload-arch=${SRTB_ROCM_ARCH} ")
+        set(SRTB_SYCL_TARGETS ${SRTB_SYCL_TARGETS} amdgcn-amd-amdhsa)
+        set(SRTB_SYCL_ARCH_FLAGS "${SRTB_SYCL_ARCH_FLAGS} -Xsycl-target-backend=amdgcn-amd-amdhsa --offload-arch=${SRTB_ROCM_ARCH} ")
     endif()
+    # convert to comma separated
+    string(REPLACE ";" "," SRTB_SYCL_TARGETS "${SRTB_SYCL_TARGETS}")
+    set(SRTB_SYCL_FLAGS "${SRTB_SYCL_FLAGS} -fsycl-targets=${SRTB_SYCL_TARGETS} ${SRTB_SYCL_ARCH_FLAGS}")
     # if sycl-targets not set, use default
-    message(STATUS "CMAKE_CXX_FLAGS = ${CMAKE_CXX_FLAGS}")
+    message(STATUS "SRTB_SYCL_FLAGS = ${SRTB_SYCL_FLAGS}")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SRTB_SYCL_FLAGS}")
 else()
     message(FATAL_ERROR "Sorry, unknown/untested/un-adapted SYCL implementation " ${SRTB_SYCL_IMPLEMENTATION})
 endif()
