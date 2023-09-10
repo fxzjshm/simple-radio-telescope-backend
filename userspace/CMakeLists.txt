@@ -43,7 +43,7 @@ endif()
 
 # MUSA
 list(APPEND CMAKE_MODULE_PATH /usr/local/musa/cmake)
-find_package(MUSAToolkit)
+find_package(MUSAToolkit QUIET)
 option(SRTB_ENABLE_MUSA "option to enable MUSA backend" ${MUSA_FOUND})
 message(STATUS "SRTB_ENABLE_MUSA = ${SRTB_ENABLE_MUSA}")
 
@@ -195,7 +195,8 @@ if(NOT CMAKE_BUILD_TYPE MATCHES Debug)
 endif()
 ## sanitizer, for debug usage
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -fno-optimize-sibling-calls ")
-
+## trace compile time
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ftime-trace ")
 
 # dependency
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_LIST_DIR}/3rdparty/cmake")
@@ -217,6 +218,8 @@ else()
   message(WARNING "boost_stacktrace_backtrace not found, code location may absent in stacktrace")
 endif()
 include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
+#add_compile_definitions(BOOST_ASIO_HAS_IO_URING)
+#add_compile_definitions(BOOST_ASIO_DISABLE_EPOLL)
 
 ## Python, for matplotlib-cpp
 ## ref: https://github.com/lava/matplotlib-cpp/blob/master/CMakeLists.txt
@@ -299,6 +302,7 @@ function(srtb_add_dependency target_name)
     endif()
     target_link_libraries(${target_name} PUBLIC stdc++ m)  # TODO: this shouldn't be needed
     target_link_libraries(${target_name} PUBLIC ${CMAKE_DL_LIBS})
+    #target_link_libraries(${target_name} PUBLIC uring)
     if(SRTB_ENABLE_CUDA)
         # https://cmake.org/cmake/help/latest/module/FindCUDAToolkit.html
         target_link_libraries(${target_name} PUBLIC CUDA::cudart CUDA::cufft)
