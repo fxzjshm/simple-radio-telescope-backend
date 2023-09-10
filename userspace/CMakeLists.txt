@@ -60,16 +60,17 @@ endif()
 
 # setup SYCL compilers
 if(SRTB_SYCL_IMPLEMENTATION STREQUAL "hipSYCL")
-    # e.g. HIPSYCL_TARGETS=cuda:sm_86;hip:gfx906;generic;omp
-    # using CMake list as it happens to be semi-column separated
+  # e.g. HIPSYCL_TARGETS=cuda:sm_86;hip:gfx906;omp or HIPSYCL_TARGETS=generic;omp
+  # using CMake list as it happens to be semi-column separated
+  if(NOT DEFINED HIPSYCL_TARGETS)
     set(SRTB_HIPSYCL_TARGETS "")
-    if(SRTB_ENABLE_CUDA)
+    if(SRTB_ENABLE_CUDA AND NOT SRTB_ENABLE_GENERIC)
         if(NOT DEFINED SRTB_CUDA_ARCH)
             message(FATAL_ERROR "compiling for CUDA backend with hipSYCL requires SRTB_CUDA_ARCH, e.g. sm_86")
         endif()
         set(SRTB_HIPSYCL_TARGETS ${SRTB_HIPSYCL_TARGETS} cuda:${SRTB_CUDA_ARCH})
     endif()
-    if(SRTB_ENABLE_ROCM)
+    if(SRTB_ENABLE_ROCM AND NOT SRTB_ENABLE_GENERIC)
         set(SRTB_HIPSYCL_TARGETS ${SRTB_HIPSYCL_TARGETS} hip:${SRTB_ROCM_ARCH})
     endif()
     if(SRTB_ENABLE_MUSA)
@@ -80,9 +81,10 @@ if(SRTB_SYCL_IMPLEMENTATION STREQUAL "hipSYCL")
     endif()
     set(SRTB_HIPSYCL_TARGETS ${SRTB_HIPSYCL_TARGETS} omp)
     list(REMOVE_DUPLICATES SRTB_HIPSYCL_TARGETS)
-    message(STATUS "HIPSYCL_TARGETS = ${SRTB_HIPSYCL_TARGETS}")
     set(HIPSYCL_TARGETS ${SRTB_HIPSYCL_TARGETS})
-    find_package(hipSYCL CONFIG REQUIRED)
+  endif()
+  message(STATUS "HIPSYCL_TARGETS = ${HIPSYCL_TARGETS}")
+  find_package(hipSYCL CONFIG REQUIRED)
 elseif(SRTB_SYCL_IMPLEMENTATION STREQUAL "intel-llvm")
     # e.g. 
     # CUDA: clang -fsycl -fsycl-targets=nvptx64-nvidia-cuda -Xsycl-target-backend -cuda-gpu-arch=sm_86
