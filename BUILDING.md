@@ -6,9 +6,9 @@
   * if use intel/llvm, version newer than `998fd91` (2022.11.07) is needed. Refer to [this guide](https://github.com/intel/llvm/blob/sycl/sycl/doc/GetStartedGuide.md) for installation.
 * Boost libraries
   * the version of Boost libraries required may be newer than that provided by system package manager (see below "BOOST_INLINE and HIP conflicts")
-* hwloc
-* FFTW 3
-* Qt 5
+* hwloc (optional)
+* FFTW 3 (optional)
+* Qt 5 (optional)
   * Qt 6 may work, but not tested yet
 * Python 3 with development headers & matplotlib
 
@@ -20,6 +20,10 @@ if ROCm backend enabled, additional dependencies:
 if CUDA backend enabled, additional dependencies:
 * CUDA toolkit
 * cufft
+
+if MUSA backend enabled, additional dependencies:
+* MUSA toolkit
+* mufft
 
 ## Compiler requirements
 SYCL compilers used should support these C++ / SYCL features:
@@ -44,14 +48,27 @@ Configure options:
 * `SRTB_ENABLE_CUDA`: `ON` or `OFF`
 * `SRTB_CUDA_ARCH`:
   * the arch of target GPU, e.g. `sm_86`, required if `SRTB_ENABLE_CUDA` is set `ON`, otherwise no effect
+* for MUSA and OpenCL, should auto detect; or use `SRTB_ENABLE_MUSA`, `SRTB_ENABLE_OPENCL` to force
+* or for hipSYCL the user may define `HIPSYCL_TARGETS` directly, see [doc of this variable](https://github.com/OpenSYCL/OpenSYCL/blob/develop/doc/using-hipsycl.md)
 
 Example configure command: (assuming project path is `$PROJECT_PATH`)
 
 * using hipSYCL:
 ```bash
 cmake -DSRTB_SYCL_IMPLEMENTATION=hipSYCL \
--DSRTB_ENABLE_CUDA=OFF -DSRTB_ENABLE_ROCM=ON -DSRTB_CUDA_ARCH=sm_86 -DSRTB_ROCM_ARCH=gfx906 \
+-DSRTB_ENABLE_CUDA=OFF -DSRTB_CUDA_ARCH=sm_86 -DSRTB_ENABLE_ROCM=ON -DSRTB_ROCM_ARCH=gfx906 \
+-DSRTB_ENABLE_MUSA=OFF -DSRTB_ENABLE_OPENCL=OFF \
 $PROJECT_PATH
+```
+
+or
+
+```bash
+cmake -DSRTB_SYCL_IMPLEMENTATION=hipSYCL -DHIPSYCL_TARGETS="hip:gfx1035;omp" $PROJECT_PATH
+```
+
+```bash
+cmake -DSRTB_SYCL_IMPLEMENTATION=hipSYCL -DHIPSYCL_TARGETS="generic;omp" $PROJECT_PATH
 ```
 
 * using intel/llvm: (note C++ compiler is explicitly set here, assuming intel/llvm is installed at `/opt/intel-llvm`)
@@ -64,10 +81,8 @@ $PROJECT_PATH
 
 ### Compile-time configs
 There are several compile-time configurations in `srtb/config.hpp`, some may be toggled for specific setup, e.g.
-* `srtb::real` = `float` or `double`, usually `float` for GPU (for less VRAM usage & avoid restriction of `double` FLOPs by some vendor) and `double` for CPU
-  * due to the naive implementation of coherent dedispersion, computation of phase delay in this algorithm is still using `double` so this capability must be available
+* `srtb::real` = `float` or `double`, usually `float` for GPU (for less VRAM usage & avoid restriction of `double` FLOPs by some vendor)
 * `SRTB_USE_USM_SHARED_MEMORY`, define this to use `sycl::usm::shared` for device memory, or don't define it to use `sycl::usm::device` for device memory (in case shared memory is not supported)
-* `srtb::MEMORY_ALIGNMENT` to set alignment of memory regions allocated, for SIMD instructions
 
 Refer to this source file for more configurations and their docs.
 

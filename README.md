@@ -71,46 +71,50 @@ Then please refer to [BUILDING.md](BUILDING.md)
 ```mermaid
 mindmap
   root )SYCL <br/> implementations(
-    hipSYCL / Open SYCL
-      OpenMP
-        any CPU <br/> with OpenMP
-      CUDA
-        NVIDIA GPU
+    (Intel oneAPI DPC++)
       ROCm/HIP
         AMD GPU
-      ["[DATA EXPUNGED]"]
-        ["[DATA EXPUNGED]"]
-      OpenCL_SPIRV [OpenCL + SPIR-V]
-        PoCL
-          CPU
-          ... ?
-        Mesa rusticl
-          llvmpipe
-          nouveau ?
-          radeonsi ?
-          iris ?
-        clspv + clvk ? <br/> on Vulkan
-        any other devices <br/> with support
-    Intel oneAPI DPC++
       CUDA
         NVIDIA GPU
-      ROCm/HIP
-        AMD GPU
       Level Zero
         Intel GPU ?
       OpenCL_SPIRV [OpenCL + SPIR-V]
         PoCL
           CPU
           ... ?
-        Mesa rusticl ?
+        Mesa Rusticl ?
           llvmpipe ?
           nouveau ?
           radeonsi ?
           iris ?
+          zink ?
         clspv + clvk ? <br/> on Vulkan
-        any other devices <br/> with support
+        other devices ?
       CCE
         Huawei Ascend ?
+    (hipSYCL / Open SYCL)
+      ROCm / HIP
+        AMD GPU
+      MUSA
+        Moore Threads GPU
+      CUDA
+        NVIDIA GPU
+      Level Zero
+        Intel GPU ?
+      OpenCL_SPIRV [OpenCL + SPIR-V]
+        PoCL
+          CPU
+          ... ?
+        Mesa Rusticl
+          llvmpipe
+          nouveau ?
+          radeonsi ?
+          iris ?
+          zink ?
+        clspv + clvk ? <br/> on Vulkan
+        other devices ?
+      OpenMP
+        any CPU <br/> with OpenMP
 ```
 
 *Schemantic of main SYCL implementations and theirs backends. Devices marked "?" have not been successfully tested.*
