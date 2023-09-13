@@ -79,29 +79,23 @@
 namespace srtb {
 namespace backend {
 
-// clang-format off
 #if defined(SYCL_IMPLEMENTATION_ONEAPI)
-    #if defined(SRTB_ENABLE_CUDA_INTEROP)
-        inline constexpr sycl::backend cuda = sycl::backend::ext_oneapi_cuda;
-    #endif
-    #if defined(SRTB_ENABLE_ROCM_INTEROP)
-        inline constexpr sycl::backend rocm = sycl::backend::ext_oneapi_hip;
-    #endif
+
+inline constexpr sycl::backend cuda = sycl::backend::ext_oneapi_cuda;
+inline constexpr sycl::backend rocm = sycl::backend::ext_oneapi_hip;
+
 #elif defined(__HIPSYCL__)
-    #if defined(SRTB_ENABLE_CUDA_INTEROP)
-        inline constexpr sycl::backend cuda = sycl::backend::cuda;
-    #endif
-    #if defined(SRTB_ENABLE_ROCM_INTEROP)
-        inline constexpr sycl::backend rocm = sycl::backend::hip;
-    #endif
-    #if defined(SRTB_ENABLE_MUSA_INTEROP)
-        inline constexpr sycl::backend musa = sycl::backend::musa;
-    #endif
-    inline constexpr sycl::backend cpu = sycl::backend::omp;
-#else
-    #warning "Unknown SYCL backend"
+
+inline constexpr sycl::backend cuda = sycl::backend::cuda;
+inline constexpr sycl::backend rocm = sycl::backend::hip;
+#if defined(SRTB_ENABLE_MUSA_INTEROP)  // not upstreamed yet
+inline constexpr sycl::backend musa = sycl::backend::musa;
 #endif
-// clang-format on
+inline constexpr sycl::backend cpu = sycl::backend::omp;
+
+#else
+#warning "Unknown SYCL backend"
+#endif
 
 }  // namespace backend
 }  // namespace srtb
