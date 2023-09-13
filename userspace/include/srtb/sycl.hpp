@@ -97,6 +97,28 @@ inline constexpr sycl::backend cpu = sycl::backend::omp;
 #warning "Unknown SYCL backend"
 #endif
 
+/**
+ * @brief Get an available native queue object
+ * 
+ * hipSYCL does not support sycl::get_native<queue>() directly,
+ * see https://github.com/OpenSYCL/OpenSYCL/issues/867
+ */
+template <sycl::backend backend, typename native_queue_t>
+inline auto get_native_queue(sycl::queue& q) -> native_queue_t {
+#if defined(__HIPSYCL__)
+  // ref: https://github.com/illuhad/hipSYCL/issues/722
+  native_queue_t stream;
+  q.submit([&](sycl::handler& cgh) {
+     cgh.hipSYCL_enqueue_custom_operation([&](sycl::interop_handle& h) {
+       stream = h.get_native_queue<backend>();
+     });
+   }).wait();
+#else
+  stream = sycl::get_native<backend>(queue);
+#endif  // __HIPSYCL__
+  return stream;
+}
+
 }  // namespace backend
 }  // namespace srtb
 

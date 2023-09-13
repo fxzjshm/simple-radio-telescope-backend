@@ -231,30 +231,9 @@ class cufft_like_1d_wrapper
   }
 
   void set_queue_impl(sycl::queue& queue) {
-#if defined(SYCL_IMPLEMENTATION_ONEAPI)
-    stream = sycl::get_native<backend>(queue);
+    stream = srtb::backend::get_native_queue<backend, stream_t>(queue);
+    // stream seems to be thread-local, so set it in this thread
     SRTB_CHECK_CUFFT_LIKE(trait::fftSetStream(plan, stream));
-#elif defined(__HIPSYCL__)
-    // ref: https://github.com/illuhad/hipSYCL/issues/722
-    auto ret = trait::FFT_SUCCESS;
-    queue
-        .submit([&](sycl::handler& cgh) {
-          cgh.hipSYCL_enqueue_custom_operation([&](sycl::interop_handle& h) {
-            stream = h.get_native_queue<backend>();
-          });
-        })
-        .wait();
-    // stream seems to be thread-local, so set it in this thread instead of the lambda above
-    ret = trait::fftSetStream(plan, stream);
-    if (ret != trait::FFT_SUCCESS) [[unlikely]] {
-      throw std::runtime_error(
-          "[cufft_like_wrapper] trait::fftSetStream returned " +
-          std::to_string(ret));
-    }
-#else
-#warning cufft_like_wrapper::set_queue_impl uses default stream
-    stream = nullptr;
-#endif  // SYCL_IMPLEMENTATION_ONEAPI or __HIPSYCL__
   }
 
   void set_work_area_impl(void* work_area) {
