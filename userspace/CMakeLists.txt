@@ -63,6 +63,7 @@ if(SRTB_ENABLE_CUDA)
     add_compile_definitions(SRTB_ENABLE_CUDA=1)
 endif()
 if(SRTB_ENABLE_ROCM)
+    add_compile_definitions(__HIP_PLATFORM_AMD__)
     add_compile_definitions(SRTB_ENABLE_ROCM=1)
 endif()
 if(SRTB_ENABLE_MUSA)
@@ -244,6 +245,13 @@ if(FFTW_FOUND)
   add_compile_definitions(SRTB_HAS_FFTW=1)
 else()
   message(WARNING "FFTW not found, performance of CPU FFT transformations may be degraded")
+endif()
+
+## VkFFT
+include_directories(SYSTEM "3rdparty/VkFFT/vkFFT")
+if(DEFINED VKFFT_BACKEND)
+  message(STATUS "VkFFT backend: ${VKFFT_BACKEND}")
+  add_compile_definitions(VKFFT_BACKEND=${VKFFT_BACKEND})
 endif()
 
 ## 3rdparty

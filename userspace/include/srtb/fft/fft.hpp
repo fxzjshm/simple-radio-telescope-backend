@@ -33,6 +33,13 @@
 #ifdef SRTB_ENABLE_MUSA_INTEROP
 #include "srtb/fft/mufft_wrapper.hpp"
 #endif  // SRTB_ENABLE_MUSA_INTEROP
+#if defined(SRTB_ENABLE_OPENCL_INTEROP) || defined(VKFFT_BACKEND)
+#include "srtb/fft/vkfft_wrapper.hpp"
+#define SRTB_HAS_VKFFT
+#define SRTB_IF_HAS_VKFFT(...) __VA_ARGS__
+#else
+#define SRTB_IF_HAS_VKFFT(...)
+#endif
 #include "srtb/fft/naive_fft_wrapper.hpp"
 
 #ifdef SRTB_HAS_FFTW
@@ -65,6 +72,9 @@ class fft_1d_dispatcher {
 #ifdef SRTB_ENABLE_MUSA_INTEROP
   std::optional<mufft_1d_wrapper<fft_type, T, C> > mufft_1d_wrapper_instance;
 #endif  // SRTB_ENABLE_MUSA_INTEROP
+#ifdef SRTB_HAS_VKFFT
+  std::optional<vkfft_1d_wrapper<fft_type, T, C> > vkfft_1d_wrapper_instance;
+#endif  // SRTB_HAS_VKFFT
 #ifdef SRTB_HAS_FFTW
   std::optional<fftw_1d_wrapper<fft_type, T, C> > fftw_1d_wrapper_instance;
 #endif  // SRTB_HAS_FFTW
@@ -81,6 +91,15 @@ class fft_1d_dispatcher {
   fft_1d_dispatcher(size_t n, size_t batch_size, sycl::queue& q_)
       : q{q_}, naive_fft_1d_wrapper_instance{n, batch_size, q} {
     auto device = q.get_device();
+
+    SRTB_IF_HAS_VKFFT({
+      if (device.get_backend() == vkfft_1d_wrapper<fft_type, T, C>::backend) {
+        vkfft_1d_wrapper_instance.emplace(n, batch_size, q);
+        SRTB_CHECK_FFT(vkfft_1d_wrapper_instance.has_value());
+        return;
+      }
+    });
+
     SRTB_IF_ENABLED_CUDA_INTEROP({
       if (device.get_backend() == srtb::backend::cuda) [[likely]] {
         cufft_1d_wrapper_instance.emplace(n, batch_size, q);

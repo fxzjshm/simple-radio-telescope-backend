@@ -166,6 +166,4 @@ using hipfft_1d_wrapper =
 }  // namespace fft
 }  // namespace srtb
 
-#undef __HIP_PLATFORM_AMD__
-
 #endif  //  __SRTB_HIPFFT_WRAPPER__

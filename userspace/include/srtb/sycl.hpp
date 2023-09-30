@@ -34,6 +34,9 @@
     #elif defined(SYCL_EXT_ONEAPI_BACKEND_HIP) && defined(SRTB_ENABLE_ROCM) && SRTB_ENABLE_ROCM
         #define SRTB_ENABLE_ROCM_INTEROP 1
     #endif  // defined(SYCL_EXT_ONEAPI_BACKEND_CUDA) or defined(SYCL_EXT_ONEAPI_BACKEND_HIP)
+    #if defined(SRTB_ENABLE_OPENCL)
+        #define SRTB_ENABLE_OPENCL_INTEROP 1
+    #endif
 #elif defined(__HIPSYCL__)
     #if defined(__HIPSYCL_ENABLE_CUDA_TARGET__)
         #define SRTB_ENABLE_CUDA_INTEROP 1
@@ -43,6 +46,9 @@
     #endif
     #if defined(SRTB_ENABLE_MUSA)
         #define SRTB_ENABLE_MUSA_INTEROP 1
+    #endif
+    #if defined(SRTB_ENABLE_OPENCL)
+        #define SRTB_ENABLE_OPENCL_INTEROP 1
     #endif
     #if defined(__HIPSYCL_ENABLE_OMPHOST_TARGET__)
         // no need to define introp macro
@@ -81,11 +87,13 @@ namespace backend {
 
 #if defined(SYCL_IMPLEMENTATION_ONEAPI)
 
+inline constexpr sycl::backend opencl = sycl::backend::opencl;
 inline constexpr sycl::backend cuda = sycl::backend::ext_oneapi_cuda;
 inline constexpr sycl::backend rocm = sycl::backend::ext_oneapi_hip;
 
 #elif defined(__HIPSYCL__)
 
+inline constexpr sycl::backend opencl = sycl::backend::ocl;
 inline constexpr sycl::backend cuda = sycl::backend::cuda;
 inline constexpr sycl::backend rocm = sycl::backend::hip;
 #if defined(SRTB_ENABLE_MUSA_INTEROP)  // not upstreamed yet
