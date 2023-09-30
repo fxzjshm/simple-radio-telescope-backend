@@ -342,7 +342,7 @@ class signal_detect_pipe_2 {
 
     // if too many frequency channels are masked, result is often inaccurate
     if (zero_count <
-        srtb::config.signal_detect_channel_threshold * time_sample_count) {
+        srtb::config.signal_detect_channel_threshold * frequency_bin_count) {
       // trivial signal detect on raw time series
       {
         const size_t h_signal_count = srtb::signal_detect::count_signal(
