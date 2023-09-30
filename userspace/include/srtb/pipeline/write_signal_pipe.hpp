@@ -259,8 +259,19 @@ class write_signal_pipe {
                      reinterpret_cast<srtb::complex<srtb::real>*>(h_spectrum),
                      total_count)
                   .wait();
-              const std::string spectrum_file_path =
-                  file_name_no_extension + ".npy";
+
+              // deal with multiple polarizations
+              size_t i = 0;
+              std::string spectrum_file_path;
+              do {
+                spectrum_file_path =
+                    file_name_no_extension + "." + std::to_string(i) + ".npy";
+              } while (std::filesystem::exists(spectrum_file_path));
+
+              SRTB_LOGI << " [write_signal_pipe] "
+                        << "writing spectrum to " << spectrum_file_path
+                        << srtb::endl;
+
               // don't forget to check shape order...
               // https://numpy.org/doc/stable/reference/generated/numpy.ndarray.shape.html
               cnpy::npy_save(spectrum_file_path, h_spectrum,

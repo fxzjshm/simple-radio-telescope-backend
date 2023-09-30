@@ -101,11 +101,17 @@ class udp_receiver_pipe {
     auto& worker = opt_worker.value();
 
     // this config should persist during one work push
+    // count is per polarization
     const size_t baseband_input_count = srtb::config.baseband_input_count;
     const int baseband_input_bits = srtb::config.baseband_input_bits;
     const size_t baseband_input_bytes = baseband_input_count *
                                         std::abs(baseband_input_bits) /
                                         srtb::BITS_PER_BYTE;
+    size_t count_of_polarization = 1;
+    if (srtb::config.baseband_format_type.starts_with(
+            "interleaved_samples_2")) {
+      count_of_polarization = 2;
+    }
 
     // reserved some samples for next round
     size_t nsamps_reserved = srtb::codd::nsamps_reserved();
@@ -125,9 +131,9 @@ class udp_receiver_pipe {
     SRTB_LOGD << " [udp receiver pipe] "
               << "id = " << id << ": "
               << "start receiving" << srtb::endl;
-    auto [h_ptr, first_counter] =
-        worker.receive(/* required_length = */ baseband_input_bytes,
-                       /* reserved_length = */ nsamps_reserved);
+    auto [h_ptr, first_counter] = worker.receive(
+        /* required_length = */ baseband_input_bytes * count_of_polarization,
+        /* reserved_length = */ nsamps_reserved * count_of_polarization);
     SRTB_LOGD << " [udp receiver pipe] "
               << "id = " << id << ": "
               << "receive finished" << srtb::endl;
@@ -137,7 +143,8 @@ class udp_receiver_pipe {
     const uint64_t timestamp =
         std::chrono::system_clock::now().time_since_epoch().count();
 
-    srtb::work::baseband_data_holder baseband_data{h_ptr, baseband_input_bytes};
+    srtb::work::baseband_data_holder baseband_data{
+        h_ptr, baseband_input_bytes * count_of_polarization};
     srtb::work::copy_to_device_work copy_to_device_work;
     copy_to_device_work.ptr = nullptr;
     copy_to_device_work.count = 0;
