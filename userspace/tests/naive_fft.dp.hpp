@@ -18,7 +18,7 @@
 
 #include <sycl/sycl.hpp>
 
-#include "sycl_ext_complex.hpp"
+#include "sycl_ext_complex.dp.hpp"
 
 /** 
  * very naive SYCL FFT, currently Gauss-Cooley-Tukey algorithm
