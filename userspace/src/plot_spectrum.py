@@ -16,7 +16,6 @@ import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import argparse
-import scipy
 
 def main():
     '''
@@ -24,12 +23,12 @@ def main():
     '''
     parser = argparse.ArgumentParser()
     parser.add_argument("file_path")
-    parser.add_argument("--zoom_x", required=False, default=0.1)
-    parser.add_argument("--zoom_y", required=False, default=1)
+    parser.add_argument("--zoom_x", required=False, default=1)
+    parser.add_argument("--zoom_y", required=False, default=1/8)
     args = parser.parse_args()
     file_path = args.file_path
-    zoom_x = args.zoom_x
-    zoom_y = args.zoom_y
+    zoom_x = float(args.zoom_x)
+    zoom_y = float(args.zoom_y)
 
     mpl.use("TkAgg")
     print("matplotlib backend = ", mpl.get_backend())
@@ -37,9 +36,15 @@ def main():
     spec_complex = np.load(file_path)
     print("spec_complex.dtype = ", spec_complex.dtype)
     print("spec_complex.shape = ", spec_complex.shape)
-    spec_real = (np.abs(spec_complex))
+    # before 9bcd183 shape is incorrect
+    #spec_complex.shape = ((spec_complex.shape[1], spec_complex.shape[0]))
+    print("spec_complex.shape = ", spec_complex.shape)
+    spec_real = (np.abs(spec_complex)**2)
     del spec_complex
-    spec_zoomed = scipy.ndimage.zoom(spec_real, (float(zoom_x), float(zoom_y)), order=1)
+    zoomed_x = int(spec_real.shape[1] * zoom_x)
+    spec_zoomed_x = spec_real.reshape(-1, zoomed_x, spec_real.shape[1] // zoomed_x).sum(axis=2)
+    zoomed_y = int(spec_real.shape[0] * zoom_y)
+    spec_zoomed = spec_zoomed_x.reshape(-1, spec_real.shape[0] // zoomed_y, zoomed_x).sum(axis=1)
     print("spec_zoomed.shape = ", spec_zoomed.shape)
     del spec_real
     spec_average = np.average(spec_zoomed)
@@ -58,7 +63,7 @@ def main():
     fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, gridspec_kw={'width_ratios': [3, 1], 'height_ratios': [3, 1]})
     ax1.get_shared_x_axes().join(ax1, ax3)
     ax1.get_shared_y_axes().join(ax1, ax2)
-    ax1.pcolormesh(spec_zoomed, vmin=0.0, vmax=2*spec_average)
+    ax1.pcolormesh(spec_zoomed, vmin=0.0, vmax=10*spec_average)
     ax2.plot(freq_dist, np.array(range(freq_dist.shape[0])))
     ax3.plot(time_series)
     plt.show()
