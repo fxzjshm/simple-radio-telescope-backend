@@ -369,6 +369,52 @@ class watfft_1d_c2c_pipe {
   }
 };
 
+class fft_1d_c2c_pipe {
+ protected:
+  sycl::queue q;
+  std::optional<srtb::fft::fft_1d_dispatcher<srtb::fft::type::C2C_1D_FORWARD> >
+      opt_dispatcher;
+
+ protected:
+  fft_1d_c2c_pipe(sycl::queue q_) : q{q_} {
+    opt_dispatcher.emplace(/* n = */ srtb::config.baseband_input_count / 2,
+                           /* batch_size = */ 1, q);
+  }
+
+  auto operator()([[maybe_unused]] std::stop_token stop_token,
+                  srtb::work::fft_1d_c2c_work fft_1d_c2c_work) {
+    // assume opt_dispatcher has value
+    auto& dispatcher = opt_dispatcher.value();
+
+    const size_t in_count = fft_1d_c2c_work.count;
+    const size_t out_count = in_count;
+    // reset FFT plan if mismatch
+    if (dispatcher.get_n() != in_count || dispatcher.get_batch_size() != 1)
+        [[unlikely]] {
+      dispatcher.set_size(in_count, 1);
+    }
+
+    auto& d_in_shared = fft_1d_c2c_work.ptr;
+    std::shared_ptr<srtb::complex<srtb::real> > d_out_shared;
+    if constexpr (srtb::fft_operate_in_place) {
+      d_out_shared = d_in_shared;
+    } else {
+      d_out_shared =
+          srtb::device_allocator.allocate_shared<srtb::complex<srtb::real> >(
+              out_count);
+    }
+    dispatcher.process(d_in_shared.get(), d_out_shared.get());
+
+    d_in_shared.reset();
+
+    srtb::work::rfi_mitigation_s1_work rfi_mitigation_s1_work;
+    rfi_mitigation_s1_work.move_parameter_from(std::move(fft_1d_c2c_work));
+    rfi_mitigation_s1_work.ptr = d_out_shared;
+    rfi_mitigation_s1_work.count = out_count;
+    return std::optional{rfi_mitigation_s1_work};
+  }
+};
+
 }  // namespace pipeline
 }  // namespace srtb
 

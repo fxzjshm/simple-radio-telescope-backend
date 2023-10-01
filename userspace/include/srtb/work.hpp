@@ -169,6 +169,12 @@ using unpack_work = srtb::work::work<std::shared_ptr<std::byte> >;
 using fft_1d_r2c_work = srtb::work::work<std::shared_ptr<srtb::real> >;
 
 /**
+ * @brief contains complex numbers to be FFT-ed
+ */
+using fft_1d_c2c_work =
+    srtb::work::work<std::shared_ptr<srtb::complex<srtb::real> > >;
+
+/**
  * @brief contains a block of @c srtb::complex<srtb::real> with radio interference
  *        to be cleared out
  * @note stage 1: whole data is frequency domain, i,e, batch_size = 1.
