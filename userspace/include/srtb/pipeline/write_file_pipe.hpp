@@ -40,11 +40,6 @@ class write_file_pipe {
 
   auto operator()([[maybe_unused]] std::stop_token stop_token,
                   srtb::work::write_file_work write_file_work) {
-    //srtb::work::write_file_work write_file_work;
-    //SRTB_POP_WORK_OR_RETURN(" [write_file_pipe] ",
-    //                        srtb::baseband_output_queue, write_file_work,
-    //                        stop_token);
-
     // file name need time stamp, so cannot create early
     if (!opt_file_output_stream) [[unlikely]] {
       auto file_counter = write_file_work.udp_packet_counter;

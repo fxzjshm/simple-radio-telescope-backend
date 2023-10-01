@@ -106,10 +106,6 @@ class write_signal_pipe {
 
   auto operator()([[maybe_unused]] std::stop_token stop_token,
                   srtb::work::write_signal_work write_signal_work) {
-    //srtb::work::write_signal_work write_signal_work;
-    //SRTB_POP_WORK_OR_RETURN(" [write_signal_pipe] ",
-    //                        srtb::baseband_output_queue, write_signal_work,
-    //                        stop_token);
     std::optional<srtb::work::write_signal_work> opt_work_to_write;
 
     const bool has_signal = (write_signal_work.time_series.size() > 0);
