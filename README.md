@@ -76,7 +76,7 @@ mindmap
         AMD GPU
       CUDA
         NVIDIA GPU
-      Level Zero
+      Level Zero ?
         Intel GPU ?
       OpenCL_SPIRV [OpenCL + SPIR-V]
         PoCL
@@ -90,16 +90,16 @@ mindmap
           zink ?
         clspv + clvk ? <br/> on Vulkan
         other devices ?
-      CCE
+      CCE ?
         Huawei Ascend ?
-    (hipSYCL / Open SYCL)
+    (AdaptiveCpp)
       ROCm / HIP
         AMD GPU
       MUSA
         Moore Threads GPU
       CUDA
         NVIDIA GPU
-      Level Zero
+      Level Zero ?
         Intel GPU ?
       OpenCL_SPIRV [OpenCL + SPIR-V]
         PoCL
