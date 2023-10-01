@@ -233,10 +233,15 @@ struct time_series_holder {
 };
 
 /**
- * @brief write baseband data to disk; @c ptr is reserved for future use
+ * @brief write baseband data to file without condition; @c ptr is reserved for future use
  */
-struct baseband_output_work
-    : public srtb::work::work<std::shared_ptr<srtb::complex<srtb::real> > > {
+using write_file_work =
+    srtb::work::work<std::shared_ptr<srtb::complex<srtb::real> > >;
+
+/**
+ * @brief if there's signal, write baseband data to disk; @c ptr is correspond dynamic spectrum
+ */
+struct write_signal_work : public write_file_work {
   std::vector<time_series_holder> time_series;
 };
 

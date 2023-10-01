@@ -205,7 +205,7 @@ int main(int argc, char** argv) {
   //srtb::work_queue<srtb::work::draw_spectrum_work> draw_spectrum_queue;
   srtb::work_queue<srtb::work::draw_spectrum_work_2> draw_spectrum_queue_2;
   srtb::work_queue<srtb::work::signal_detect_work> signal_detect_queue;
-  srtb::work_queue<srtb::work::baseband_output_work> baseband_output_queue;
+  srtb::work_queue<srtb::work::write_signal_work> baseband_output_queue;
 
   /** @brief count of works in a pipeline. */
   std::shared_ptr<std::atomic<int32_t> > work_in_pipeline_count =

@@ -122,11 +122,11 @@ class signal_detect_pipe {
     }
     // time series is now available
 
-    srtb::work::baseband_output_work baseband_output_work;
-    baseband_output_work.move_parameter_from(std::move(signal_detect_work));
-    baseband_output_work.ptr = std::move(d_in_shared);
-    baseband_output_work.count = count_per_batch;
-    baseband_output_work.batch_size = batch_size;
+    srtb::work::write_signal_work write_signal_work;
+    write_signal_work.move_parameter_from(std::move(signal_detect_work));
+    write_signal_work.ptr = std::move(d_in_shared);
+    write_signal_work.count = count_per_batch;
+    write_signal_work.batch_size = batch_size;
 
     // if too many frequency channels are masked, result is often inaccurate
     if (zero_count <
@@ -148,7 +148,7 @@ class signal_detect_pipe {
               .time_series_length = time_series_count,
               .boxcar_length = 1,
               .transfer_event = event};
-          baseband_output_work.time_series.push_back(time_series_holder);
+          write_signal_work.time_series.push_back(time_series_holder);
         }
       }
 
@@ -205,27 +205,27 @@ class signal_detect_pipe {
                 .time_series_length = boxcared_time_series_count,
                 .boxcar_length = boxcar_length,
                 .transfer_event = event};
-            baseband_output_work.time_series.push_back(time_series_holder);
+            write_signal_work.time_series.push_back(time_series_holder);
           }
         }
       }
     } else {
-      // baseband_output_work.has_signal = false;
+      // write_signal_work.has_signal = false;
       // currently represented as time_series.size() == 0
       // that is, do nothing
     }
 
-    const bool has_signal = (baseband_output_work.time_series.size() > 0);
+    const bool has_signal = (write_signal_work.time_series.size() > 0);
     if (has_signal) {
       SRTB_LOGI << " [signal_detect_pipe] "
                 << " signal detected in "
-                << baseband_output_work.time_series.size() << " time series"
+                << write_signal_work.time_series.size() << " time series"
                 << srtb::endl;
     } else {
       SRTB_LOGD << " [signal_detect_pipe] "
                 << "no signal detected" << srtb::endl;
     }
-    return std::optional{baseband_output_work};
+    return std::optional{write_signal_work};
   }
 };
 
@@ -334,11 +334,11 @@ class signal_detect_pipe_2 {
     }
     // time series is now available
 
-    srtb::work::baseband_output_work baseband_output_work;
-    baseband_output_work.move_parameter_from(std::move(signal_detect_work));
-    baseband_output_work.ptr = std::move(d_in_shared);
-    baseband_output_work.count = time_sample_count;
-    baseband_output_work.batch_size = frequency_bin_count;
+    srtb::work::write_signal_work write_signal_work;
+    write_signal_work.move_parameter_from(std::move(signal_detect_work));
+    write_signal_work.ptr = std::move(d_in_shared);
+    write_signal_work.count = time_sample_count;
+    write_signal_work.batch_size = frequency_bin_count;
 
     // if too many frequency channels are masked, result is often inaccurate
     if (zero_count <
@@ -361,7 +361,7 @@ class signal_detect_pipe_2 {
               .time_series_length = time_series_count,
               .boxcar_length = 1,
               .transfer_event = event};
-          baseband_output_work.time_series.push_back(time_series_holder);
+          write_signal_work.time_series.push_back(time_series_holder);
         }
       }
 
@@ -418,27 +418,27 @@ class signal_detect_pipe_2 {
                 .time_series_length = boxcared_time_series_count,
                 .boxcar_length = boxcar_length,
                 .transfer_event = event};
-            baseband_output_work.time_series.push_back(time_series_holder);
+            write_signal_work.time_series.push_back(time_series_holder);
           }
         }
       }
     } else {
-      // baseband_output_work.has_signal = false;
+      // write_signal_work.has_signal = false;
       // currently represented as time_series.size() == 0
       // that is, do nothing
     }
 
-    const bool has_signal = (baseband_output_work.time_series.size() > 0);
+    const bool has_signal = (write_signal_work.time_series.size() > 0);
     if (has_signal) {
       SRTB_LOGI << " [signal_detect_pipe_2] "
                 << " signal detected in "
-                << baseband_output_work.time_series.size() << " time series"
+                << write_signal_work.time_series.size() << " time series"
                 << srtb::endl;
     } else {
       SRTB_LOGD << " [signal_detect_pipe_2] "
                 << "no signal detected" << srtb::endl;
     }
-    return std::optional{baseband_output_work};
+    return std::optional{write_signal_work};
   }
 };
 

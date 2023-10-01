@@ -49,7 +49,7 @@ namespace pipeline {
  */
 class write_signal_pipe {
   /** @brief local container of recent works with no signal detected (negative) */
-  std::deque<srtb::work::baseband_output_work> recent_negative_works;
+  std::deque<srtb::work::write_signal_work> recent_negative_works;
   /** @brief local container of timestamps of recent works with signal detected (positive) */
   std::deque<uint64_t> recent_positive_timestamps;
 
@@ -105,14 +105,14 @@ class write_signal_pipe {
   }
 
   auto operator()([[maybe_unused]] std::stop_token stop_token,
-                  srtb::work::baseband_output_work baseband_output_work) {
-    //srtb::work::baseband_output_work baseband_output_work;
+                  srtb::work::write_signal_work write_signal_work) {
+    //srtb::work::write_signal_work write_signal_work;
     //SRTB_POP_WORK_OR_RETURN(" [write_signal_pipe] ",
-    //                        srtb::baseband_output_queue, baseband_output_work,
+    //                        srtb::baseband_output_queue, write_signal_work,
     //                        stop_token);
-    std::optional<srtb::work::baseband_output_work> opt_work_to_write;
+    std::optional<srtb::work::write_signal_work> opt_work_to_write;
 
-    const bool has_signal = (baseband_output_work.time_series.size() > 0);
+    const bool has_signal = (write_signal_work.time_series.size() > 0);
     const bool real_time_processing = (srtb::config.input_file_path == "");
     bool overlap_with_recent_positive = false;
     const double overlap_window = 0.45 * 1e9 *
@@ -121,7 +121,7 @@ class write_signal_pipe {
 
     // clean outdated positive results
     while (real_time_processing && recent_positive_timestamps.size() > 0 &&
-           static_cast<int64_t>(baseband_output_work.timestamp -
+           static_cast<int64_t>(write_signal_work.timestamp -
                                 recent_positive_timestamps.front()) >
                5 * overlap_window) {
       recent_positive_timestamps.pop_front();
@@ -129,8 +129,8 @@ class write_signal_pipe {
 
     // 1) this work has signal
     if (has_signal) {
-      recent_positive_timestamps.push_back(baseband_output_work.timestamp);
-      opt_work_to_write = std::move(baseband_output_work);
+      recent_positive_timestamps.push_back(write_signal_work.timestamp);
+      opt_work_to_write = std::move(write_signal_work);
     }
 
     // 2) sometimes signal is detected in only one polarization (which is strange)
@@ -138,25 +138,25 @@ class write_signal_pipe {
     if ((!has_signal) && real_time_processing) {
       for (auto t : recent_positive_timestamps) {
         if (std::abs(static_cast<double>(static_cast<int64_t>(
-                baseband_output_work.timestamp - t))) < overlap_window) {
+                write_signal_work.timestamp - t))) < overlap_window) {
           overlap_with_recent_positive = true;
           break;
         }
       }
       if (overlap_with_recent_positive) {
-        opt_work_to_write = std::move(baseband_output_work);
+        opt_work_to_write = std::move(write_signal_work);
       }
     }
 
     // send this to recent works
     if (!(has_signal || overlap_with_recent_positive) && real_time_processing) {
-      recent_negative_works.push_back(std::move(baseband_output_work));
+      recent_negative_works.push_back(std::move(write_signal_work));
     }
 
     // 3) check if some recent negative works overlap with recent positive works
     if (real_time_processing && (!opt_work_to_write.has_value()) &&
         (recent_negative_works.size() > 0)) {
-      srtb::work::baseband_output_work work_2 =
+      srtb::work::write_signal_work work_2 =
           std::move(recent_negative_works.front());
       recent_negative_works.pop_front();
 
@@ -175,7 +175,7 @@ class write_signal_pipe {
 
     // write results
     if (opt_work_to_write.has_value()) {
-      srtb::work::baseband_output_work work_to_write =
+      srtb::work::write_signal_work work_to_write =
           std::move(opt_work_to_write.value());
       auto file_counter = work_to_write.udp_packet_counter;
       if (file_counter == work_to_write.no_udp_packet_counter) {

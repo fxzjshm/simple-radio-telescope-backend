@@ -39,17 +39,17 @@ class write_file_pipe {
   write_file_pipe(sycl::queue q_) : q{q_} {}
 
   auto operator()([[maybe_unused]] std::stop_token stop_token,
-                  srtb::work::baseband_output_work baseband_output_work) {
-    //srtb::work::baseband_output_work baseband_output_work;
+                  srtb::work::write_file_work write_file_work) {
+    //srtb::work::write_file_work write_file_work;
     //SRTB_POP_WORK_OR_RETURN(" [write_file_pipe] ",
-    //                        srtb::baseband_output_queue, baseband_output_work,
+    //                        srtb::baseband_output_queue, write_file_work,
     //                        stop_token);
 
     // file name need time stamp, so cannot create early
     if (!opt_file_output_stream) [[unlikely]] {
-      auto file_counter = baseband_output_work.udp_packet_counter;
-      if (file_counter == baseband_output_work.no_udp_packet_counter) {
-        file_counter = baseband_output_work.timestamp;
+      auto file_counter = write_file_work.udp_packet_counter;
+      if (file_counter == write_file_work.no_udp_packet_counter) {
+        file_counter = write_file_work.timestamp;
       }
       file_path = srtb::config.baseband_output_file_prefix +
                   std::to_string(file_counter) + ".bin";
@@ -65,9 +65,9 @@ class write_file_pipe {
     auto& file_output_stream = opt_file_output_stream.value();
 
     const char* ptr = reinterpret_cast<char*>(
-        baseband_output_work.baseband_data.baseband_ptr.get());
+        write_file_work.baseband_data.baseband_ptr.get());
     const size_t baseband_input_count =
-        baseband_output_work.baseband_data.baseband_input_bytes;
+        write_file_work.baseband_data.baseband_input_bytes;
     size_t write_count;
 
     // reserved some samples for next round
@@ -87,7 +87,7 @@ class write_file_pipe {
       write_count = baseband_input_count;
     }
     file_output_stream.write(
-        ptr, write_count * sizeof(decltype(baseband_output_work.baseband_data
+        ptr, write_count * sizeof(decltype(write_file_work.baseband_data
                                                .baseband_ptr)::element_type));
     if (!file_output_stream) [[unlikely]] {
       std::string err = "Cannot write to " + file_path;
