@@ -9,17 +9,22 @@
 #include "srtb/commons.hpp"
 #include "srtb/fft/naive_fft.hpp"
 
+//
+// ----------------------------------------------------------------
+//
+
 // Adapted from https://www.cnblogs.com/CaCO3/p/15996732.html by CaO
 // original post is licensed under CC BY-NC-SA
 #define reg
-using Complex = srtb::complex<double>;
-// naive_fft: f -> g, fftw: f -> h, sequence fft: f -> f
-std::vector<Complex> f, g, h;
+using real = double;
+using complex = srtb::complex<real>;
+using Complex = complex;
 const auto PI = M_PI;
 int siz = 1;
 int bit;
 
 std::vector<int> rev;
+
 void fft(Complex* arr,
          int tp) {  //tp 代表变换的类型，如果 tp = 1 代表 FFT，tp = -1 代表 IFFT
   for (reg int i(0); i < siz; ++i)
@@ -46,34 +51,24 @@ void fft(Complex* arr,
   }
 }
 
-int main(int argc, char** argv) {
-  sycl::queue q;
+namespace srtb {
+namespace test {
 
+void test_fft_1d_c2c() {
   const int manual_threshold = 10;
 
-  bit = 20;
-  if (argc > 1) {
-    try {
-      bit = std::stoi(argv[1]);
-    } catch (const std::invalid_argument& ignored) {
-      // bit should remain unchanged
-    }
-  }
-  siz = 1 << bit;
+  using real = ::real;
+  using complex = ::complex;
+
+  // naive_fft: f -> g, fftw: f -> h, sequence fft: f -> f
+  std::vector<complex> f, g, h;
+
   f.resize(siz + 5);
   g.resize(siz + 5);
   h.resize(siz + 5);
+
   rev.resize(siz + 5);
   rev[0] = 0;
-
-  {
-    int ret = fftw_init_threads();
-    if (ret == 0) [[unlikely]] {
-      throw std::runtime_error("[fft] init fftw failed!");
-    }
-    int n_threads = std::max(std::thread::hardware_concurrency(), 1u);
-    fftw_plan_with_nthreads(n_threads);
-  }
 
   auto fftw_plan_start = std::chrono::system_clock::now();
   fftw_plan p = fftw_plan_dft_1d(siz, reinterpret_cast<fftw_complex*>(&f[0]),
@@ -81,9 +76,11 @@ int main(int argc, char** argv) {
                                  FFTW_FORWARD, FFTW_ESTIMATE);
   auto fftw_plan_end = std::chrono::system_clock::now();
 
+  sycl::queue q;
+
   if (siz < manual_threshold) {
     for (int i = 0; i < siz; i++) {
-      int x;
+      real x;
       std::cin >> x;
       f[i].real(x);
     }
@@ -110,7 +107,7 @@ int main(int argc, char** argv) {
     auto d_f = d_f_shared.get(), d_g = d_g_shared.get();
     q.copy(h_f, d_f, f.size()).wait();
     naive_fft_start = std::chrono::system_clock::now();
-    naive_fft::fft_1d_c2c<double, srtb::complex<double> >(bit, d_f, d_g, 1, q);
+    naive_fft::fft_1d_c2c<real, complex>(bit, d_f, d_g, 1, q);
     naive_fft_end = std::chrono::system_clock::now();
     q.copy(d_g, h_g, g.size()).wait();
   }
@@ -127,11 +124,12 @@ int main(int argc, char** argv) {
        sequencial_fft_time = sequencial_fft_end - sequencial_fft_start,
        fftw_plan_time = fftw_plan_end - fftw_plan_start,
        fftw_execute_time = fftw_execute_end - fftw_execute_start;
-  std::cout << "naive_fft " << naive_fft_time.count() << "ns, "
+  SRTB_LOGI << " [test_fft_1d_c2c] "
+            << "naive_fft " << naive_fft_time.count() << "ns, "
             << "sequence " << sequencial_fft_time.count() << "ns, "
             << "fftw plan " << fftw_plan_time.count() << "ns, "
             << "fftw execute " << fftw_execute_time.count() << "ns. "
-            << std::endl;
+            << srtb::endl;
 
   if (siz < manual_threshold) {
     for (int i = 0; i < siz; i++) {
@@ -150,17 +148,49 @@ int main(int argc, char** argv) {
   for (int i = 0; i < siz; i++) {
     auto df = (f[i] - g[i]) / f[i], dh = (h[i] - g[i]) / h[i];
     if (srtb::abs(df) > 1e-5 || srtb::abs(dh) > 1e-5) {
-      std::cerr << "Difference at i = " << i << ", "
+      std::cerr << "[test_fft_1d_c2c] "
+                << "Difference at i = " << i << ", "
                 << "f[i] = " << f[i] << ", "
                 << "g[i] = " << g[i] << ", "
                 << "h[i] = " << h[i] << ". " << std::endl;
       exit(-1);
     }
   }
-  std::cout << "naive/sequencial = "
+  SRTB_LOGI << " [test_fft_1d_c2c] "
+            << "naive/sequencial = "
             << double(naive_fft_time.count()) /
                    double(sequencial_fft_time.count())
-            << std::endl;
+            << srtb::endl;
+}
+
+}  // namespace test
+}  // namespace srtb
+
+//
+// ----------------------------------------------------------------
+//
+
+int main(int argc, char** argv) {
+  bit = 20;
+  if (argc > 1) {
+    try {
+      bit = std::stoi(argv[1]);
+    } catch (const std::invalid_argument& ignored) {
+      // bit should remain unchanged
+    }
+  }
+  siz = 1 << bit;
+
+  {
+    int ret = fftw_init_threads();
+    if (ret == 0) [[unlikely]] {
+      throw std::runtime_error("[fft] init fftw failed!");
+    }
+    int n_threads = std::max(std::thread::hardware_concurrency(), 1u);
+    fftw_plan_with_nthreads(n_threads);
+  }
+
+  srtb::test::test_fft_1d_c2c();
 
   fftw_cleanup_threads();
 
