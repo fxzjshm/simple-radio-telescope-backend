@@ -181,14 +181,40 @@ inline constexpr auto reinterpret_as_complex(T* x) -> C* {
 }
 
 /**
- * @param n size of input real numbers
- * @param k s.t. n == 2**k
- * @param i thread index, 0 <= i < n / 2
+ * @param k s.t. n == 2**k, n is size of input real numbers
  * @param input Accessor or pointer or something like that of input buffer
  * @param output Accessor or pointer or something like that of output buffer
- * 
+ *
  * ref: https://www.cnblogs.com/liam-ji/p/11742941.html
  *      http://www.dspguide.com/ch12/5.htm
+ * 
+ * (Translated from 1st reference)
+ * 
+ * Suppose $ x(n) $ is a real sequence of length $ 2N $ whose discrete Fourier transform is
+ * 
+ * $$ X(k)=\sum_{n=0}^{2N-1}x(n)W_{2N}^{nk} \ , \ k=0,1,...,2N-1  $$
+ * 
+ * To efficiently compute the Fourier transform $ X(k) $ , we divide $ x(n) $ into even and odd groups, forming two new sequences $ x(n) $ and $ g(n) $ , i.e
+ * 
+ * $$ \left\{\begin{matrix}\begin{align*}f(n)&=x(2n)\\ g(n)&=x(2n+1)\end{align*}\end{matrix}\right. , n=0,1,...,N-1  $$
+ * 
+ * Then $ f(n) $ and $ g(n) $ form a complex sequence $ h(n) $ 
+ * 
+ * $$ h(n)=f(n)+jg(n), \ n = 0,1,...,N-1  $$
+ * 
+ * Using FFT to calculate $ h (n) $$ n $ point Fourier transform $ h (k) $ , and $ h (k) $ can be expressed as
+ * 
+ * $$ H(k)=F(k)+jG(k), \ n = 0,1,...,N-1  $$
+ * 
+ * Easy to derive from above
+ * 
+ * $$ \left\{\begin{matrix}\begin{align*}F(k)&=\frac{1}{2}[H(k)+H^{*}(N-k)]\\ G(k)&=-\frac{j}{2}[H(k)-H^{*}(N-k)]\end{align*}\end{matrix}\right. , n=0,1,...,N-1  $$
+ * 
+ * After obtaining $ F(k) $ and $ G(k) $ , the discrete Fourier transform $ x(k) $ of $ x(n) $ is computed using the following butterfly operation
+ * 
+ * $$ \left\{\begin{matrix}\begin{align*}X(k)&=F(k)+G(k)W_{2N}^{k}\\ X(k+n)&=F(k)-G(k)W_{2N}^{k}\end{align*}\end{matrix}\right. , n=0,1,...,N-1  $$
+ * 
+ * The real sequence FFT algorithm can reduce about half of the computation compared with the complex sequence FFT algorithm of the same length.
  */
 template <typename T, typename C, typename InputAccessor,
           typename OutputAccessor>
@@ -199,6 +225,7 @@ inline void fft_1d_r2c(const size_t k, InputAccessor input,
   const size_t N = n_real / 2;
   const auto input_as_complex = reinterpret_as_complex<T, C>(input);
   fft_1d_c2c<T, C>(k - 1, input_as_complex, output, +1, q);
+  // operate in-place
   const auto H = output;
   q.parallel_for(sycl::range{N / 2 + 1}, [=](sycl::item<1> id) {
      const size_t k = id.get_id(0);
