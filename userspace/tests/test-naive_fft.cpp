@@ -170,6 +170,110 @@ void test_fft_1d_c2c() {
 // ----------------------------------------------------------------
 //
 
+namespace srtb {
+namespace test {
+
+void test_fft_1d_r2c(size_t size_real) {
+  const int manual_threshold = 10;
+
+  using real = ::real;
+  using complex = ::complex;
+
+  // naive_fft: f -> g, fftw: f -> h
+  std::vector<real> f;
+  std::vector<complex> g, h;
+  const size_t size_complex = size_real / 2 + 1;
+  f.resize(size_real);
+  g.resize(size_complex);
+  h.resize(size_complex);
+
+  auto fftw_plan_start = std::chrono::system_clock::now();
+  fftw_plan p = fftw_plan_dft_r2c_1d(
+      size_real, &f[0], reinterpret_cast<fftw_complex*>(&h[0]), FFTW_ESTIMATE);
+  auto fftw_plan_end = std::chrono::system_clock::now();
+
+  sycl::queue q;
+
+  if (size_real < manual_threshold) {
+    for (size_t i = 0; i < size_real; i++) {
+      real x;
+      std::cin >> x;
+      f[i] = x;
+    }
+  } else {
+    double x;
+    for (size_t i = 0; i < size_real; i++) {
+      x = double(std::rand()) / (0xcafebabe);
+      f[i] = x;
+    }
+  }
+
+  auto naive_fft_start = std::chrono::system_clock::now(),
+       naive_fft_end = std::chrono::system_clock::now();
+  {
+    auto h_f = &f[0];
+    auto h_g = &g[0];
+    auto d_f_shared = srtb::device_allocator.allocate_shared<
+        std::remove_const_t<std::remove_reference_t<decltype(f.front())> > >(
+        f.size());
+    auto d_g_shared = srtb::device_allocator.allocate_shared<
+        std::remove_const_t<std::remove_reference_t<decltype(g.front())> > >(
+        g.size());
+    auto d_f = d_f_shared.get();
+    auto d_g = d_g_shared.get();
+    q.copy(h_f, d_f, f.size()).wait();
+    naive_fft_start = std::chrono::system_clock::now();
+    naive_fft::fft_1d_r2c<real, complex>(bit, d_f, d_g, q);
+    naive_fft_end = std::chrono::system_clock::now();
+    q.copy(d_g, h_g, g.size()).wait();
+  }
+
+  auto fftw_execute_start = std::chrono::system_clock::now();
+  fftw_execute(p);
+  auto fftw_execute_end = std::chrono::system_clock::now();
+
+  auto naive_fft_time = naive_fft_end - naive_fft_start,
+       fftw_plan_time = fftw_plan_end - fftw_plan_start,
+       fftw_execute_time = fftw_execute_end - fftw_execute_start;
+  SRTB_LOGI << " [test_fft_1d_r2c] "
+            << "naive_fft " << naive_fft_time.count() << "ns, "
+            << "fftw plan " << fftw_plan_time.count() << "ns, "
+            << "fftw execute " << fftw_execute_time.count() << "ns. "
+            << srtb::endl;
+
+  if (size_real < manual_threshold) {
+    for (size_t i = 0; i < size_real; i++) {
+      std::cout << f[i] << ' ';
+    }
+    std::cout << std::endl;
+    for (size_t i = 0; i < size_real; i++) {
+      std::cout << g[i] << ' ';
+    }
+    std::cout << std::endl;
+    for (size_t i = 0; i < size_real; i++) {
+      std::cout << h[i] << ' ';
+    }
+    std::cout << std::endl;
+  }
+  for (size_t i = 0; i < size_complex; i++) {
+    auto dh = (h[i] - g[i]) / h[i];
+    if (srtb::abs(dh) > 1e-5) {
+      std::cerr << "[test_fft_1d_r2c] "
+                << "Difference at i = " << i << ", "
+                << "g[i] = " << g[i] << ", "
+                << "h[i] = " << h[i] << ". " << std::endl;
+      exit(-1);
+    }
+  }
+}
+
+}  // namespace test
+}  // namespace srtb
+
+//
+// ----------------------------------------------------------------
+//
+
 int main(int argc, char** argv) {
   bit = 20;
   if (argc > 1) {
@@ -191,6 +295,7 @@ int main(int argc, char** argv) {
   }
 
   srtb::test::test_fft_1d_c2c();
+  srtb::test::test_fft_1d_r2c(siz);
 
   fftw_cleanup_threads();
 
