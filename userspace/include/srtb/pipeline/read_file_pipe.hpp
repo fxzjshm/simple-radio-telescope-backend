@@ -112,6 +112,7 @@ class read_file_pipe {
       copy_to_device_work.timestamp = timestamp;
       copy_to_device_work.udp_packet_counter =
           copy_to_device_work.no_udp_packet_counter;
+      copy_to_device_work.data_stream_id = 0;  // TODO: multiple file streams?
       return std::optional{copy_to_device_work};
     } else {
       // nothing to do ...

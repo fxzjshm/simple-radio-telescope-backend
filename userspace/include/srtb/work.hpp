@@ -125,6 +125,10 @@ struct work {
    */
   uint64_t udp_packet_counter;
   /**
+   * @brief ID to identify which stream is this data belongs to
+   */
+  uint32_t data_stream_id;
+  /**
    * @brief dummy value if no udp_packet_counter is available
    */
   static constexpr uint64_t no_udp_packet_counter = static_cast<uint64_t>(-1);
@@ -137,6 +141,7 @@ struct work {
   inline void move_parameter_from(work<U>&& other) {
     timestamp = std::move(other.timestamp);
     udp_packet_counter = std::move(other.udp_packet_counter);
+    data_stream_id = std::move(other.data_stream_id);
     baseband_data = std::move(other.baseband_data);
   }
 
@@ -144,6 +149,7 @@ struct work {
   inline void copy_parameter_from(const work<U>& other) {
     timestamp = other.timestamp;
     udp_packet_counter = other.udp_packet_counter;
+    data_stream_id = other.data_stream_id;
     baseband_data = other.baseband_data;
   }
 };

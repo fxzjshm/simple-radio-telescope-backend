@@ -152,6 +152,7 @@ class udp_receiver_pipe {
     copy_to_device_work.baseband_data = std::move(baseband_data);
     copy_to_device_work.timestamp = timestamp;
     copy_to_device_work.udp_packet_counter = first_counter;
+    copy_to_device_work.data_stream_id = id;
 
     auto time_after_push = std::chrono::system_clock::now();
     auto push_work_time = std::chrono::duration_cast<std::chrono::microseconds>(
