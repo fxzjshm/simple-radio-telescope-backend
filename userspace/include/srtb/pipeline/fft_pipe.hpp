@@ -14,6 +14,7 @@
 #ifndef __SRTB_PIPELINE_FFT_PIPE__
 #define __SRTB_PIPELINE_FFT_PIPE__
 
+#include "srtb/coherent_dedispersion.hpp"
 #include "srtb/commons.hpp"
 #include "srtb/fft/fft.hpp"
 #include "srtb/fft/fft_window.hpp"
