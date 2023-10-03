@@ -53,7 +53,7 @@ template <typename Pipe1, typename... Pipes>
 struct type_helper<composite_pipe<Pipe1, Pipes...> > {
   inline auto class_name() -> std::string {
     return type_helper<Pipe1>{}.class_name() + ", " +
-           type_helper<Pipes...>{}.class_name();
+           type_helper<composite_pipe<Pipes...> >{}.class_name();
   }
 };
 
