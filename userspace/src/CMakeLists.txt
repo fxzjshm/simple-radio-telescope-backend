@@ -56,3 +56,8 @@ if(Python3_NumPy_FOUND)
 else()
     target_compile_definitions(srtb_baseband_receiver INTERFACE WITHOUT_NUMPY)
 endif()
+
+add_executable(21cma-genfil 
+  21cma-genfil/21cma-genfil.cpp
+)
+srtb_add_dependency(21cma-genfil)
