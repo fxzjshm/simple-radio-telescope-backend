@@ -117,7 +117,8 @@ struct work {
    */
   size_t batch_size;
   /**
-   * @brief time stamp of these data, currectly 64-bit unix timestamp from server time
+   * @brief time stamp of these data, currectly 64-bit unix timestamp in nanoseconds, from server time
+   *        TODO: correct timestamp with GPS / atomic clock
    */
   uint64_t timestamp;
   /**

@@ -100,7 +100,9 @@ class read_file_pipe {
       }
 
       const uint64_t timestamp =
-          std::chrono::system_clock::now().time_since_epoch().count();
+        std::chrono::duration_cast<std::chrono::nanoseconds>(
+            std::chrono::system_clock::now().time_since_epoch())
+            .count();
 
       srtb::work::copy_to_device_work copy_to_device_work;
       copy_to_device_work.ptr =

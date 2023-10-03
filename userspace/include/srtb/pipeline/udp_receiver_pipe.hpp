@@ -141,7 +141,9 @@ class udp_receiver_pipe {
     auto time_before_push = std::chrono::system_clock::now();
 
     const uint64_t timestamp =
-        std::chrono::system_clock::now().time_since_epoch().count();
+        std::chrono::duration_cast<std::chrono::nanoseconds>(
+            std::chrono::system_clock::now().time_since_epoch())
+            .count();
 
     srtb::work::baseband_data_holder baseband_data{
         h_ptr, baseband_input_bytes * count_of_polarization};
