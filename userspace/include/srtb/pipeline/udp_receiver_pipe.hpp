@@ -76,7 +76,8 @@ class udp_receiver_pipe {
             std::to_string(id)};
       }
     }
-    opt_worker.emplace(sender_address, sender_port);
+    const bool udp_receiver_can_restart = srtb::config.udp_receiver_can_restart;
+    opt_worker.emplace(sender_address, sender_port, udp_receiver_can_restart);
 
     const auto& cpus_preferred = srtb::config.udp_receiver_cpu_preferred;
     if (0 <= id && id < cpus_preferred.size()) {

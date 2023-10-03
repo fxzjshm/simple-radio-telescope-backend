@@ -82,12 +82,15 @@ class udp_receiver_worker {
 
   std::vector<std::byte> reserved_data_buffer;
 
+  bool can_restart;
+
  public:
   udp_receiver_worker(const std::string& sender_address,
-                      const unsigned short sender_port)
+                      const unsigned short sender_port, bool can_restart_)
       : sender_endpoint{boost::asio::ip::address::from_string(sender_address),
                         sender_port},
-        socket{io_service, sender_endpoint} {
+        socket{io_service, sender_endpoint},
+        can_restart{can_restart_} {
     socket.set_option(boost::asio::ip::udp::socket::reuse_address{true});
     constexpr int socket_buffer_size = std::numeric_limits<int>::max();
     socket.set_option(
@@ -114,7 +117,8 @@ class udp_receiver_worker {
     bool first_counter_set = false;
 
     // check if lost too many packets; if so, restart
-    if (zeros_need_to_be_filled > data_buffer_capacity) [[unlikely]] {
+    if (can_restart && zeros_need_to_be_filled > data_buffer_capacity)
+        [[unlikely]] {
       // discard reserved data
       reserved_data_buffer.clear();
       zeros_need_to_be_filled = zeros_need_to_be_filled % data_buffer_capacity;

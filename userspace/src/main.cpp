@@ -292,9 +292,12 @@ int main(int argc, char** argv) {
     SRTB_LOGW << " [main] "
               << "Writing all baseband data, take care of disk space!"
               << srtb::endl;
+    srtb::config.udp_receiver_can_restart = false;
     baseband_output_thread = srtb::pipeline::start_pipe<write_file_pipe>(
         q, queue_in_functor{baseband_output_queue}, decrease_work_count);
   } else {
+    // catch & write mode ("piggybank" ?)
+    srtb::config.udp_receiver_can_restart = true;
     baseband_output_thread = srtb::pipeline::start_pipe<write_signal_pipe>(
         q, queue_in_functor{baseband_output_queue}, decrease_work_count);
   }
