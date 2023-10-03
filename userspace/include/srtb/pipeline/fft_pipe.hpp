@@ -27,6 +27,7 @@ namespace pipeline {
 /**
  * @brief This pipe reads from @c srtb::fft_1d_r2c_queue , perform FFT by calling
  *        @c srtb::fft::dispatch_1d_r2c , then push result to @c srtb::rfi_mitigation_s1_queue
+ * @note specialized for batch_size == 1
  */
 class fft_1d_r2c_pipe {
  protected:
@@ -371,48 +372,55 @@ class watfft_1d_c2c_pipe {
 };
 
 class fft_1d_c2c_pipe {
+ public:
+  using in_work_type = srtb::work::fft_1d_c2c_work;
+  using out_work_type =
+      srtb::work::work<std::shared_ptr<srtb::complex<srtb::real> > >;
+
  protected:
   sycl::queue q;
   std::optional<srtb::fft::fft_1d_dispatcher<srtb::fft::type::C2C_1D_FORWARD> >
       opt_dispatcher;
 
- protected:
+ public:
   fft_1d_c2c_pipe(sycl::queue q_) : q{q_} {
     opt_dispatcher.emplace(/* n = */ srtb::config.baseband_input_count / 2,
                            /* batch_size = */ 1, q);
   }
 
   auto operator()([[maybe_unused]] std::stop_token stop_token,
-                  srtb::work::fft_1d_c2c_work fft_1d_c2c_work) {
+                  in_work_type in_work) {
     // assume opt_dispatcher has value
     auto& dispatcher = opt_dispatcher.value();
 
-    const size_t in_count = fft_1d_c2c_work.count;
-    const size_t out_count = in_count;
+    const size_t count = in_work.count;
+    const size_t batch_size = in_work.batch_size;
+    const size_t total_count = count * batch_size;
     // reset FFT plan if mismatch
-    if (dispatcher.get_n() != in_count || dispatcher.get_batch_size() != 1)
-        [[unlikely]] {
-      dispatcher.set_size(in_count, 1);
+    if (dispatcher.get_n() != count ||
+        dispatcher.get_batch_size() != batch_size) [[unlikely]] {
+      dispatcher.set_size(count, batch_size);
     }
 
-    auto& d_in_shared = fft_1d_c2c_work.ptr;
+    auto& d_in_shared = in_work.ptr;
     std::shared_ptr<srtb::complex<srtb::real> > d_out_shared;
     if constexpr (srtb::fft_operate_in_place) {
       d_out_shared = d_in_shared;
     } else {
       d_out_shared =
           srtb::device_allocator.allocate_shared<srtb::complex<srtb::real> >(
-              out_count);
+              total_count);
     }
     dispatcher.process(d_in_shared.get(), d_out_shared.get());
 
     d_in_shared.reset();
 
-    srtb::work::rfi_mitigation_s1_work rfi_mitigation_s1_work;
-    rfi_mitigation_s1_work.move_parameter_from(std::move(fft_1d_c2c_work));
-    rfi_mitigation_s1_work.ptr = d_out_shared;
-    rfi_mitigation_s1_work.count = out_count;
-    return std::optional{rfi_mitigation_s1_work};
+    out_work_type out_work;
+    out_work.move_parameter_from(std::move(in_work));
+    out_work.ptr = d_out_shared;
+    out_work.count = count;
+    out_work.batch_size = batch_size;
+    return std::optional{out_work};
   }
 };
 
