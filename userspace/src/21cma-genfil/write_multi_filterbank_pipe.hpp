@@ -46,7 +46,7 @@ class write_multi_filterbank_pipe_impl {
  public:
   using in_work_type = srtb::work::write_multi_filterbank_work;
   using out_work_type = srtb::work::dummy_work;
-  constexpr static size_t file_size_limit = 1 * (1ull << 30);  // 10 GiB
+  constexpr static size_t file_size_limit = 1 * (1ull << 30);  // 1 GiB
 
  public:
   sycl::queue q;
@@ -55,7 +55,7 @@ class write_multi_filterbank_pipe_impl {
   size_t written_bytes;
   double start_mjd;
   uint64_t file_number;
-  std::string file_path;
+  std::string current_file_path;
 
   explicit write_multi_filterbank_pipe_impl(sycl::queue q_, uint64_t id_)
       : q{q_}, id{id_}, written_bytes{0}, start_mjd{0}, file_number{1} {}
@@ -93,23 +93,23 @@ class write_multi_filterbank_pipe_impl {
           (boost::format("%.5f_%04d_%06d.fil") % start_mjd %
            in_work.data_stream_id % file_number)
               .str();
-      file_path = srtb::config.baseband_output_file_prefix + name;
+      current_file_path = srtb::config.baseband_output_file_prefix + name;
 
       SRTB_LOGI << " [write_multi_filterbank_pipe_impl] "
                 << "Writing to " << name << srtb::endl;
 
       // create file handle
-      if (std::filesystem::exists(file_path)) [[unlikely]] {
+      if (std::filesystem::exists(current_file_path)) [[unlikely]] {
         throw std::runtime_error{
             "[write_multi_filterbank_pipe_impl] file already exists: " +
-            file_path};
+            current_file_path};
       }
-      opt_fout.emplace(file_path.c_str(), std::ios::binary);
+      opt_fout.emplace(current_file_path.c_str(), std::ios::binary);
       auto& fout = opt_fout.value();
       if (fout.bad()) [[unlikely]] {
         throw std::runtime_error{
             "[write_multi_filterbank_pipe_impl] cannot write to " +
-            file_path};
+            current_file_path};
       }
 
       // write header
@@ -148,7 +148,7 @@ class write_multi_filterbank_pipe_impl {
     if (!fout) [[unlikely]] {
       throw std::runtime_error{
           "[write_multi_filterbank_pipe_impl] cannot write to " +
-          file_path};
+          current_file_path};
     }
 
     written_bytes += total_bytes;
