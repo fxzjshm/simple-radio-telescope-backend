@@ -105,7 +105,8 @@ class dynspec_pipe {
              __builtin_assume(in == std::byte{0} || in == std::byte{1});
 #endif
              // TODO: check bit order
-             x |= std::byte{(in & std::byte{1}) << k};
+             x |= std::byte{(in & std::byte{1})
+                            << (srtb::BITS_PER_BYTE - 1 - k)};
            }
 
            d_compressed[j * output_bytes_per_chan + i] = x;
