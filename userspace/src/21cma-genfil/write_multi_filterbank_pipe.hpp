@@ -53,11 +53,12 @@ class write_multi_filterbank_pipe_impl {
   uint64_t id;
   std::optional<std::ofstream> opt_fout;
   size_t written_bytes;
+  double start_mjd;
   uint64_t file_number;
   std::string file_path;
 
   explicit write_multi_filterbank_pipe_impl(sycl::queue q_, uint64_t id_)
-      : q{q_}, id{id_}, written_bytes{0}, file_number{1} {}
+      : q{q_}, id{id_}, written_bytes{0}, start_mjd{0}, file_number{1} {}
 
   auto operator()([[maybe_unused]] std::stop_token stop_token,
                   in_work_type in_work) -> out_work_type {
@@ -85,9 +86,13 @@ class write_multi_filterbank_pipe_impl {
       const auto timestamp = in_work.timestamp;
       const double mjd = srtb::algorithm::unix_timestamp_to_mjd(
           std::chrono::nanoseconds{timestamp});
-      const std::string name = (boost::format("%.5f_%04d_%06d.fil") % mjd %
-                                in_work.data_stream_id % file_number)
-                                   .str();
+      if (start_mjd == 0) {
+        start_mjd = mjd;
+      }
+      const std::string name =
+          (boost::format("%.5f_%04d_%06d.fil") % start_mjd %
+           in_work.data_stream_id % file_number)
+              .str();
       file_path = srtb::config.baseband_output_file_prefix + name;
 
       SRTB_LOGI << " [write_multi_filterbank_pipe_impl] "
