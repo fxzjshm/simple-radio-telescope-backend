@@ -140,8 +140,8 @@ class write_multi_filterbank_pipe_impl {
            double{srtb::config.baseband_freq_low +
                   srtb::config.baseband_bandwidth});
       send(fout, "foff",
-           double{srtb::config.baseband_bandwidth /
-                  srtb::config.spectrum_channel_count});
+           -1.0 * double{srtb::config.baseband_bandwidth /
+                         srtb::config.spectrum_channel_count});
       send(fout, "nchans", static_cast<int>(count * srtb::BITS_PER_BYTE));
       send(fout, "tsamp",
            double{1 / srtb::config.baseband_sample_rate *
