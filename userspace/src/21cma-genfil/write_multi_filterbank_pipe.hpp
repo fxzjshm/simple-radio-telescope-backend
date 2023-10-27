@@ -54,11 +54,17 @@ class write_multi_filterbank_pipe_impl {
   std::optional<std::ofstream> opt_fout;
   size_t written_bytes;
   double start_mjd;
+  uint64_t start_udp_packet_counter;
   uint64_t file_number;
   std::string current_file_path;
 
   explicit write_multi_filterbank_pipe_impl(sycl::queue q_, uint64_t id_)
-      : q{q_}, id{id_}, written_bytes{0}, start_mjd{0}, file_number{1} {}
+      : q{q_},
+        id{id_},
+        written_bytes{0},
+        start_mjd{0},
+        start_udp_packet_counter{0},
+        file_number{1} {}
 
   auto operator()([[maybe_unused]] std::stop_token stop_token,
                   in_work_type in_work) -> out_work_type {
@@ -82,13 +88,23 @@ class write_multi_filterbank_pipe_impl {
     auto event = q.copy(d_in, /* -> */ h_in, total_bytes);
 
     if (!opt_fout.has_value()) {
-      // generate file name
-      const auto timestamp = in_work.timestamp;
-      const double mjd = srtb::algorithm::unix_timestamp_to_mjd(
-          std::chrono::nanoseconds{timestamp});
-      if (start_mjd == 0) {
-        start_mjd = mjd;
+      const bool is_first_file = (start_mjd == 0);
+      if (is_first_file) {
+        // generate file name
+        const auto timestamp = in_work.timestamp;
+        start_mjd = srtb::algorithm::unix_timestamp_to_mjd(
+            std::chrono::nanoseconds{timestamp});
+        start_udp_packet_counter = in_work.udp_packet_counter;
       }
+
+      // 2 polarizations in one packet
+      constexpr size_t udp_packet_size = 4096 / 2;
+      const double delta_mjd =
+          1.0 * udp_packet_size *
+          (in_work.udp_packet_counter - start_udp_packet_counter) /
+          double{srtb::config.baseband_sample_rate} / (60 * 60 * 24);
+      const double mjd = start_mjd + delta_mjd;
+
       const std::string name =
           (boost::format("%.5f_%04d_%06d.fil") % start_mjd %
            in_work.data_stream_id % file_number)
@@ -96,7 +112,8 @@ class write_multi_filterbank_pipe_impl {
       current_file_path = srtb::config.baseband_output_file_prefix + name;
 
       SRTB_LOGI << " [write_multi_filterbank_pipe_impl] "
-                << "Writing to " << name << srtb::endl;
+                << "Writing to " << name
+                << ", mjd = " << (boost::format("%.5f") % mjd) << srtb::endl;
 
       // create file handle
       if (std::filesystem::exists(current_file_path)) [[unlikely]] {
