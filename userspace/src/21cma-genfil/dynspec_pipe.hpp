@@ -77,14 +77,14 @@ class dynspec_pipe {
                                   windowsize, d_ave, q);
 
     // compress to 1 bit
-    const size_t output_bytes_per_chan = nchans / srtb::BITS_PER_BYTE;
-    const size_t output_total_bytes = output_bytes_per_chan * nsamps;
+    const size_t output_bytes_per_samp = nchans / srtb::BITS_PER_BYTE;
+    const size_t output_total_bytes = output_bytes_per_samp * nsamps;
     auto d_compressed_shared =
         srtb::device_allocator.allocate_shared<std::byte>(output_total_bytes);
     auto d_compressed = d_compressed_shared.get();
 
     q.parallel_for(
-         sycl::range<2>{output_bytes_per_chan, nsamps},
+         sycl::range<2>{output_bytes_per_samp, nsamps},
          [=](sycl::item<2> id) {
            const auto i = id.get_id(0);
            const auto j = id.get_id(1);
@@ -102,14 +102,14 @@ class dynspec_pipe {
                             << (srtb::BITS_PER_BYTE - 1 - k)};
            }
 
-           d_compressed[j * output_bytes_per_chan + i] = x;
+           d_compressed[j * output_bytes_per_samp + i] = x;
          })
         .wait();
 
     out_work_type out_work;
     out_work.move_parameter_from(std::move(in_work));
     out_work.ptr = std::move(d_compressed_shared);
-    out_work.count = output_bytes_per_chan;
+    out_work.count = output_bytes_per_samp;
     out_work.batch_size = nsamps;
     return out_work;
   }
