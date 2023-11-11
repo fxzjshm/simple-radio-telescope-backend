@@ -25,6 +25,7 @@
 
 // ---
 
+#include "21cma_genfil_work.hpp"
 #include "dynspec_pipe.hpp"
 #include "fft_r2c_post_process_pipe.hpp"
 #include "write_multi_filterbank_pipe.hpp"

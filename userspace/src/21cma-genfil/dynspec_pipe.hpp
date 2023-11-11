@@ -24,16 +24,9 @@
 #include "srtb/pipeline/framework/pipe.hpp"
 #include "srtb/sycl.hpp"
 
+#include "21cma_genfil_work.hpp"
+
 namespace srtb {
-
-namespace work {
-
-// using dynspec_work =
-//     srtb::work::work<std::shared_ptr<srtb::complex<srtb::real> > >;
-using dynspec_work = srtb::work::work<std::shared_ptr<srtb::real> >;
-
-}  // namespace work
-
 namespace pipeline {
 
 /**

@@ -21,14 +21,9 @@
 #include "srtb/pipeline/framework/pipe.hpp"
 #include "srtb/sycl.hpp"
 
+#include "21cma_genfil_work.hpp"
+
 namespace srtb {
-
-namespace work {
-
-using fft_r2c_post_process_work = fft_1d_c2c_work;
-
-}
-
 namespace pipeline {
 
 /**

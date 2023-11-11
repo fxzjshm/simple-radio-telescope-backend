@@ -26,14 +26,9 @@
 #include "srtb/pipeline/framework/pipe.hpp"
 #include "srtb/sycl.hpp"
 
+#include "21cma_genfil_work.hpp"
+
 namespace srtb {
-
-namespace work {
-
-using write_multi_filterbank_work =
-    srtb::work::work<std::shared_ptr<std::byte> >;
-
-}
 
 namespace pipeline {
 
