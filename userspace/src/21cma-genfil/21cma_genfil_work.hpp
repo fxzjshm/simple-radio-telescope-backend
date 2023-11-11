@@ -24,8 +24,15 @@ namespace work {
 
 using fft_r2c_post_process_work = fft_1d_c2c_work;
 using dynspec_work = srtb::work::work<std::shared_ptr<srtb::real> >;
-using write_multi_filterbank_work =
-    srtb::work::work<std::shared_ptr<std::byte> >;
+
+/**
+ * @brief Write byte stream into file, and auto separate file according to timestamp.
+ *        @c count is bytes of a sample and @c batch_size is nsamp
+ */
+struct write_multi_filterbank_work
+    : public srtb::work::work<std::shared_ptr<std::byte> > {
+  size_t nbits;
+};
 
 }  // namespace work
 

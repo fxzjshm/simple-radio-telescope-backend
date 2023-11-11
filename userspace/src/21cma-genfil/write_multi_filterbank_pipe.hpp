@@ -21,12 +21,11 @@
 #include <map>
 #include <stop_token>
 
+#include "21cma_genfil_work.hpp"
 #include "srtb/algorithm/mjd.hpp"
 #include "srtb/io/sigproc_filterbank.hpp"
 #include "srtb/pipeline/framework/pipe.hpp"
 #include "srtb/sycl.hpp"
-
-#include "21cma_genfil_work.hpp"
 
 namespace srtb {
 
@@ -137,13 +136,14 @@ class write_multi_filterbank_pipe_impl {
       send(fout, "foff",
            -1.0 * double{srtb::config.baseband_bandwidth /
                          srtb::config.spectrum_channel_count});
-      send(fout, "nchans", static_cast<int>(count * srtb::BITS_PER_BYTE));
+      send(fout, "nchans",
+           static_cast<int>(count * srtb::BITS_PER_BYTE / in_work.nbits));
       send(fout, "tsamp",
            double{1 / srtb::config.baseband_sample_rate *
                   srtb::config.spectrum_channel_count * 2});
       send(fout, "nbeams", int{1});
       send(fout, "ibeam", int{0});
-      send(fout, "nbits", int{1});
+      send(fout, "nbits", static_cast<int>(in_work.nbits));
       send(fout, "nifs", int{1});
       send(fout, "src_raj", double{0.0});
       send(fout, "src_dej", double{0.0});

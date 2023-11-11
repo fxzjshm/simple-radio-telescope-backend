@@ -36,7 +36,7 @@ namespace pipeline {
 class dynspec_pipe {
  public:
   using in_work_type = srtb::work::dynspec_work;
-  using out_work_type = srtb::work::work<std::shared_ptr<std::byte> >;
+  using out_work_type = srtb::work::write_multi_filterbank_work;
   constexpr static size_t windowsize = 4096 * 8;
 
  public:
@@ -111,6 +111,36 @@ class dynspec_pipe {
     out_work.ptr = std::move(d_compressed_shared);
     out_work.count = output_bytes_per_samp;
     out_work.batch_size = nsamps;
+    out_work.nbits = 1;
+    return out_work;
+  }
+};
+
+/**
+ * @brief this pipe just copies 32-bit float dynamic spectrum
+ * @note spectrum has been reversed & cut in fft_r2c_post_process_pipe
+ */
+class dynspec_pipe_2 {
+ public:
+  using in_work_type = srtb::work::dynspec_work;
+  using out_work_type = srtb::work::write_multi_filterbank_work;
+
+ public:
+  sycl::queue q;
+
+  auto operator()([[maybe_unused]] std::stop_token stop_token,
+                  in_work_type in_work) -> out_work_type {
+    auto& d_in_shared = in_work.ptr;
+
+    const size_t nchans = in_work.count;
+    const size_t nsamps = in_work.batch_size;
+
+    out_work_type out_work;
+    out_work.move_parameter_from(std::move(in_work));
+    out_work.ptr = std::reinterpret_pointer_cast<std::byte>(d_in_shared);
+    out_work.count = nchans * sizeof(srtb::real);
+    out_work.batch_size = nsamps;
+    out_work.nbits = sizeof(srtb::real) * srtb::BITS_PER_BYTE;
     return out_work;
   }
 };
