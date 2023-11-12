@@ -31,7 +31,7 @@
 
 namespace srtb {
 namespace io {
-namespace udp_receiver {
+namespace udp {
 
 inline constexpr size_t counter_bytes_count =
     sizeof(udp_packet_counter_type) / sizeof(std::byte);
@@ -230,7 +230,7 @@ class udp_receiver_worker {
   }
 };
 
-}  // namespace udp_receiver
+}  // namespace udp
 }  // namespace io
 }  // namespace srtb
 

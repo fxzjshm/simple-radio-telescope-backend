@@ -27,13 +27,13 @@ namespace pipeline {
 
 /**
  * @brief receive UDP data and transfer to unpack_work_queue.
- * @see @c srtb::io::udp_receiver::udp_receiver_worker
+ * @see @c srtb::io::udp::udp_receiver_worker
  * TODO: separate reserving samples for coherent dedispersion
  */
 class udp_receiver_pipe {
  protected:
   sycl::queue q;
-  std::optional<srtb::io::udp_receiver::udp_receiver_worker<
+  std::optional<srtb::io::udp::udp_receiver_worker<
       srtb::io::udp::asio_packet_provider> >
       opt_worker;
   /**
