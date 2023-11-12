@@ -23,6 +23,7 @@
 #include <cstring>
 #include <iostream>
 #include <limits>
+#include <span>
 #include <thread>
 #include <vector>
 
@@ -50,15 +51,11 @@ inline constexpr size_t counter_bytes_count =
  * TODO: simultaneously receive 2 polars (i.e. 2 addresses) and *sync*
  * 
  * @see @c srtb::pipeline::udp_receiver_pipe
- * 
- * ref: https://www.cnblogs.com/lidabo/p/8317296.html ,
- *      https://stackoverflow.com/questions/37372993/boostasiostreambuf-how-to-reuse-buffer
  */
+template <typename PacketProvider>
 class udp_receiver_worker {
  protected:
-  boost::asio::ip::udp::endpoint sender_endpoint, ep2;
-  boost::asio::io_service io_service;
-  boost::asio::ip::udp::socket socket;
+  PacketProvider packet_provider;
 
   /**
    * @brief buffer for receiving one UDP packet
@@ -87,15 +84,8 @@ class udp_receiver_worker {
  public:
   udp_receiver_worker(const std::string& sender_address,
                       const unsigned short sender_port, bool can_restart_)
-      : sender_endpoint{boost::asio::ip::address::from_string(sender_address),
-                        sender_port},
-        socket{io_service, sender_endpoint},
-        can_restart{can_restart_} {
-    socket.set_option(boost::asio::ip::udp::socket::reuse_address{true});
-    constexpr int socket_buffer_size = std::numeric_limits<int>::max();
-    socket.set_option(
-        boost::asio::socket_base::receive_buffer_size{socket_buffer_size});
-  }
+      : packet_provider{sender_address, sender_port},
+        can_restart{can_restart_} {}
 
   /**
    * @brief Receive given number of bytes, with counter continuity already checked
@@ -172,8 +162,9 @@ class udp_receiver_worker {
         copy_packet();
       } else [[likely]] {
         // receive packet
-        auto receive_buffer = boost::asio::buffer(udp_packet_buffer);
-        udp_packet_buffer_size = socket.receive_from(receive_buffer, ep2);
+        udp_packet_buffer_size =
+            packet_provider.receive(std::span<std::byte>{udp_packet_buffer});
+
         const size_t data_len = udp_packet_buffer_size - counter_bytes_count;
 
         // check counter

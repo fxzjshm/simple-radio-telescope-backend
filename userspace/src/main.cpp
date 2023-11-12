@@ -24,7 +24,6 @@
 
 #include "srtb/coherent_dedispersion.hpp"
 #include "srtb/commons.hpp"
-#include "srtb/io/udp_receiver.hpp"
 #include "srtb/pipeline/copy_to_device_pipe.hpp"
 #include "srtb/pipeline/dedisperse_pipe.hpp"
 #include "srtb/pipeline/fft_pipe.hpp"
