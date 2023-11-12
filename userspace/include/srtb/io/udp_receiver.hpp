@@ -104,8 +104,6 @@ class udp_receiver_worker {
    * @return buffer of received data
    */
   auto receive(size_t required_length, size_t reserved_length) {
-    auto time_before_receive = std::chrono::system_clock::now();
-
     std::shared_ptr<std::byte> data_buffer =
         srtb::host_allocator.allocate_shared<std::byte>(required_length);
     const auto data_buffer_ptr = data_buffer.get();
@@ -236,13 +234,6 @@ class udp_receiver_worker {
                 << " >= required_length = " << required_length << ", "
                 << "not reserving data" << srtb::endl;
     }
-
-    auto time_after_receive = std::chrono::system_clock::now();
-    auto receive_time = std::chrono::duration_cast<std::chrono::microseconds>(
-                            time_after_receive - time_before_receive)
-                            .count();
-    SRTB_LOGD << " [udp receiver worker] "
-              << "recevice time = " << receive_time << " us." << srtb::endl;
 
     return std::make_pair(data_buffer, first_counter);
   }
