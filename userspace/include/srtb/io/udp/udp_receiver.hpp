@@ -33,17 +33,8 @@ namespace srtb {
 namespace io {
 namespace udp {
 
-inline constexpr size_t counter_bytes_count =
-    sizeof(udp_packet_counter_type) / sizeof(std::byte);
-
 /**
  * @brief A source that receives UDP packet and unpack it.
- * 
- * Target packet structure (x = 1 byte, in little endian):
- *    xxxxxxxx xxxxxxxxxxxx......xxxx
- *    |<--1->| |<------2---......-->|
- *   1. counter of UDP packets of type (u)int64_t, should be sequencially increasing if no packet is lost.
- *   2. real "baseband" data, typical length is 4096 bytes.
  * 
  * TODO: maybe use lock free ring buffer, see https://ferrous-systems.com/blog/lock-free-ring-buffer/
  *       or move ring buffer to GPU side, when RDMA method is considered.
@@ -52,10 +43,11 @@ inline constexpr size_t counter_bytes_count =
  * 
  * @see @c srtb::pipeline::udp_receiver_pipe
  */
-template <typename PacketProvider>
+template <typename PacketProvider, typename PacketParser>
 class udp_receiver_worker {
  protected:
   PacketProvider packet_provider;
+  PacketParser packet_parser;
 
   /**
    * @brief buffer for receiving one UDP packet
@@ -68,8 +60,10 @@ class udp_receiver_worker {
   size_t total_received_packet_count = 0;
   size_t total_lost_packet_count = 0;
 
+  /** @brief this type should be able to hold all kinds of counters from different senders */
+  using udp_packet_counter_type = uint64_t;
   static constexpr udp_packet_counter_type last_counter_initial_value =
-      static_cast<udp_packet_counter_type>(-1);
+      std::numeric_limits<udp_packet_counter_type>::max();
   /** 
    * @brief counter received from last packet
    */
@@ -164,19 +158,13 @@ class udp_receiver_worker {
         // receive packet
         udp_packet_buffer_size =
             packet_provider.receive(std::span<std::byte>{udp_packet_buffer});
+        const auto [header_size, received_counter_, timestamp] =
+            packet_parser.parse(std::span<std::byte>{udp_packet_buffer.begin(),
+                                                     udp_packet_buffer_size});
+        const size_t data_len = udp_packet_buffer_size - header_size;
 
-        const size_t data_len = udp_packet_buffer_size - counter_bytes_count;
-
-        // check counter
-        udp_packet_counter_type received_counter = 0;
-// ref: https://stackoverflow.com/questions/12876361/reading-bytes-in-c
-// in this way, endian problem should be solved, ... maybe.
-#pragma unroll
-        for (size_t i = size_t(0); i < counter_bytes_count; ++i) {
-          received_counter |=
-              (static_cast<udp_packet_counter_type>(udp_packet_buffer[i])
-               << (srtb::BITS_PER_BYTE * i));
-        }
+        // remember to check whether this can hold all kinds of counters
+        const udp_packet_counter_type received_counter = received_counter_;
         if (!first_counter_set) [[unlikely]] {
           first_counter = received_counter;
           first_counter_set = true;
@@ -196,7 +184,7 @@ class udp_receiver_worker {
         fill_zero();
         last_counter = received_counter;
 
-        udp_packet_buffer_pos = counter_bytes_count;
+        udp_packet_buffer_pos = header_size;
         copy_packet();
       }
     }

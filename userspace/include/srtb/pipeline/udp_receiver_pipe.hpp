@@ -18,6 +18,7 @@
 
 #include "srtb/coherent_dedispersion.hpp"
 #include "srtb/io/udp/asio_udp_packet_provider.hpp"
+#include "srtb/io/udp/packet_parser.hpp"
 #include "srtb/io/udp/udp_receiver.hpp"
 #include "srtb/pipeline/framework/pipe.hpp"
 #include "srtb/thread_affinity.hpp"
@@ -33,8 +34,9 @@ namespace pipeline {
 class udp_receiver_pipe {
  protected:
   sycl::queue q;
-  std::optional<srtb::io::udp::udp_receiver_worker<
-      srtb::io::udp::asio_packet_provider> >
+  std::optional<
+      srtb::io::udp::udp_receiver_worker<srtb::io::udp::asio_packet_provider,
+                                         srtb::io::udp::roach2_packet_parser> >
       opt_worker;
   /**
    * @brief identifier for different pipe instances
