@@ -16,8 +16,8 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <tuple>
 #include <span>
+#include <tuple>
 
 #include "srtb/commons.hpp"
 
@@ -34,7 +34,7 @@ namespace udp {
  *   1. counter of UDP packets of type (u)int64_t, should be sequencially increasing if no packet is lost.
  *   2. real "baseband" data, typical length is 4096 bytes.
  */
-class roach2_packet_parser {
+class naocpsr_roach2_packet_parser {
  public:
   using counter_type = uint64_t;
   static inline constexpr size_t counter_size = sizeof(counter_type);
@@ -53,7 +53,7 @@ class roach2_packet_parser {
   }
 };
 
-class snap1_packet_parser : public roach2_packet_parser {
+class naocpsr_snap1_packet_parser : public naocpsr_roach2_packet_parser {
   // same parse()
   // polarization separation is done later in unpack
 };

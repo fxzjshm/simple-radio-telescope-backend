@@ -34,9 +34,9 @@ namespace pipeline {
 class udp_receiver_pipe {
  protected:
   sycl::queue q;
-  std::optional<
-      srtb::io::udp::udp_receiver_worker<srtb::io::udp::asio_packet_provider,
-                                         srtb::io::udp::roach2_packet_parser> >
+  std::optional<srtb::io::udp::udp_receiver_worker<
+      srtb::io::udp::asio_packet_provider,
+      srtb::io::udp::naocpsr_roach2_packet_parser> >
       opt_worker;
   /**
    * @brief identifier for different pipe instances
