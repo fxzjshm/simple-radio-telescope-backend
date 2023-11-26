@@ -40,7 +40,8 @@ class naocpsr_roach2_packet_parser {
  public:
   using counter_type = uint64_t;
   static inline constexpr size_t counter_size = sizeof(counter_type);
-  static inline auto parse(std::span<std::byte> udp_packet_buffer) {
+
+  static inline constexpr auto parse(std::span<std::byte> udp_packet_buffer) {
     // what if packet_size < counter_size ?
     counter_type received_counter = 0;
     // ref: https://stackoverflow.com/questions/12876361/reading-bytes-in-c
