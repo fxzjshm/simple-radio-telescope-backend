@@ -201,7 +201,7 @@ class unpack_interleaved_samples_2_pipe {
       // std::string.contains (c++23) :(
       if (srtb::config.baseband_format_type.find("snap1") !=
           std::string::npos) {
-        srtb::unpack::unpack_snap1<sizeof(T) * srtb::BITS_PER_BYTE>(
+        srtb::unpack::unpack_naocpsr_snap1(
             reinterpret_cast<T*>(d_in), d_out_1, d_out_2, out_count,
             window_functor_manager.functor, q);
       } else {

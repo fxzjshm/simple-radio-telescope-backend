@@ -243,21 +243,17 @@ inline void unpack(InputIterator d_in, OutputIterator d_out_1,
 }
 
 // ----------------------------------------------------------------
+// board specific unpack methods
 
 /** 
  * @brief 2 basebands in one packet -> 2 segments of 1 baseband, 
  *        in "1" "1" "2" "2" mode
  */
-template <int IN_NBITS, typename InputIterator, typename OutputIterator,
-          typename TransformFunctor,
-          typename = typename std::enable_if<
-              (IN_NBITS == sizeof(typename std::iterator_traits<
-                                  InputIterator>::value_type) *
-                               srtb::BITS_PER_BYTE),
-              void>::type>
-inline void unpack_snap1_item(InputIterator in, OutputIterator out_1,
-                              OutputIterator out_2, const size_t x,
-                              TransformFunctor transform) {
+template <typename InputIterator, typename OutputIterator,
+          typename TransformFunctor>
+inline void unpack_naocpsr_snap1_item(InputIterator in, OutputIterator out_1,
+                                      OutputIterator out_2, const size_t x,
+                                      TransformFunctor transform) {
   using out_type = typename std::iterator_traits<OutputIterator>::value_type;
 
   const auto in_val_1 = in[4 * x], in_val_2 = in[4 * x + 1],
@@ -268,19 +264,18 @@ inline void unpack_snap1_item(InputIterator in, OutputIterator out_1,
   out_2[2 * x + 1] = transform(2 * x + 1, static_cast<out_type>(in_val_4));
 }
 
-template <int IN_NBITS, typename InputIterator, typename OutputIterator,
+template <typename InputIterator, typename OutputIterator,
           typename TransformFunctor>
-inline void unpack_snap1(InputIterator d_in, OutputIterator d_out_1,
-                         OutputIterator d_out_2, const size_t out_count,
-                         TransformFunctor transform, sycl::queue& q) {
+inline void unpack_naocpsr_snap1(InputIterator d_in, OutputIterator d_out_1,
+                                 OutputIterator d_out_2, const size_t out_count,
+                                 TransformFunctor transform, sycl::queue& q) {
   using input_type = typename std::iterator_traits<InputIterator>::value_type;
-  static_assert((srtb::BITS_PER_BYTE * sizeof(input_type) == IN_NBITS));
+  // output of snap1 should be int8
+  static_assert((sizeof(input_type) == sizeof(int8_t)));
 
   const size_t range_size = out_count / 2;
-
   q.parallel_for(sycl::range<1>(range_size), [=](sycl::item<1> id) {
-     unpack_snap1_item<IN_NBITS>(d_in, d_out_1, d_out_2, id.get_id(0),
-                                 transform);
+     unpack_naocpsr_snap1_item(d_in, d_out_1, d_out_2, id.get_id(0), transform);
    }).wait();
 }
 
