@@ -28,11 +28,13 @@ namespace udp {
 // parse packet to get: header size, counter, timestamp
 
 /**
- * Target packet structure (x = 1 byte, in little endian):
- *    xxxxxxxx xxxxxxxxxxxx......xxxx
- *    |<--1->| |<------2---......-->|
+ * @brief Format of ROACH 2 board used in NAOC-PSR
+ * 
+ * Target packet structure (x = 1 byte, in little endian, 8 + 4096 = 4104 bytes):
+ *     xxxxxxxx xxxxxxxxxxxx......xxxx
+ *     |<--1->| |<------2---......-->|
  *   1. counter of UDP packets of type (u)int64_t, should be sequencially increasing if no packet is lost.
- *   2. real "baseband" data, typical length is 4096 bytes.
+ *   2. real "baseband" data, typical length is 4096 bytes, data type int8_t
  */
 class naocpsr_roach2_packet_parser {
  public:
@@ -53,6 +55,16 @@ class naocpsr_roach2_packet_parser {
   }
 };
 
+/**
+ * @brief Format of SNAP (1st Gen) board used in NAOC-PSR
+ * 
+ * Target packet structure (x = 1 byte, in little endian, 8 + 4096 = 4104 bytes):
+ *     xxxxxxxx xx xx xx xx xx xx ...... xx xx
+ *     |<--0->|  1  2  1  2  1  2 ......  1  2
+ *   0. counter of UDP packets of type (u)int64_t, should be sequencially increasing if no packet is lost.
+ *   1. 2. real "baseband" data for ADC 1 & 2, typical length is 2 * 2 * 1024 bytes, 
+ *         two polarizations interleaved, each with 2 int8_t samples.
+ */
 class naocpsr_snap1_packet_parser : public naocpsr_roach2_packet_parser {
   // same parse()
   // polarization separation is done later in unpack
