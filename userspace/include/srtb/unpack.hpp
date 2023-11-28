@@ -279,6 +279,62 @@ inline void unpack_naocpsr_snap1(InputIterator d_in, OutputIterator d_out_1,
    }).wait();
 }
 
+/** 
+ * @brief 4 basebands in one packet -> 4 segments of 1 baseband
+ * 
+ *  xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx ...... xxxx xxxx xxxx xxxx
+ *   1    2    3    4    1    2    3    4   ......  1    2    3    4
+ */
+template <typename InputIterator, typename OutputIterator,
+          typename TransformFunctor>
+inline constexpr void unpack_gznupsr_a1_item(InputIterator in,
+                                             OutputIterator __restrict__ out_1,
+                                             OutputIterator __restrict__ out_2,
+                                             OutputIterator __restrict__ out_3,
+                                             OutputIterator __restrict__ out_4,
+                                             const size_t x,
+                                             TransformFunctor transform) {
+  using out_type = typename std::iterator_traits<OutputIterator>::value_type;
+  const std::array<OutputIterator, 4> out = {out_1, out_2, out_3, out_4};
+  // store value on stack then copy to out,
+  // so 4 elements can be copied in one operation (load-store vectorization)
+  std::array<out_type, 16> out_val;
+#pragma unroll
+  for (size_t i = 0; i < 4; i++) {
+#pragma unroll
+    for (size_t j = 0; j < 4; j++) {
+      out_val[i * 4 + j] = transform(
+          4 * x + j, static_cast<out_type>(in[16 * x + i * 4 + j] & 0x80));
+    }
+  }
+
+  // check with `roc-obj -d`: global_store_dwordx4
+#pragma unroll
+  for (size_t i = 0; i < 4; i++) {
+#pragma unroll
+    for (size_t j = 0; j < 4; j++) {
+      out[i][4 * x + j] = out_val[i * 4 + j];
+    }
+  }
+}
+
+template <typename InputIterator, typename OutputIterator,
+          typename TransformFunctor>
+inline void unpack_gznupsr_a1(InputIterator d_in, OutputIterator d_out_1,
+                              OutputIterator d_out_2, OutputIterator d_out_3,
+                              OutputIterator d_out_4, const size_t out_count,
+                              TransformFunctor transform, sycl::queue& q) {
+  using input_type = typename std::iterator_traits<InputIterator>::value_type;
+  // output of snap1 should be int8
+  static_assert((sizeof(input_type) == sizeof(int8_t)));
+
+  const size_t range_size = out_count / 4;
+  q.parallel_for(sycl::range<1>(range_size), [=](sycl::item<1> id) {
+     unpack_gznupsr_a1_item(d_in, d_out_1, d_out_2, d_out_3, d_out_4,
+                            id.get_id(0), transform);
+   }).wait();
+}
+
 // runtime dispatch moved to unpack_pipe because reinterpret_cast is not generally available
 // for iterator of std::byte -> iterator of other types
 
