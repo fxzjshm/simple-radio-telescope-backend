@@ -142,10 +142,10 @@ void multi_mapreduce(InputIterator input, size_t count_per_batch,
            // so custom one is used
            if (local_id == 0) {
              B acc = sum[0];
-             for (size_t local_id = 1;
-                  local_id < std::min(d.nb_work_item, group_end - group_begin);
-                  local_id++)
-               acc = reduce(acc, sum[local_id]);
+             for (size_t i = 1;
+                  i < std::min(d.nb_work_item, group_end - group_begin); i++) {
+               acc = reduce(acc, sum[i]);
+             }
 
              output[group_id] = acc;
            }
