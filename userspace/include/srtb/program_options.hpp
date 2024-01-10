@@ -14,14 +14,14 @@
 #ifndef __SRTB_PROGRAM_OPTIONS__
 #define __SRTB_PROGRAM_OPTIONS__
 
-#include <boost/program_options.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/program_options.hpp>
 #include <filesystem>
 #include <string>
 
 #include "srtb/config.hpp"
 #include "srtb/log/log.hpp"
-#include "suzerain/exprgrammar.hpp"
+#include "exprgrammar.h"
 
 namespace srtb {
 namespace program_options {
@@ -196,28 +196,23 @@ namespace program_options {
 
 // assume numeric literals in config files are double
 // but this may not work for very large integers.
-using numeric_literal_type = double;
-
-template <typename T = numeric_literal_type>
-inline auto parse(const std::string& expression) {
-  numeric_literal_type value;
-  std::string::const_iterator iter = expression.begin();
-  std::string::const_iterator end = expression.end();
-  suzerain::exprgrammar::parse(iter, end, value);
-  return static_cast<T>(value);
+inline auto parse(const std::string& expression) -> double {
+  const char* iter = expression.c_str();
+  const char* end = iter + expression.size();
+  return exprgrammar_parse_double(iter, end);
 }
 
 inline void evaluate_and_apply_changed_config(const std::string& name,
                                               const std::string& value,
                                               srtb::configs& config) {
 // TODO: this seems ugly. better approach?
-#define SRTB_PARSE(target_name)                                 \
-  if (name == #target_name) {                                   \
-    using target_type = decltype(config.target_name);           \
-    const target_type parsed_value = parse<target_type>(value); \
-    SRTB_LOGI << " [program_options] " << #target_name << " = " \
-              << parsed_value << srtb::endl;                    \
-    config.target_name = parsed_value;                          \
+#define SRTB_PARSE(target_name)                                              \
+  if (name == #target_name) {                                                \
+    using target_type = decltype(config.target_name);                        \
+    const target_type parsed_value = static_cast<target_type>(parse(value)); \
+    SRTB_LOGI << " [program_options] " << #target_name << " = "              \
+              << parsed_value << srtb::endl;                                 \
+    config.target_name = parsed_value;                                       \
   } else
 
 #define SRTB_ASSIGN(target_name)                                         \
@@ -235,7 +230,8 @@ inline void evaluate_and_apply_changed_config(const std::string& name,
                  boost::token_compress_on);                                \
     std::vector<target_type> sub_values;                                   \
     for (auto sub_string : sub_strings) {                                  \
-      const target_type sub_value = parse<target_type>(sub_string);        \
+      const target_type sub_value =                                        \
+          static_cast<target_type>(parse(sub_string));                     \
       sub_values.push_back(sub_value);                                     \
     }                                                                      \
     SRTB_LOGI << " [program_options] " << #target_name << " = "            \

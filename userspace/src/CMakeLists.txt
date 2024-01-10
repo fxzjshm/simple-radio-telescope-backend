@@ -28,6 +28,7 @@ endif()
 #    <boost/asio.hpp>
 #)
 target_link_libraries(simple-radio-telescope-backend PUBLIC cnpy)
+target_link_libraries(simple-radio-telescope-backend PUBLIC exprgrammar)
 
 if(SRTB_ENABLE_GUI)
   add_executable(test-gui
