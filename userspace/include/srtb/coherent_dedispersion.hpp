@@ -14,6 +14,8 @@
 #ifndef __SRTB_COHERENT_DEDISPERSION__
 #define __SRTB_COHERENT_DEDISPERSION__
 
+#include <boost/config.hpp>
+
 #include "dsmath_sycl.h"
 #include "srtb/commons.hpp"
 
@@ -193,9 +195,11 @@ inline C coherent_dedispersion_factor(const phase_real f, const phase_real f_c,
  * @see crtb::codd::coherent_dedispertion
  */
 template <typename T, typename Accessor>
-inline void coherent_dedispertion_item(Accessor input, Accessor output,
-                                       const T f_min, const T f_c, const T df,
-                                       const T dm, const size_t i) {
+BOOST_FORCEINLINE void coherent_dedispertion_item(Accessor input,
+                                                  Accessor output,
+                                                  const T f_min, const T f_c,
+                                                  const T df, const T dm,
+                                                  const size_t i) {
   using C = typename std::iterator_traits<Accessor>::value_type;
   const dedisp_real_t f =
       dedisp_real_t{f_min} + dedisp_real_t{df} * static_cast<dedisp_real_t>(i);

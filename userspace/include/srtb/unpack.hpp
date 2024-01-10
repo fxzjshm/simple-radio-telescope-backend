@@ -14,6 +14,7 @@
 #ifndef __SRTB_UNPACK__
 #define __SRTB_UNPACK__
 
+#include <boost/config.hpp>
 #include <concepts>
 #include <cstddef>
 #include <iterator>
@@ -41,7 +42,7 @@ namespace unpack {
  */
 template <int IN_NBITS, bool handwritten, typename InputIterator,
           typename OutputIterator, typename TransformFunctor>
-inline typename std::enable_if<
+BOOST_FORCEINLINE typename std::enable_if<
     (IN_NBITS < srtb::BITS_PER_BYTE && handwritten == false), void>::type
 unpack_item(InputIterator in, OutputIterator out, const size_t x,
             TransformFunctor transform) {
@@ -75,7 +76,7 @@ unpack_item(InputIterator in, OutputIterator out, const size_t x,
 
 template <int IN_NBITS, bool handwritten, typename InputIterator,
           typename OutputIterator, typename TransformFunctor>
-inline
+BOOST_FORCEINLINE
     typename std::enable_if<(IN_NBITS == 1 && handwritten == true), void>::type
     unpack_item(InputIterator in, OutputIterator out, const size_t x,
                 TransformFunctor transform) {
@@ -100,7 +101,7 @@ inline
 
 template <int IN_NBITS, bool handwritten, typename InputIterator,
           typename OutputIterator, typename TransformFunctor>
-inline
+BOOST_FORCEINLINE
     typename std::enable_if<(IN_NBITS == 2 && handwritten == true), void>::type
     unpack_item(InputIterator in, OutputIterator out, const size_t x,
                 TransformFunctor transform) {
@@ -121,7 +122,7 @@ inline
 
 template <int IN_NBITS, bool handwritten, typename InputIterator,
           typename OutputIterator, typename TransformFunctor>
-inline
+BOOST_FORCEINLINE
     typename std::enable_if<(IN_NBITS == 4 && handwritten == true), void>::type
     unpack_item(InputIterator in, OutputIterator out, const size_t x,
                 TransformFunctor transform) {
@@ -141,7 +142,7 @@ inline
 /** @brief not a unpack, just type cast and transform. */
 template <int IN_NBITS, bool handwritten = false, typename InputIterator,
           typename OutputIterator, typename TransformFunctor>
-inline
+BOOST_FORCEINLINE
     typename std::enable_if<(IN_NBITS == sizeof(typename std::iterator_traits<
                                                 InputIterator>::value_type) *
                                              srtb::BITS_PER_BYTE),
@@ -217,9 +218,9 @@ template <int IN_NBITS, typename InputIterator, typename OutputIterator,
                                   InputIterator>::value_type) *
                                srtb::BITS_PER_BYTE),
               void>::type>
-inline void unpack_item(InputIterator in, OutputIterator out_1,
-                        OutputIterator out_2, const size_t x,
-                        TransformFunctor transform) {
+BOOST_FORCEINLINE void unpack_item(InputIterator in, OutputIterator out_1,
+                                   OutputIterator out_2, const size_t x,
+                                   TransformFunctor transform) {
   using out_type = typename std::iterator_traits<OutputIterator>::value_type;
 
   const auto in_val_1 = in[2 * x], in_val_2 = in[2 * x + 1];
@@ -255,9 +256,9 @@ template <int IN_NBITS, typename InputIterator, typename OutputIterator,
                                   InputIterator>::value_type) *
                                srtb::BITS_PER_BYTE),
               void>::type>
-inline void unpack_snap1_item(InputIterator in, OutputIterator out_1,
-                              OutputIterator out_2, const size_t x,
-                              TransformFunctor transform) {
+BOOST_FORCEINLINE void unpack_snap1_item(InputIterator in, OutputIterator out_1,
+                                         OutputIterator out_2, const size_t x,
+                                         TransformFunctor transform) {
   using out_type = typename std::iterator_traits<OutputIterator>::value_type;
 
   const auto in_val_1 = in[4 * x], in_val_2 = in[4 * x + 1],
