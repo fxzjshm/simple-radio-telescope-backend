@@ -351,8 +351,7 @@ inline constexpr void unpack_gznupsr_a1_item(InputIterator in,
       out_val[i * sample_per_word + j] = transform(
           sample_per_word * x + j,
           static_cast<out_type>(in[out_iter_count * sample_per_word * x +
-                                   i * sample_per_word + j] ^
-                                0x80));
+                                   i * sample_per_word + j]));
     }
   }
 
@@ -396,8 +395,7 @@ inline void unpack_gznupsr_a1(InputIterator d_in, OutputIterator d_out_1,
 
   const size_t range_size = out_count / sample_per_word;
   q.parallel_for(sycl::range<1>(range_size), [=](sycl::item<1> id) {
-     unpack_gznupsr_a1_item(d_in, d_out_1, d_out_2,
-                            id.get_id(0), transform);
+     unpack_gznupsr_a1_item(d_in, d_out_1, d_out_2, id.get_id(0), transform);
    }).wait();
 }
 
