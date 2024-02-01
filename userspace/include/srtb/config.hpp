@@ -107,10 +107,9 @@ struct configs {
 
   /**
    * @brief Type of baseband format: 
-   *          simple (just stream of samples from 1 source), 
-   *          interleaved_samples_2 (interleaved 2 stream, each sample from one stream)
+   *        naocpsr_roach2, naocpsr_snap1, gznupsr_a1
    */
-  std::string baseband_format_type = "simple";
+  std::string baseband_format_type = "naocpsr_roach2";
 
   /**
    * @brief Lowerest frequency of received baseband signal, in MHz.

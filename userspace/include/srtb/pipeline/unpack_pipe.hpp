@@ -18,6 +18,7 @@
 
 #include "srtb/fft/fft_window.hpp"
 #include "srtb/pipeline/framework/pipe.hpp"
+#include "srtb/pipeline/framework/pipe_io.hpp"
 #include "srtb/unpack.hpp"
 
 namespace srtb {
@@ -201,7 +202,7 @@ class unpack_interleaved_samples_2_pipe {
       // -8 -> int8_t / signed char / i8
       using T = int8_t;
       // std::string.contains (c++23) :(
-      if (srtb::config.baseband_format_type.find("snap1") !=
+      if (srtb::config.baseband_format_type.find("naocpsr_snap1") !=
           std::string::npos) {
         srtb::unpack::unpack_naocpsr_snap1(reinterpret_cast<T*>(d_in), d_out_1,
                                            d_out_2, out_count,
@@ -387,6 +388,27 @@ class unpack_gznupsr_a1_v2_1_pipe {
     return std::optional{fft_1d_r2c_work};
   }
 };
+
+template <typename InFunctor, typename OutFunctor, typename... Args>
+inline auto start_unpack_pipe(std::string_view backend_name, sycl::queue q,
+                              InFunctor in_functor, OutFunctor out_functor,
+                              Args... args) {
+  using namespace srtb::io::backend_registry;
+
+  if (backend_name == naocpsr_roach2::name) {
+    return start_pipe<unpack_pipe>(q, in_functor, out_functor, args...);
+  }
+  if (backend_name == naocpsr_snap1::name) {
+    return start_pipe<unpack_interleaved_samples_2_pipe>(
+        q, in_functor, multiple_works_out_functor{out_functor}, args...);
+  }
+  if (backend_name == gznupsr_a1::name) {
+    return start_pipe<unpack_gznupsr_a1_v2_1_pipe>(
+        q, in_functor, multiple_works_out_functor{out_functor}, args...);
+  }
+  throw std::invalid_argument{"[start_unpack_pipe] Unknown backend name: " +
+                              std::string{backend_name}};
+}
 
 }  // namespace pipeline
 }  // namespace srtb

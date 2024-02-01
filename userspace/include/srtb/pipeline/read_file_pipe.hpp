@@ -19,6 +19,7 @@
 
 #include "srtb/coherent_dedispersion.hpp"
 #include "srtb/commons.hpp"
+#include "srtb/io/backend_registry.hpp"
 #include "srtb/pipeline/framework/pipe.hpp"
 
 namespace srtb {
@@ -60,15 +61,13 @@ class read_file_pipe {
       // count per polarization
       auto baseband_input_count = srtb::config.baseband_input_count;
       auto baseband_input_bits = srtb::config.baseband_input_bits;
-      size_t count_of_polarization = 1;
-      if (srtb::config.baseband_format_type.starts_with(
-              "interleaved_samples_2")) {
-        count_of_polarization = 2;
-      }
+      const size_t data_stream_count =
+          srtb::io::backend_registry::get_data_stream_count(
+              srtb::config.baseband_format_type);
 
       const size_t time_sample_bytes = baseband_input_count *
                                        std::abs(baseband_input_bits) /
-                                       BITS_PER_BYTE * count_of_polarization;
+                                       BITS_PER_BYTE * data_stream_count;
 
       std::shared_ptr<char> h_in_shared =
           srtb::host_allocator.allocate_shared<char>(time_sample_bytes);
@@ -85,9 +84,9 @@ class read_file_pipe {
 
       // reserved some samples for next round
       const size_t nsamps_reserved = srtb::codd::nsamps_reserved();
-      const std::streamoff reserved_bytes =
-          nsamps_reserved * std::abs(baseband_input_bits) / BITS_PER_BYTE *
-          count_of_polarization;
+      const std::streamoff reserved_bytes = nsamps_reserved *
+                                            std::abs(baseband_input_bits) /
+                                            BITS_PER_BYTE * data_stream_count;
       if (static_cast<size_t>(reserved_bytes) < time_sample_bytes) {
         logical_file_pos -= reserved_bytes;
         input_file_stream.seekg(logical_file_pos);

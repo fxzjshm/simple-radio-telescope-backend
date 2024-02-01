@@ -213,21 +213,14 @@ int main(int argc, char** argv) {
   // setup threads for pipes
   using namespace srtb::pipeline;
 
-  std::jthread unpack_thread;
-  if (srtb::config.baseband_format_type.starts_with("interleaved_samples_2")) {
-    unpack_thread = srtb::pipeline::start_pipe<composite_pipe<
-        copy_to_device_pipe, unpack_interleaved_samples_2_pipe> >(
-        q, queue_in_functor{copy_to_device_queue},
-        multiple_works_out_functor{queue_out_functor{fft_1d_r2c_queue}});
-  } else if (srtb::config.baseband_format_type == "simple") {
-    unpack_thread = srtb::pipeline::start_pipe<
-        composite_pipe<copy_to_device_pipe, unpack_pipe> >(
-        q, queue_in_functor{copy_to_device_queue},
-        queue_out_functor{fft_1d_r2c_queue});
-  } else {
-    throw std::runtime_error{"[main] Unknown baseband_format_type = " +
-                             srtb::config.baseband_format_type};
-  }
+  std::jthread copy_to_device_thread =
+      srtb::pipeline::start_pipe<copy_to_device_pipe>(
+          q, queue_in_functor{copy_to_device_queue},
+          queue_out_functor{unpack_queue});
+
+  std::jthread unpack_thread = srtb::pipeline::start_unpack_pipe(
+      srtb::config.baseband_format_type, q, queue_in_functor{unpack_queue},
+      queue_out_functor{fft_1d_r2c_queue});
 
   std::jthread fft_1d_r2c_thread = srtb::pipeline::start_pipe<fft_1d_r2c_pipe>(
       q, queue_in_functor{fft_1d_r2c_queue},
@@ -351,7 +344,7 @@ int main(int argc, char** argv) {
           return std::optional{srtb::work::dummy_work{}};
         },
         multiple_out_functors_functor{queue_out_functor{copy_to_device_queue},
-                             increase_work_count}));
+                                      increase_work_count}));
     input_pipe_count = 1;
   } else {
     if (input_file_path != "") {
@@ -363,8 +356,8 @@ int main(int argc, char** argv) {
               << "Receiving UDP packets" << srtb::endl;
     allocate_memory_regions(input_pipe_count);
     for (size_t i = 0; i < input_pipe_count; i++) {
-      input_thread.push_back(srtb::pipeline::start_pipe<udp_receiver_pipe>(
-          q,
+      input_thread.push_back(srtb::pipeline::start_udp_receiver_pipe(
+          srtb::config.baseband_format_type, q,
           // don't wait for last work
           [work_in_pipeline_count](
               [[maybe_unused]] std::stop_token stop_token) {
@@ -372,13 +365,14 @@ int main(int argc, char** argv) {
             return std::optional{srtb::work::dummy_work{}};
           },
           multiple_out_functors_functor{queue_out_functor{copy_to_device_queue},
-                               increase_work_count},
+                                        increase_work_count},
           /* id = */ i));
     }
   }
 
   std::vector<std::jthread> threads;
   threads = std::move(input_thread);
+  threads.push_back(std::move(copy_to_device_thread));
   threads.push_back(std::move(unpack_thread));
   threads.push_back(std::move(fft_1d_r2c_thread));
   threads.push_back(std::move(rfi_mitigation_s1_thread));
