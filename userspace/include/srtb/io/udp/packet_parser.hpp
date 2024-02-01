@@ -39,8 +39,9 @@ namespace udp {
  *   1. counter of UDP packets of type (u)int64_t, should be sequencially increasing if no packet is lost.
  *   2. real "baseband" data, typical length is 4096 bytes, data type int8_t
  */
-class naocpsr_roach2_packet_parser {
- public:
+struct naocpsr_roach2_packet_parser {
+  /** @brief number of polarizations in a single data stream. */
+  constexpr static size_t data_stream_count = 1;
   using counter_type = uint64_t;
   static inline constexpr size_t counter_size = sizeof(counter_type);
 
@@ -69,7 +70,10 @@ class naocpsr_roach2_packet_parser {
  *   1. 2. real "baseband" data for ADC 1 & 2, typical length is 2 * 2 * 1024 bytes, 
  *         two polarizations interleaved, each with 2 int8_t samples.
  */
-class naocpsr_snap1_packet_parser : public naocpsr_roach2_packet_parser {
+struct naocpsr_snap1_packet_parser : public naocpsr_roach2_packet_parser {
+  /** @brief number of polarizations in a single data stream. */
+  constexpr static size_t data_stream_count = 2;
+
   // same parse()
   // polarization separation is done later in unpack
 };
@@ -86,8 +90,10 @@ class naocpsr_snap1_packet_parser : public naocpsr_roach2_packet_parser {
  *         two polarizations interleaved, each with 2 int8_t samples.
  *   Note: size of a & b is 64 bytes in total because the UDP code they used can only push 64 bytes at once.
  */
-class gznupsr_a1_packet_parser {
- public:
+struct gznupsr_a1_packet_parser {
+  /** @brief number of polarizations in a single data stream; was 4 in original version */
+  constexpr static size_t data_stream_count = 2;
+
   using counter_type = uint64_t;
   static constexpr size_t counter_size = sizeof(counter_type);
   // same size as a vdif header
