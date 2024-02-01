@@ -16,12 +16,12 @@
 
 #include <array>
 #include <bit>
+#include <climits>
 #include <cstddef>
 #include <cstdint>
 #include <span>
 #include <tuple>
 
-#include "srtb/commons.hpp"
 #include "srtb/io/vdif_header.hpp"
 
 namespace srtb {
@@ -52,8 +52,8 @@ struct naocpsr_roach2_packet_parser {
 // in this way, endian problem should be solved, ... maybe.
 #pragma unroll
     for (size_t i = size_t(0); i < counter_size; ++i) {
-      received_counter |= (static_cast<counter_type>(udp_packet_buffer[i])
-                           << (srtb::BITS_PER_BYTE * i));
+      received_counter |=
+          (static_cast<counter_type>(udp_packet_buffer[i]) << (CHAR_BIT * i));
     }
     return std::make_tuple(/* header_size = */ counter_size, received_counter,
                            /* timestamp = */ received_counter);
@@ -122,15 +122,14 @@ struct gznupsr_a1_packet_parser {
       for (size_t j = size_t(0); j < vdif_word_size; j++) {
         word[i] |=
             (static_cast<vdif_word>(udp_packet_buffer[i * vdif_word_size + j])
-             << (srtb::BITS_PER_BYTE * j));
+             << (CHAR_BIT * j));
       }
     }
 
     const counter_type received_counter =
         (static_cast<counter_type>(word[6])) |
-        (static_cast<counter_type>(word[7])
-         << (srtb::BITS_PER_BYTE * vdif_word_size));
-    
+        (static_cast<counter_type>(word[7]) << (CHAR_BIT * vdif_word_size));
+
     const vdif_header vh = std::bit_cast<vdif_header>(word);
 
     // TODO: timestamp
