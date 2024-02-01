@@ -295,25 +295,73 @@ inline constexpr void unpack_gznupsr_a1_item(InputIterator in,
                                              const size_t x,
                                              TransformFunctor transform) {
   using out_type = typename std::iterator_traits<OutputIterator>::value_type;
-  const std::array<OutputIterator, 4> out = {out_1, out_2, out_3, out_4};
+  constexpr size_t out_iter_count = 4;
+  constexpr size_t sample_per_word = 4;
+  const std::array<OutputIterator, out_iter_count> out = {out_1, out_2, out_3,
+                                                          out_4};
   // store value on stack then copy to out,
-  // so 4 elements can be copied in one operation (load-store vectorization)
-  std::array<out_type, 16> out_val;
+  // so 4 (= sample_per_word) elements can be copied in one operation (load-store vectorization)
+  std::array<out_type, out_iter_count * sample_per_word> out_val;
 #pragma unroll
-  for (size_t i = 0; i < 4; i++) {
+  for (size_t i = 0; i < out_iter_count; i++) {
 #pragma unroll
-    for (size_t j = 0; j < 4; j++) {
-      out_val[i * 4 + j] = transform(
-          4 * x + j, static_cast<out_type>(in[16 * x + i * 4 + j] & 0x80));
+    for (size_t j = 0; j < sample_per_word; j++) {
+      out_val[i * sample_per_word + j] = transform(
+          sample_per_word * x + j,
+          static_cast<out_type>(in[out_iter_count * sample_per_word * x +
+                                   i * sample_per_word + j] ^
+                                0x80));
     }
   }
 
   // check with `roc-obj -d`: global_store_dwordx4
 #pragma unroll
-  for (size_t i = 0; i < 4; i++) {
+  for (size_t i = 0; i < out_iter_count; i++) {
 #pragma unroll
-    for (size_t j = 0; j < 4; j++) {
-      out[i][4 * x + j] = out_val[i * 4 + j];
+    for (size_t j = 0; j < sample_per_word; j++) {
+      out[i][sample_per_word * x + j] = out_val[i * sample_per_word + j];
+    }
+  }
+}
+
+/** 
+ * @brief 4 basebands in one packet -> 4 segments of 1 baseband
+ * 
+ *  xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx ...... xxxx xxxx xxxx xxxx
+ *   1    2    1    2    1    2    1    2   ......  1    2    1    2
+ */
+template <typename InputIterator, typename OutputIterator,
+          typename TransformFunctor>
+inline constexpr void unpack_gznupsr_a1_item(InputIterator in,
+                                             OutputIterator __restrict__ out_1,
+                                             OutputIterator __restrict__ out_2,
+                                             const size_t x,
+                                             TransformFunctor transform) {
+  using out_type = typename std::iterator_traits<OutputIterator>::value_type;
+  constexpr size_t out_iter_count = 2;
+  constexpr size_t sample_per_word = 4;
+  const std::array<OutputIterator, out_iter_count> out = {out_1, out_2};
+  // store value on stack then copy to out,
+  // so 4 (= sample_per_word) elements can be copied in one operation (load-store vectorization)
+  std::array<out_type, out_iter_count * sample_per_word> out_val;
+#pragma unroll
+  for (size_t i = 0; i < out_iter_count; i++) {
+#pragma unroll
+    for (size_t j = 0; j < sample_per_word; j++) {
+      out_val[i * sample_per_word + j] = transform(
+          sample_per_word * x + j,
+          static_cast<out_type>(in[out_iter_count * sample_per_word * x +
+                                   i * sample_per_word + j] ^
+                                0x80));
+    }
+  }
+
+  // check with `roc-obj -d`: global_store_dwordx4
+#pragma unroll
+  for (size_t i = 0; i < out_iter_count; i++) {
+#pragma unroll
+    for (size_t j = 0; j < sample_per_word; j++) {
+      out[i][sample_per_word * x + j] = out_val[i * sample_per_word + j];
     }
   }
 }
@@ -327,10 +375,28 @@ inline void unpack_gznupsr_a1(InputIterator d_in, OutputIterator d_out_1,
   using input_type = typename std::iterator_traits<InputIterator>::value_type;
   // output of snap1 should be int8
   static_assert((sizeof(input_type) == sizeof(int8_t)));
+  constexpr size_t sample_per_word = 4;
 
-  const size_t range_size = out_count / 4;
+  const size_t range_size = out_count / sample_per_word;
   q.parallel_for(sycl::range<1>(range_size), [=](sycl::item<1> id) {
      unpack_gznupsr_a1_item(d_in, d_out_1, d_out_2, d_out_3, d_out_4,
+                            id.get_id(0), transform);
+   }).wait();
+}
+
+template <typename InputIterator, typename OutputIterator,
+          typename TransformFunctor>
+inline void unpack_gznupsr_a1(InputIterator d_in, OutputIterator d_out_1,
+                              OutputIterator d_out_2, const size_t out_count,
+                              TransformFunctor transform, sycl::queue& q) {
+  using input_type = typename std::iterator_traits<InputIterator>::value_type;
+  // output of snap1 should be int8
+  static_assert((sizeof(input_type) == sizeof(int8_t)));
+  constexpr size_t sample_per_word = 4;
+
+  const size_t range_size = out_count / sample_per_word;
+  q.parallel_for(sycl::range<1>(range_size), [=](sycl::item<1> id) {
+     unpack_gznupsr_a1_item(d_in, d_out_1, d_out_2,
                             id.get_id(0), transform);
    }).wait();
 }

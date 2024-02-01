@@ -323,6 +323,71 @@ class unpack_gznupsr_a1_pipe {
   }
 };
 
+class unpack_gznupsr_a1_v2_1_pipe {
+ public:
+  using in_work_type = srtb::work::unpack_work;
+  using out_work_type = srtb::work::fft_1d_r2c_work;
+
+ protected:
+  sycl::queue q;
+  srtb::fft::fft_window_functor_manager<srtb::real, srtb::fft::default_window>
+      window_functor_manager;
+
+ public:
+  unpack_gznupsr_a1_v2_1_pipe(sycl::queue q_)
+      : q{q_},
+        window_functor_manager{srtb::fft::default_window{},
+                               /* n = */ srtb::config.baseband_input_count, q} {
+  }
+
+  auto operator()([[maybe_unused]] std::stop_token stop_token,
+                  srtb::work::unpack_work unpack_work) {
+    const int baseband_input_bits = 8;
+    // out_count is count in each d_out, so / 4 here
+    const size_t out_count = unpack_work.count * srtb::BITS_PER_BYTE /
+                             std::abs(baseband_input_bits) / 2;
+
+    // re-construct fft_window_functor_manager if length mismatch
+    if (out_count != window_functor_manager.functor.n) [[unlikely]] {
+      SRTB_LOGW << " [unpack pipe] "
+                << "re-construct fft_window_functor_manager of size "
+                << out_count << srtb::endl;
+      window_functor_manager =
+          srtb::fft::fft_window_functor_manager<srtb::real,
+                                                srtb::fft::default_window>{
+              srtb::fft::default_window{}, out_count, q};
+    }
+
+    auto& d_in_shared = unpack_work.ptr;
+    auto d_in = d_in_shared.get();
+
+    std::array<std::shared_ptr<srtb::real>, 2> d_out_shared;
+    std::array<srtb::real*, 2> d_out;
+    for (size_t i = 0; i < d_out_shared.size(); i++) {
+      // size += 2 because fft_pipe may operate in-place
+      d_out_shared[i] =
+          srtb::device_allocator.allocate_shared<srtb::real>(out_count + 2);
+      d_out[i] = d_out_shared[i].get();
+    }
+
+    srtb::unpack::unpack_gznupsr_a1(reinterpret_cast<int8_t*>(d_in), d_out[0],
+                                    d_out[1], out_count,
+                                    window_functor_manager.functor, q);
+
+    d_in = nullptr;
+    d_in_shared.reset();
+
+    std::array<srtb::work::fft_1d_r2c_work, 2> fft_1d_r2c_work;
+    for (size_t i = 0; i < fft_1d_r2c_work.size(); i++) {
+      fft_1d_r2c_work[i].copy_parameter_from(unpack_work);
+      fft_1d_r2c_work[i].data_stream_id = 2 * unpack_work.data_stream_id + i;
+      fft_1d_r2c_work[i].ptr = d_out_shared[i];
+      fft_1d_r2c_work[i].count = out_count;
+    }
+    return std::optional{fft_1d_r2c_work};
+  }
+};
+
 }  // namespace pipeline
 }  // namespace srtb
 
