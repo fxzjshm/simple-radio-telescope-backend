@@ -249,7 +249,7 @@ class unpack_interleaved_samples_2_pipe {
     fft_1d_r2c_work_1.ptr = d_out_1_shared;
     fft_1d_r2c_work_1.count = out_count;
     fft_1d_r2c_work_2.copy_parameter_from(unpack_work);
-    fft_1d_r2c_work_1.data_stream_id = unpack_work.data_stream_id * 2 + 1;
+    fft_1d_r2c_work_2.data_stream_id = unpack_work.data_stream_id * 2 + 1;
     fft_1d_r2c_work_2.ptr = d_out_2_shared;
     fft_1d_r2c_work_2.count = out_count;
     return std::optional{std::array{fft_1d_r2c_work_1, fft_1d_r2c_work_2}};
