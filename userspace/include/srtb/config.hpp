@@ -57,8 +57,6 @@ inline constexpr size_t work_queue_capacity = 2;
 // option to use fix the max size of work_queue or not
 inline constexpr bool work_queue_fixed_size = true;
 
-using udp_packet_counter_type = uint64_t;
-
 // FFT default window in srtb/fft/fft_window.hpp
 inline constexpr bool fft_window_precompute = false;
 inline constexpr bool fft_operate_in_place = true;
@@ -109,8 +107,7 @@ struct configs {
 
   /**
    * @brief Type of baseband format: 
-   *          simple (just stream of samples from 1 source), 
-   *          interleaved_samples_2 (interleaved 2 stream, each sample from one stream)
+   *        naocpsr_roach2, naocpsr_snap1, gznupsr_a1
    */
   std::string baseband_format_type = "simple";
 

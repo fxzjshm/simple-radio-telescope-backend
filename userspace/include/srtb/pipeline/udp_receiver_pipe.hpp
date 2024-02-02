@@ -17,7 +17,10 @@
 #include <optional>
 
 #include "srtb/coherent_dedispersion.hpp"
-#include "srtb/io/udp_receiver.hpp"
+#include "srtb/io/backend_registry.hpp"
+#include "srtb/io/udp/asio_udp_packet_provider.hpp"
+#include "srtb/io/udp/packet_parser.hpp"
+#include "srtb/io/udp/udp_receiver.hpp"
 #include "srtb/pipeline/framework/pipe.hpp"
 #include "srtb/thread_affinity.hpp"
 
@@ -26,17 +29,20 @@ namespace pipeline {
 
 /**
  * @brief receive UDP data and transfer to unpack_work_queue.
- * @see @c srtb::io::udp_receiver::udp_receiver_worker
+ * @see @c srtb::io::udp::udp_receiver_worker
  * TODO: separate reserving samples for coherent dedispersion
  */
+template <typename PacketProvider, typename PacketParser>
 class udp_receiver_pipe {
  protected:
   sycl::queue q;
-  std::optional<srtb::io::udp_receiver::udp_receiver_worker> opt_worker;
+  std::optional<
+      srtb::io::udp::udp_receiver_worker<PacketProvider, PacketParser> >
+      opt_worker;
   /**
    * @brief identifier for different pipe instances
    * 
-   * e.g. id == 0 and 1 for two polarizations
+   * e.g. id == 0 and 1 for two polarizations, or 0-3 for 4 antennas.
    */
   size_t id;
 
@@ -108,11 +114,7 @@ class udp_receiver_pipe {
     const size_t baseband_input_bytes = baseband_input_count *
                                         std::abs(baseband_input_bits) /
                                         srtb::BITS_PER_BYTE;
-    size_t count_of_polarization = 1;
-    if (srtb::config.baseband_format_type.starts_with(
-            "interleaved_samples_2")) {
-      count_of_polarization = 2;
-    }
+    const size_t data_stream_count = PacketParser::data_stream_count;
 
     // reserved some samples for next round
     size_t nsamps_reserved = srtb::codd::nsamps_reserved();
@@ -133,8 +135,8 @@ class udp_receiver_pipe {
               << "id = " << id << ": "
               << "start receiving" << srtb::endl;
     auto [h_ptr, first_counter] = worker.receive(
-        /* required_length = */ baseband_input_bytes * count_of_polarization,
-        /* reserved_length = */ nsamps_reserved * count_of_polarization);
+        /* required_length = */ baseband_input_bytes * data_stream_count,
+        /* reserved_length = */ nsamps_reserved * data_stream_count);
     SRTB_LOGD << " [udp receiver pipe] "
               << "id = " << id << ": "
               << "receive finished" << srtb::endl;
@@ -147,7 +149,7 @@ class udp_receiver_pipe {
             .count();
 
     srtb::work::baseband_data_holder baseband_data{
-        h_ptr, baseband_input_bytes * count_of_polarization};
+        h_ptr, baseband_input_bytes * data_stream_count};
     srtb::work::copy_to_device_work copy_to_device_work;
     copy_to_device_work.ptr = nullptr;
     copy_to_device_work.count = 0;
@@ -167,6 +169,32 @@ class udp_receiver_pipe {
     return std::optional{copy_to_device_work};
   }
 };
+
+template <typename... Args>
+inline auto start_udp_receiver_pipe(std::string_view backend_name,
+                                    Args... args) {
+  using namespace srtb::io::backend_registry;
+  using provider_t = srtb::io::udp::asio_packet_provider;
+
+  if (backend_name == naocpsr_roach2::name) {
+    using backend_t = naocpsr_roach2;
+    using pipe_t = udp_receiver_pipe<provider_t, backend_t::packet_parser>;
+    return start_pipe<pipe_t>(args...);
+  }
+  if (backend_name == naocpsr_snap1::name) {
+    using backend_t = naocpsr_snap1;
+    using pipe_t = udp_receiver_pipe<provider_t, backend_t::packet_parser>;
+    return start_pipe<pipe_t>(args...);
+  }
+  if (backend_name == gznupsr_a1::name) {
+    using backend_t = gznupsr_a1;
+    using pipe_t = udp_receiver_pipe<provider_t, backend_t::packet_parser>;
+    return start_pipe<pipe_t>(args...);
+  }
+  throw std::invalid_argument{
+      "[start_udp_receiver_pipe] Unknown backend name: " +
+      std::string{backend_name}};
+}
 
 }  // namespace pipeline
 }  // namespace srtb

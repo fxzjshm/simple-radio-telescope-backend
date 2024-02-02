@@ -23,6 +23,7 @@
 #include <cstring>
 #include <iostream>
 #include <limits>
+#include <span>
 #include <thread>
 #include <vector>
 
@@ -30,19 +31,10 @@
 
 namespace srtb {
 namespace io {
-namespace udp_receiver {
-
-inline constexpr size_t counter_bytes_count =
-    sizeof(udp_packet_counter_type) / sizeof(std::byte);
+namespace udp {
 
 /**
  * @brief A source that receives UDP packet and unpack it.
- * 
- * Target packet structure (x = 1 byte, in little endian):
- *    xxxxxxxx xxxxxxxxxxxx......xxxx
- *    |<--1->| |<------2---......-->|
- *   1. counter of UDP packets of type (u)int64_t, should be sequencially increasing if no packet is lost.
- *   2. real "baseband" data, typical length is 4096 bytes.
  * 
  * TODO: maybe use lock free ring buffer, see https://ferrous-systems.com/blog/lock-free-ring-buffer/
  *       or move ring buffer to GPU side, when RDMA method is considered.
@@ -50,15 +42,12 @@ inline constexpr size_t counter_bytes_count =
  * TODO: simultaneously receive 2 polars (i.e. 2 addresses) and *sync*
  * 
  * @see @c srtb::pipeline::udp_receiver_pipe
- * 
- * ref: https://www.cnblogs.com/lidabo/p/8317296.html ,
- *      https://stackoverflow.com/questions/37372993/boostasiostreambuf-how-to-reuse-buffer
  */
+template <typename PacketProvider, typename PacketParser>
 class udp_receiver_worker {
  protected:
-  boost::asio::ip::udp::endpoint sender_endpoint, ep2;
-  boost::asio::io_service io_service;
-  boost::asio::ip::udp::socket socket;
+  PacketProvider packet_provider;
+  PacketParser packet_parser;
 
   /**
    * @brief buffer for receiving one UDP packet
@@ -71,8 +60,10 @@ class udp_receiver_worker {
   size_t total_received_packet_count = 0;
   size_t total_lost_packet_count = 0;
 
+  /** @brief this type should be able to hold all kinds of counters from different senders */
+  using udp_packet_counter_type = uint64_t;
   static constexpr udp_packet_counter_type last_counter_initial_value =
-      static_cast<udp_packet_counter_type>(-1);
+      std::numeric_limits<udp_packet_counter_type>::max();
   /** 
    * @brief counter received from last packet
    */
@@ -87,15 +78,8 @@ class udp_receiver_worker {
  public:
   udp_receiver_worker(const std::string& sender_address,
                       const unsigned short sender_port, bool can_restart_)
-      : sender_endpoint{boost::asio::ip::address::from_string(sender_address),
-                        sender_port},
-        socket{io_service, sender_endpoint},
-        can_restart{can_restart_} {
-    socket.set_option(boost::asio::ip::udp::socket::reuse_address{true});
-    constexpr int socket_buffer_size = std::numeric_limits<int>::max();
-    socket.set_option(
-        boost::asio::socket_base::receive_buffer_size{socket_buffer_size});
-  }
+      : packet_provider{sender_address, sender_port},
+        can_restart{can_restart_} {}
 
   /**
    * @brief Receive given number of bytes, with counter continuity already checked
@@ -104,8 +88,6 @@ class udp_receiver_worker {
    * @return buffer of received data
    */
   auto receive(size_t required_length, size_t reserved_length) {
-    auto time_before_receive = std::chrono::system_clock::now();
-
     std::shared_ptr<std::byte> data_buffer =
         srtb::host_allocator.allocate_shared<std::byte>(required_length);
     const auto data_buffer_ptr = data_buffer.get();
@@ -174,20 +156,15 @@ class udp_receiver_worker {
         copy_packet();
       } else [[likely]] {
         // receive packet
-        auto receive_buffer = boost::asio::buffer(udp_packet_buffer);
-        udp_packet_buffer_size = socket.receive_from(receive_buffer, ep2);
-        const size_t data_len = udp_packet_buffer_size - counter_bytes_count;
+        udp_packet_buffer_size =
+            packet_provider.receive(std::span<std::byte>{udp_packet_buffer});
+        const auto [header_size, received_counter_, timestamp] =
+            packet_parser.parse(std::span<std::byte>{udp_packet_buffer.begin(),
+                                                     udp_packet_buffer_size});
+        const size_t data_len = udp_packet_buffer_size - header_size;
 
-        // check counter
-        udp_packet_counter_type received_counter = 0;
-// ref: https://stackoverflow.com/questions/12876361/reading-bytes-in-c
-// in this way, endian problem should be solved, ... maybe.
-#pragma unroll
-        for (size_t i = size_t(0); i < counter_bytes_count; ++i) {
-          received_counter |=
-              (static_cast<udp_packet_counter_type>(udp_packet_buffer[i])
-               << (srtb::BITS_PER_BYTE * i));
-        }
+        // remember to check whether this can hold all kinds of counters
+        const udp_packet_counter_type received_counter = received_counter_;
         if (!first_counter_set) [[unlikely]] {
           first_counter = received_counter;
           first_counter_set = true;
@@ -207,7 +184,7 @@ class udp_receiver_worker {
         fill_zero();
         last_counter = received_counter;
 
-        udp_packet_buffer_pos = counter_bytes_count;
+        udp_packet_buffer_pos = header_size;
         copy_packet();
       }
     }
@@ -237,18 +214,11 @@ class udp_receiver_worker {
                 << "not reserving data" << srtb::endl;
     }
 
-    auto time_after_receive = std::chrono::system_clock::now();
-    auto receive_time = std::chrono::duration_cast<std::chrono::microseconds>(
-                            time_after_receive - time_before_receive)
-                            .count();
-    SRTB_LOGD << " [udp receiver worker] "
-              << "recevice time = " << receive_time << " us." << srtb::endl;
-
     return std::make_pair(data_buffer, first_counter);
   }
 };
 
-}  // namespace udp_receiver
+}  // namespace udp
 }  // namespace io
 }  // namespace srtb
 

@@ -72,7 +72,7 @@ namespace main {
  */
 int genfil_21cma(int argc, char** argv) {
   srtb::config.udp_receiver_can_restart = false;
-  srtb::config.baseband_format_type = "interleaved_samples_2:snap1";
+  srtb::config.baseband_format_type = "naocpsr_snap1";
   srtb::changed_configs = srtb::program_options::parse_arguments(
       argc, argv, std::string(srtb::config.config_file_name));
   srtb::program_options::apply_changed_configs(srtb::changed_configs,
