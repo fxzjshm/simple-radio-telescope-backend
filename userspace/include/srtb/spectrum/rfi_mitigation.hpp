@@ -15,6 +15,7 @@
 #define __SRTB_SPECTRIM_RFI_MITIGAGION__
 
 #include <boost/algorithm/string.hpp>
+#include <cmath>
 #include <utility>
 #include <vector>
 
@@ -99,27 +100,17 @@ inline void mitigate_rfi_manual(DeviceComplexInputAccessor d_in,
                                 const std::vector<rfi_range_type>& rfi_ranges,
                                 sycl::queue& q) {
   const srtb::real baseband_freq_high = baseband_freq_low + baseband_bandwidth;
+  const bool bandwidth_sign = std::signbit(baseband_bandwidth);
+
   std::vector<sycl::event> events{rfi_ranges.size()};
   for (size_t i = 0; i < rfi_ranges.size(); i++) {
     auto [rfi_freq_low, rfi_freq_high] = rfi_ranges.at(i);
+    const srtb::real rfi_bandwidth = rfi_freq_high - rfi_freq_low;
+    const bool rfi_bandwidth_sign = std::signbit(rfi_bandwidth);
     // correct order
-    if (rfi_freq_low > rfi_freq_high) [[unlikely]] {
+    if (bandwidth_sign != rfi_bandwidth_sign) {
+      // order of baseband frequency range and RFI range mismatch
       std::swap(rfi_freq_low, rfi_freq_high);
-    }
-
-    // check range
-    if (rfi_freq_low < baseband_freq_low) [[unlikely]] {
-      SRTB_LOGW << " [mitigate_rfi_manual] "
-                << "rfi_freq_low = " << rfi_freq_low
-                << " < baseband_freq_low = " << baseband_freq_low << srtb::endl;
-      rfi_freq_low = baseband_freq_low;
-    }
-    if (rfi_freq_high > baseband_freq_high) [[unlikely]] {
-      SRTB_LOGW << " [mitigate_rfi_manual] "
-                << "rfi_freq_high = " << rfi_freq_high
-                << " > baseband_freq_high = " << baseband_freq_high
-                << srtb::endl;
-      rfi_freq_high = baseband_freq_high;
     }
 
     /*
@@ -142,12 +133,21 @@ inline void mitigate_rfi_manual(DeviceComplexInputAccessor d_in,
                                        baseband_bandwidth * (in_count - 1)));
     // inclusive, so +1
     const size_t bin_count = rfi_bin_index_high - rfi_bin_index_low + 1;
-    if (0 < bin_count && bin_count <= in_count) {
+    // check range
+    if (0 <= rfi_bin_index_low && rfi_bin_index_low <= rfi_bin_index_high &&
+        rfi_bin_index_high < in_count) [[likely]] {
       events.at(i) =
           q.parallel_for(sycl::range<1>{bin_count}, [=](sycl::item<1> id) {
             const auto index = id.get_id(0);
             d_in[rfi_bin_index_low + index] = C(T(0), T(0));
           });
+    } else {
+      SRTB_LOGW << " [mitigate_rfi_manual] "
+                << "RFI frequency range is out of bounds: " << rfi_freq_low
+                << " - " << rfi_freq_high
+                << " MHz is out of baseband frequency range "
+                << baseband_freq_low << " - " << baseband_freq_high << " MHz"
+                << srtb::endl;
     }
   }
 
