@@ -390,24 +390,27 @@ class unpack_gznupsr_a1_v2_1_pipe {
 };
 
 template <typename InFunctor, typename OutFunctor, typename... Args>
-inline auto start_unpack_pipe(std::string_view backend_name, sycl::queue q,
+inline auto start_unpack_pipe(std::string_view format_name, sycl::queue q,
                               InFunctor in_functor, OutFunctor out_functor,
                               Args... args) {
   using namespace srtb::io::backend_registry;
 
-  if (backend_name == naocpsr_roach2::name) {
+  if (format_name == "simple") {
     return start_pipe<unpack_pipe>(q, in_functor, out_functor, args...);
   }
-  if (backend_name == naocpsr_snap1::name) {
+  if (format_name == naocpsr_roach2::name) {
+    return start_pipe<unpack_pipe>(q, in_functor, out_functor, args...);
+  }
+  if (format_name == naocpsr_snap1::name) {
     return start_pipe<unpack_interleaved_samples_2_pipe>(
         q, in_functor, multiple_works_out_functor{out_functor}, args...);
   }
-  if (backend_name == gznupsr_a1::name) {
+  if (format_name == gznupsr_a1::name) {
     return start_pipe<unpack_gznupsr_a1_v2_1_pipe>(
         q, in_functor, multiple_works_out_functor{out_functor}, args...);
   }
-  throw std::invalid_argument{"[start_unpack_pipe] Unknown backend name: " +
-                              std::string{backend_name}};
+  throw std::invalid_argument{"[start_unpack_pipe] Unknown format name: " +
+                              std::string{format_name}};
 }
 
 }  // namespace pipeline
