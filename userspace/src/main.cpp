@@ -357,9 +357,7 @@ int main(int argc, char** argv) {
     input_pipe_count = 1;
   } else {
     if (input_file_path != "") {
-      SRTB_LOGE << " [main] "
-                << "Cannot read file " << input_file_path << srtb::endl;
-      return EXIT_FAILURE;
+      throw std::runtime_error{" [main] Cannot read file " + input_file_path};
     }
     SRTB_LOGI << " [main] "
               << "Receiving UDP packets" << srtb::endl;
