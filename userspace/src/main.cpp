@@ -52,17 +52,15 @@ namespace main {
 inline namespace detail {
 
 /**
- * @brief allocate memory needed before pipeline start, used in `main()`
+ * @brief allocate some host-side pinned memory needed before pipeline start, used in `main()`
  * 
- * for device side, allocation is minimal;
- * for host side resonable spaces are used,
- * because it is observed that allocation of host pinned memory is very slow (~500ms for 1GB)
- *                         but allocation of device memory is quick
- *       & VRAM is usually limited.
+ * It is observed that allocation of host pinned memory is very slow (0.5s - 5s for 1GB)
  * 
  * this function is quite ugly, and should be updated once pipeline structure changes.
  */
 inline void allocate_memory_regions(size_t input_pipe_count) {
+  const auto data_stream_count = srtb::io::backend_registry::get_data_stream_count(
+            srtb::config.baseband_format_type);
   // hold all pointers; using RAII
   std::vector<std::shared_ptr<std::byte> > ptrs;
 
@@ -70,71 +68,17 @@ inline void allocate_memory_regions(size_t input_pipe_count) {
     // host side udp receiver buffer, raw baseband data
     for (size_t i = 0; i < 5; i++) {
       ptrs.push_back(srtb::host_allocator.allocate_shared<std::byte>(
-          sizeof(std::byte) * srtb::config.baseband_input_count *
+          data_stream_count * sizeof(std::byte) * srtb::config.baseband_input_count *
           std::abs(srtb::config.baseband_input_bits) / srtb::BITS_PER_BYTE));
     }
 
-    // device side raw baseband data, to be unpacked
-    ptrs.push_back(srtb::device_allocator.allocate_shared<std::byte>(
-        sizeof(std::byte) * srtb::config.baseband_input_count *
-        std::abs(srtb::config.baseband_input_bits) / srtb::BITS_PER_BYTE));
-
-    // device side unpacked baseband data / FFT-ed spectrum / STFT-ed waterfall (if in place)
-    ptrs.push_back(srtb::device_allocator.allocate_shared<std::byte>(
-        sizeof(srtb::complex<srtb::real>) *
-        (srtb::config.baseband_input_count / 2 + 1)));
-
-    // device side time series (original / accumulated / boxcar-ed)
-    for (size_t i = 0; i < 3; i++) {
-      ptrs.push_back(srtb::device_allocator.allocate_shared<std::byte>(
-          sizeof(srtb::real) * srtb::config.baseband_input_count /
-          srtb::config.spectrum_channel_count / 2));
-    }
-
-    // host side time series for a segment of baseband
-    for (size_t w = 1; w <= srtb::config.signal_detect_max_boxcar_length;
-         w *= 2) {
+    // host side buffer to write processed spectrum
+    for (size_t i = 0; i < 4; i++) {
       ptrs.push_back(srtb::host_allocator.allocate_shared<std::byte>(
-          sizeof(srtb::real) * srtb::config.baseband_input_count /
-          srtb::config.spectrum_channel_count / 2));
-    }
-
-    // device side STFT buffer, for spectrural kurtosis & mean value
-    for (size_t i = 0; i < 2; i++) {
-      ptrs.push_back(srtb::device_allocator.allocate_shared<std::byte>(
-          sizeof(srtb::complex<srtb::real>) *
-          srtb::config.spectrum_channel_count));
-    }
-
-#if SRTB_ENABLE_GUI
-    if (srtb::config.gui_enable) {
-      // host & device side waterfall
-      ptrs.push_back(srtb::device_allocator.allocate_shared<std::byte>(
-          sizeof(srtb::real) *
-          (srtb::config.baseband_input_count - srtb::codd::nsamps_reserved()) /
-          srtb::config.spectrum_channel_count / 2 *
-          srtb::config.gui_pixmap_width));
-      for (size_t i = 0; i < 5; i++) {
-        ptrs.push_back(srtb::host_allocator.allocate_shared<std::byte>(
-            sizeof(srtb::real) *
-            (srtb::config.baseband_input_count -
-             srtb::codd::nsamps_reserved()) /
-            srtb::config.spectrum_channel_count / 2 *
-            srtb::config.gui_pixmap_width));
-      }
-    }
-#endif  // SRTB_ENABLE_GUI
-
-    // misc value holders
-    for (size_t i = 0; i < 2; i++) {
-      ptrs.push_back(srtb::device_allocator.allocate_shared<std::byte>(
-          sizeof(srtb::real)));
-      ptrs.push_back(srtb::device_allocator.allocate_shared<std::byte>(
-          sizeof(srtb::complex<srtb::real>)));
+          data_stream_count * sizeof(srtb::complex<srtb::real>) *
+          (srtb::config.baseband_input_count / 2 + 1)));
     }
   }
-
-  // ptrs.drop(); a.k.a. ~ptrs();
 }
 
 }  // namespace detail
