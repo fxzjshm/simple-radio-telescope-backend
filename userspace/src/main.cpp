@@ -206,9 +206,30 @@ int main(int argc, char** argv) {
   srtb::work_queue<srtb::work::signal_detect_work> signal_detect_queue;
   srtb::work_queue<srtb::work::write_signal_work> baseband_output_queue;
 
-  /** @brief count of works in a pipeline. */
+  /** 
+   * @brief count of works in a pipeline.
+   * This work count is utilized for these functions:
+   * * pipeline should exit only after all works are done, especially when reading files
+   * * when reading file without GUI, pipeline should exit after end of file
+   * * when reading file, there should be only one file in pipeline, to reduce VRAM usage
+   */
   std::shared_ptr<std::atomic<int32_t> > work_in_pipeline_count =
       std::make_shared<std::atomic<int32_t> >(0);
+  auto increase_work_count = [work_in_pipeline_count](
+                                 [[maybe_unused]] std::stop_token stop_token,
+                                 [[maybe_unused]] auto work) {
+    // take in account that unpack_pipe may generate more than 1 works per input work
+    (*work_in_pipeline_count) +=
+        srtb::io::backend_registry::get_data_stream_count(
+            srtb::config.baseband_format_type);
+    assert((*work_in_pipeline_count) >= 0);
+  };
+  auto decrease_work_count = [work_in_pipeline_count](
+                                 [[maybe_unused]] std::stop_token stop_token,
+                                 [[maybe_unused]] auto work) {
+    (*work_in_pipeline_count)--;
+    assert((*work_in_pipeline_count) >= 0);
+  };
 
   // setup threads for pipes
   using namespace srtb::pipeline;
@@ -274,12 +295,6 @@ int main(int argc, char** argv) {
           queue_out_functor{baseband_output_queue});
 
   std::jthread baseband_output_thread;
-  auto decrease_work_count = [work_in_pipeline_count](
-                                 [[maybe_unused]] std::stop_token stop_token,
-                                 [[maybe_unused]] auto work) {
-    (*work_in_pipeline_count)--;
-    assert((*work_in_pipeline_count) >= 0);
-  };
   if (srtb::config.baseband_write_all) {
     SRTB_LOGW << " [main] "
               << "Writing all baseband data, take care of disk space!"
@@ -318,12 +333,6 @@ int main(int argc, char** argv) {
                size_t{1});
 
   std::vector<std::jthread> input_thread;
-  auto increase_work_count = [work_in_pipeline_count](
-                                 [[maybe_unused]] std::stop_token stop_token,
-                                 [[maybe_unused]] auto work) {
-    (*work_in_pipeline_count)++;
-    assert((*work_in_pipeline_count) >= 0);
-  };
   auto input_file_path = srtb::config.input_file_path;
   if (std::filesystem::exists(input_file_path)) {
     SRTB_LOGI << " [main] "
