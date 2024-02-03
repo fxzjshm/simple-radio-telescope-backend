@@ -107,6 +107,10 @@ inline void signal_handler(int signal) {
     next_handler = SIG_DFL;
   }
   std::signal(signal, next_handler);
+  // forward signal to the original one
+  if (next_handler) {
+    next_handler(signal);
+  }
 }
 
 }  // namespace srtb
