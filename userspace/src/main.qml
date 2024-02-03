@@ -3,21 +3,22 @@ import QtQuick.Window 2.2
 
 Window {
     id: main_window
-    width: Screen.width * 0.8
-    height: Screen.height * 0.8
     visible: true
-    title: qsTr("Simple Radio Telescope Backend")
+    title: qsTr("simple radio telescope backend (main window)")
 
-    Image {
-        id: spectrum_image
-        cache: true
-        width: parent.width
-        height: parent.height
-        source: "image://spectrum-image-provider/spectrum"
-        smooth: false
-    }
+    property var spectrum_window: new Map()
+    readonly property Component spectrum_window_component: Qt.createComponent("spectrum.qml")
 
-    function update_spectrum(counter) {
-        spectrum_image.source = "image://spectrum-image-provider/" + counter;
+    function update_spectrum(window_id: int, counter: int) {
+        if (!spectrum_window.hasOwnProperty(window_id)) {
+            spectrum_window[window_id] = 
+                spectrum_window_component.createObject(/* parent =  */ this, {
+                    spectrum_window_id: window_id
+                });
+        }
+
+        spectrum_window[window_id].spectrum_source =
+            "image://spectrum-image-provider/" + window_id + "/" + counter;
+        return window_id;
     }
 }

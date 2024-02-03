@@ -146,10 +146,11 @@ class simplify_spectrum_pipe_2 {
     d_out = nullptr;
     d_out_shared.reset();
 
-    srtb::work::draw_spectrum_work_2 draw_spectrum_work;
-    draw_spectrum_work.ptr = h_image_shared;
-    draw_spectrum_work.width = out_width;
-    draw_spectrum_work.height = out_height;
+    srtb::work::draw_spectrum_work_2 draw_spectrum_work{
+        .ptr = h_image_shared,
+        .data_stream_id = simplify_spectrum_work.data_stream_id,
+        .width = out_width,
+        .height = out_height};
     return std::optional{draw_spectrum_work};
   }
 };

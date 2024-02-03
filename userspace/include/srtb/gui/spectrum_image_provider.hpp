@@ -14,6 +14,8 @@
 #ifndef __SRTB_GUI_SPECTRUM_IMAGE_PROVIDER__
 #define __SRTB_GUI_SPECTRUM_IMAGE_PROVIDER__
 
+#include <map>
+#include <string>
 #include <thread>
 
 #include "srtb/commons.hpp"
@@ -330,8 +332,8 @@ class SimpleSpectrumImageProvider : public QObject, public QQuickImageProvider {
   Q_OBJECT
 
  public:
-  QImage image;
-  std::shared_ptr<uint32_t> image_data;
+  std::map<size_t, QImage> image_map;
+  std::map<size_t, std::shared_ptr<uint32_t> > image_data_map;
   // currently alpha channel of all color used are 0xFF
   static constexpr QImage::Format image_format = QImage::Format_RGB32;
   int spectrum_update_counter = 0;
@@ -345,8 +347,6 @@ class SimpleSpectrumImageProvider : public QObject, public QQuickImageProvider {
                             draw_spectrum_queue_2_)
       : QObject{parent_},
         QQuickImageProvider{QQuickImageProvider::Pixmap},
-        image{static_cast<int>(srtb::config.gui_pixmap_width),
-              static_cast<int>(srtb::config.gui_pixmap_height), image_format},
         draw_spectrum_queue_2{draw_spectrum_queue_2_},
         parent{parent_} {
     checker_thread = std::jthread{[this](std::stop_token stop_token) {
@@ -367,7 +367,7 @@ class SimpleSpectrumImageProvider : public QObject, public QQuickImageProvider {
           SRTB_LOGD << " [gui] "
                     << "update_pixmap " << srtb::endl;
           update_pixmap(draw_spectrum_work);
-          trigger_update();
+          trigger_update(draw_spectrum_work.data_stream_id);
         });
   }
 
@@ -380,6 +380,11 @@ class SimpleSpectrumImageProvider : public QObject, public QQuickImageProvider {
   void update_pixmap(srtb::work::draw_spectrum_work_2 draw_spectrum_work) {
     const int width = draw_spectrum_work.width;
     const int height = draw_spectrum_work.height;
+    const size_t key = draw_spectrum_work.data_stream_id;
+    if (!image_map.contains(key)) {
+      image_map.insert({key, QImage(width, height, image_format)});
+    }
+    auto& image = image_map[key];
     if (image.width() != width || image.height() != height) [[unlikely]] {
       SRTB_LOGW << " [SimpleSpectrumImageProvider] "
                 << "resizing image from " << image.width() << " x "
@@ -393,7 +398,7 @@ class SimpleSpectrumImageProvider : public QObject, public QQuickImageProvider {
     image =
         QImage{reinterpret_cast<uchar*>(h_image), width, height, image_format};
     // TODO: check lifetime of old pixmap data
-    image_data = h_image_shared;
+    image_data_map[key] = h_image_shared;
 
     SRTB_LOGD << " [SimpleSpectrumImageProvider] "
               << "updated pixmap, counter = " << spectrum_update_counter
@@ -402,10 +407,11 @@ class SimpleSpectrumImageProvider : public QObject, public QQuickImageProvider {
 
  public:
   // ref: https://stackoverflow.com/questions/45755655/how-to-correctly-use-qt-qml-image-provider
-  void trigger_update() {
+  void trigger_update(size_t data_stream_id) {
     if (parent) {  // object should be main window
       QMetaObject::invokeMethod(parent, "update_spectrum",
-                                Q_ARG(QVariant, spectrum_update_counter));
+                                Q_ARG(int, data_stream_id),
+                                Q_ARG(int, spectrum_update_counter));
       spectrum_update_counter++;
       SRTB_LOGD << " [SimpleSpectrumImageProvider] "
                 << "trigger update, spectrum_update_counter = "
@@ -418,7 +424,17 @@ class SimpleSpectrumImageProvider : public QObject, public QQuickImageProvider {
     SRTB_LOGD << " [SimpleSpectrumImageProvider] "
               << "requestImage called with id " << id.toStdString()
               << srtb::endl;
-    (void)id;
+    // id format: "spectrum_window_id/image_counter"
+    const auto id_str_components = id.split("/");
+    if (id_str_components.size() == 0) [[unlikely]] {
+      SRTB_LOGE << " [SimpleSpectrumImageProvider] "
+                 << "id format error, id = " << id.toStdString()
+                 << srtb::endl;
+      return QPixmap();
+    }
+    const size_t key =
+        static_cast<size_t>(std::stoll((id_str_components[0]).toStdString()));
+    auto& image = image_map[key];
     if (size) {
       *size = QSize(image.width(), image.height());
     }
