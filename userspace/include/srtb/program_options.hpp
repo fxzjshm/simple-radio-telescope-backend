@@ -19,9 +19,9 @@
 #include <filesystem>
 #include <string>
 
+#include "exprgrammar.h"
 #include "srtb/config.hpp"
 #include "srtb/log/log.hpp"
-#include "exprgrammar.h"
 
 namespace srtb {
 namespace program_options {
@@ -265,7 +265,6 @@ inline void evaluate_and_apply_changed_config(const std::string& name,
   SRTB_PARSE(input_file_offset_bytes)
   SRTB_ASSIGN(baseband_output_file_prefix)
   SRTB_PARSE(baseband_write_all)
-  SRTB_PARSE(log_level)
   SRTB_ASSIGN(fft_fftw_wisdom_path)
   SRTB_PARSE(mitigate_rfi_average_method_threshold)
   SRTB_PARSE(mitigate_rfi_spectral_kurtosis_threshold)
@@ -280,6 +279,13 @@ inline void evaluate_and_apply_changed_config(const std::string& name,
   SRTB_PARSE(gui_pixmap_height)
   /* else */ if (name == "config_file_name") {
     // has been processed earlier
+  } else if (name == "log_level") {
+    using target_type = decltype(srtb::log::log_level);
+    const target_type parsed_value = static_cast<target_type>(parse(value));
+    SRTB_LOGI << " [program_options] "
+              << "log_level"
+              << " = " << static_cast<int>(parsed_value) << srtb::endl;
+    srtb::log::log_level = parsed_value;
   } else {
     SRTB_LOGW << " [program_options] "
               << "Unrecognized config: name = " << '\"' << name << '\"' << ", "

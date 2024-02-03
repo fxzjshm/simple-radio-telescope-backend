@@ -26,7 +26,10 @@
 #include <thread>
 
 #include "srtb/config.hpp"
+#include "srtb/memory/cached_allocator.hpp"
+#include "srtb/memory/sycl_device_allocator.hpp"
 #include "srtb/sycl.hpp"
+#include "srtb/work.hpp"
 
 namespace srtb {
 
@@ -40,17 +43,6 @@ inline srtb::configs config;
 
 /** @brief names and expressions of changed items of @c srtb::config */
 inline std::map<std::string, std::string> changed_configs;
-
-/** @brief record start time of program, used in log to indicate relative time */
-inline auto program_start_time = std::chrono::system_clock::now();
-
-}  // namespace srtb
-
-#include "srtb/memory/cached_allocator.hpp"
-#include "srtb/memory/sycl_device_allocator.hpp"
-#include "srtb/work.hpp"
-
-namespace srtb {
 
 // memory
 

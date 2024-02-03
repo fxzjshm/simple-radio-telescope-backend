@@ -183,11 +183,7 @@ struct configs {
    */
   bool baseband_write_all = false;
 
-  /**
-    * @brief Debug level for console log output.
-    * @see srtb::log::levels
-    */
-  /* srtb::log::levels */ int log_level = /* srtb::log::levels::INFO */ 3;
+  // log_level moved to srtb::log::log_level;
 
   /**
    * @brief Location to save fftw wisdom.

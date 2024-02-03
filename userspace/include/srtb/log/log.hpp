@@ -23,7 +23,7 @@
 
 // reference: hipSYCL logger at hipSYCL/common/debug.hpp
 #define SRTB_LOG(level)                                  \
-  if (static_cast<int>(level) <= srtb::config.log_level) \
+  if (static_cast<int>(level) <= static_cast<int>(srtb::log::log_level)) \
   srtb::log::sync_stream_wrapper{std::cout} << srtb::log::get_log_prefix(level)
 
 namespace srtb {
@@ -39,6 +39,15 @@ enum class levels : int {
   INFO = 3,
   DEBUG = 4
 };
+
+/**
+  * @brief Debug level for console log output.
+  * @see srtb::log::levels
+  */
+inline srtb::log::levels log_level = srtb::log::levels::INFO;
+
+/** @brief record start time of program, used in log to indicate relative time */
+inline auto log_start_time = std::chrono::system_clock::now();
 
 inline std::string get_log_prefix(const log::levels level) {
   // TODO: std::string, std::string_view, char*, or else?
@@ -67,7 +76,7 @@ inline std::string get_log_prefix(const log::levels level) {
   }
   suffix = "\033[0m";  // clear colour
 
-  auto interval = std::chrono::system_clock::now() - srtb::program_start_time;
+  auto interval = std::chrono::system_clock::now() - srtb::log::log_start_time;
   double interval_sec = static_cast<double>(interval.count()) / 1e9;
 
   char str[srtb::LOG_PREFIX_BUFFER_LENGTH];
