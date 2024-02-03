@@ -29,6 +29,14 @@ namespace io {
 namespace backend_registry {
 
 /**
+ * @brief Just linear sequence of samples
+ */
+struct simple {
+  constexpr static std::string_view name = "simple";
+  constexpr static size_t data_stream_count = 1;
+};
+
+/**
  * @brief ROACH 2 based backend used in NAOC PSR group.
  */
 struct naocpsr_roach2 {
@@ -55,7 +63,7 @@ struct gznupsr_a1 {
   constexpr static size_t data_stream_count = packet_parser::data_stream_count;
 };
 
-std::tuple<naocpsr_roach2, naocpsr_snap1, gznupsr_a1> backends;
+std::tuple<simple, naocpsr_roach2, naocpsr_snap1, gznupsr_a1> backends;
 
 inline auto get_data_stream_count(std::string_view backend_name) {
   std::optional<size_t> ret;
@@ -68,9 +76,9 @@ inline auto get_data_stream_count(std::string_view backend_name) {
   if (ret.has_value()) {
     return ret.value();
   } else {
-    throw std::invalid_argument{"[backend_registry] Unknown backend name: " +
+    throw std::invalid_argument{"[backend_registry] Unknown backend name \"" +
                                 std::string{backend_name} +
-                                " when getting data stream count"};
+                                "\" when getting data stream count"};
   }
 }
 

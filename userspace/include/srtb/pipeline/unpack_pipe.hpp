@@ -395,7 +395,7 @@ inline auto start_unpack_pipe(std::string_view format_name, sycl::queue q,
                               Args... args) {
   using namespace srtb::io::backend_registry;
 
-  if (format_name == "simple") {
+  if (format_name == simple::name) {
     return start_pipe<unpack_pipe>(q, in_functor, out_functor, args...);
   }
   if (format_name == naocpsr_roach2::name) {
