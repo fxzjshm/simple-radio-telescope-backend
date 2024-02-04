@@ -277,6 +277,7 @@ using draw_spectrum_work = srtb::work::work<std::shared_ptr<srtb::real> >;
  */
 struct draw_spectrum_work_2 {
   std::shared_ptr<uint32_t> ptr;
+  uint32_t data_stream_id;
   size_t width;
   size_t height;
 };
