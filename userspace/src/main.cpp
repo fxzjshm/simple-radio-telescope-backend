@@ -59,8 +59,9 @@ inline namespace detail {
  * this function is quite ugly, and should be updated once pipeline structure changes.
  */
 inline void allocate_memory_regions(size_t input_pipe_count) {
-  const auto data_stream_count = srtb::io::backend_registry::get_data_stream_count(
-            srtb::config.baseband_format_type);
+  const auto data_stream_count =
+      srtb::io::backend_registry::get_data_stream_count(
+          srtb::config.baseband_format_type);
   // hold all pointers; using RAII
   std::vector<std::shared_ptr<std::byte> > ptrs;
 
@@ -68,14 +69,15 @@ inline void allocate_memory_regions(size_t input_pipe_count) {
     // host side udp receiver buffer, raw baseband data
     for (size_t i = 0; i < 5; i++) {
       ptrs.push_back(srtb::host_allocator.allocate_shared<std::byte>(
-          data_stream_count * sizeof(std::byte) * srtb::config.baseband_input_count *
+          data_stream_count * sizeof(std::byte) *
+          srtb::config.baseband_input_count *
           std::abs(srtb::config.baseband_input_bits) / srtb::BITS_PER_BYTE));
     }
 
     // host side buffer to write processed spectrum
-    for (size_t i = 0; i < 4; i++) {
+    for (size_t i = 0; i < 2 * data_stream_count; i++) {
       ptrs.push_back(srtb::host_allocator.allocate_shared<std::byte>(
-          data_stream_count * sizeof(srtb::complex<srtb::real>) *
+          sizeof(srtb::complex<srtb::real>) *
           (srtb::config.baseband_input_count / 2 + 1)));
     }
   }
