@@ -6,13 +6,13 @@ include(CheckCXXCompilerFlag)
 
 # select SYCL implemention
 if(NOT DEFINED SRTB_SYCL_IMPLEMENTATION)
-    message(WARNING "SRTB_SYCL_IMPLEMENTATION not defined, default to hipSYCL")
-    set(SRTB_SYCL_IMPLEMENTATION "hipSYCL")
+    message(WARNING "SRTB_SYCL_IMPLEMENTATION not defined, default to AdaptiveCpp")
+    set(SRTB_SYCL_IMPLEMENTATION "AdaptiveCpp")
 endif()
 
 
 # detect backends
-## CUDA, SRTB_CUDA_ARCH required if with hipSYCL and optional with intal-llvm
+## CUDA, SRTB_CUDA_ARCH required if with AdaptiveCpp and optional with intal-llvm
 find_package(CUDAToolkit QUIET)
 option(SRTB_ENABLE_CUDA "option to enable CUDA backend" ${CUDAToolkit_FOUND})
 message(STATUS "SRTB_ENABLE_CUDA = ${SRTB_ENABLE_CUDA}")
@@ -73,35 +73,35 @@ if(SRTB_ENABLE_OPENCL)
 endif()
 
 # setup SYCL compilers
-if(SRTB_SYCL_IMPLEMENTATION STREQUAL "hipSYCL")
-  # e.g. HIPSYCL_TARGETS=cuda:sm_86;hip:gfx906;omp or HIPSYCL_TARGETS=generic;omp
+if(SRTB_SYCL_IMPLEMENTATION STREQUAL "hipSYCL" OR SRTB_SYCL_IMPLEMENTATION STREQUAL "AdaptiveCpp")
+  # e.g. ACPP_TARGETS=cuda:sm_86;hip:gfx906;omp or ACPP_TARGETS=generic;omp
   # using CMake list as it happens to be semi-column separated
-  if(NOT DEFINED HIPSYCL_TARGETS)
-    set(SRTB_HIPSYCL_TARGETS "")
+  if(NOT DEFINED ACPP_TARGETS)
+    set(SRTB_ACPP_TARGETS "")
     if(SRTB_ENABLE_CUDA AND NOT SRTB_ENABLE_GENERIC)
         if(NOT DEFINED SRTB_CUDA_ARCH)
-            message(FATAL_ERROR "compiling for CUDA backend with hipSYCL requires SRTB_CUDA_ARCH, e.g. sm_86")
+            message(FATAL_ERROR "compiling for CUDA backend with AdaptiveCpp requires SRTB_CUDA_ARCH, e.g. sm_86")
         endif()
-        set(SRTB_HIPSYCL_TARGETS ${SRTB_HIPSYCL_TARGETS} cuda:${SRTB_CUDA_ARCH})
+        set(SRTB_ACPP_TARGETS ${SRTB_ACPP_TARGETS} cuda:${SRTB_CUDA_ARCH})
     endif()
     if(SRTB_ENABLE_ROCM AND NOT SRTB_ENABLE_GENERIC)
-        set(SRTB_HIPSYCL_TARGETS ${SRTB_HIPSYCL_TARGETS} hip:${SRTB_ROCM_ARCH})
+        set(SRTB_ACPP_TARGETS ${SRTB_ACPP_TARGETS} hip:${SRTB_ROCM_ARCH})
     endif()
     if(SRTB_ENABLE_MUSA)
-        set(SRTB_HIPSYCL_TARGETS ${SRTB_HIPSYCL_TARGETS} generic)
+        set(SRTB_ACPP_TARGETS ${SRTB_ACPP_TARGETS} generic)
     endif()
     if(SRTB_ENABLE_OPENCL)
-        set(SRTB_HIPSYCL_TARGETS ${SRTB_HIPSYCL_TARGETS} generic)
+        set(SRTB_ACPP_TARGETS ${SRTB_ACPP_TARGETS} generic)
     endif()
     if(SRTB_ENABLE_GENERIC)
-        set(SRTB_HIPSYCL_TARGETS ${SRTB_HIPSYCL_TARGETS} generic)
+        set(SRTB_ACPP_TARGETS ${SRTB_ACPP_TARGETS} generic)
     endif()
-    set(SRTB_HIPSYCL_TARGETS ${SRTB_HIPSYCL_TARGETS} omp)
-    list(REMOVE_DUPLICATES SRTB_HIPSYCL_TARGETS)
-    set(HIPSYCL_TARGETS ${SRTB_HIPSYCL_TARGETS})
+    set(SRTB_ACPP_TARGETS ${SRTB_ACPP_TARGETS} omp)
+    list(REMOVE_DUPLICATES SRTB_ACPP_TARGETS)
+    set(ACPP_TARGETS ${SRTB_ACPP_TARGETS})
   endif()
-  message(STATUS "HIPSYCL_TARGETS = ${HIPSYCL_TARGETS}")
-  find_package(hipSYCL CONFIG REQUIRED)
+  message(STATUS "ACPP_TARGETS = ${ACPP_TARGETS}")
+  find_package(AdaptiveCpp CONFIG REQUIRED)
 elseif(SRTB_SYCL_IMPLEMENTATION STREQUAL "intel-llvm")
     # e.g. 
     # CUDA: clang -fsycl -fsycl-targets=nvptx64-nvidia-cuda -Xsycl-target-backend -cuda-gpu-arch=sm_86
@@ -281,7 +281,7 @@ endif()
 
 function(srtb_add_dependency target_name)
     # add SYCL to targets
-    if(SRTB_SYCL_IMPLEMENTATION STREQUAL "hipSYCL")
+    if(SRTB_SYCL_IMPLEMENTATION STREQUAL "AdaptiveCpp")
         add_sycl_to_target(TARGET ${target_name})
     elseif(SRTB_SYCL_IMPLEMENTATION STREQUAL "intel-llvm")
         # maybe nothing to do

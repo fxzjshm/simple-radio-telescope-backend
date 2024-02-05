@@ -1,8 +1,8 @@
 # Building
 ## Dependency
 * a C++ compiler that supports at least C++20
-* a SYCL 2020 implementation, such as [hipSYCL](https://github.com/illuhad/hipSYCL) and [intel/llvm](https://github.com/intel/llvm/)
-  * if use hipSYCL, refer to [this guide](https://github.com/illuhad/hipSYCL/blob/develop/doc/installing.md)
+* a SYCL 2020 implementation, such as [AdaptiveCpp](https://github.com/AdaptiveCpp/AdaptiveCpp) and [intel/llvm](https://github.com/intel/llvm/)
+  * if use AdaptiveCpp, refer to [this guide](https://github.com/AdaptiveCpp/AdaptiveCpp/blob/develop/doc/installing.md)
   * if use intel/llvm, version newer than `998fd91` (2022.11.07) is needed. Refer to [this guide](https://github.com/intel/llvm/blob/sycl/sycl/doc/GetStartedGuide.md) for installation.
 * Boost libraries
   * the version of Boost libraries required may be newer than that provided by system package manager (see below "BOOST_INLINE and HIP conflicts")
@@ -38,8 +38,8 @@ SYCL compilers used should support these C++ / SYCL features:
 This project uses CMake 3. 
 
 Configure options:
-* `SRTB_SYCL_IMPLEMENTATION`: switches SYCL implementation used. Default to `hipSYCL`.
-  * set to `hipSYCL` to use hipSYCL
+* `SRTB_SYCL_IMPLEMENTATION`: switches SYCL implementation used. Default to `AdaptiveCpp`.
+  * set to `AdaptiveCpp` to use AdaptiveCpp
   * set to `intel-llvm` to use intel/llvm
     * additionally, `CMAKE_C_COMPILER` & `CMAKE_CXX_COMPILER` should be set to intel/llvm installation (see example below)
 * `SRTB_ENABLE_ROCM`: `ON` or `OFF`
@@ -49,13 +49,13 @@ Configure options:
 * `SRTB_CUDA_ARCH`:
   * the arch of target GPU, e.g. `sm_86`, required if `SRTB_ENABLE_CUDA` is set `ON`, otherwise no effect
 * for MUSA and OpenCL, should auto detect; or use `SRTB_ENABLE_MUSA`, `SRTB_ENABLE_OPENCL` to force
-* or for hipSYCL the user may define `HIPSYCL_TARGETS` directly, see [doc of this variable](https://github.com/OpenSYCL/OpenSYCL/blob/develop/doc/using-hipsycl.md)
+* or for AdaptiveCpp the user may define `ACPP_TARGETS` directly, see [doc of this variable](https://github.com/AdaptiveCpp/AdaptiveCpp/blob/develop/doc/using-hipsycl.md)
 
 Example configure command: (assuming project path is `$PROJECT_PATH`)
 
-* using hipSYCL:
+* using AdaptiveCpp:
 ```bash
-cmake -DSRTB_SYCL_IMPLEMENTATION=hipSYCL \
+cmake -DSRTB_SYCL_IMPLEMENTATION=AdaptiveCpp \
 -DSRTB_ENABLE_CUDA=OFF -DSRTB_CUDA_ARCH=sm_86 -DSRTB_ENABLE_ROCM=ON -DSRTB_ROCM_ARCH=gfx906 \
 -DSRTB_ENABLE_MUSA=OFF -DSRTB_ENABLE_OPENCL=OFF \
 $PROJECT_PATH
@@ -64,11 +64,11 @@ $PROJECT_PATH
 or
 
 ```bash
-cmake -DSRTB_SYCL_IMPLEMENTATION=hipSYCL -DHIPSYCL_TARGETS="hip:gfx1035;omp" $PROJECT_PATH
+cmake -DSRTB_SYCL_IMPLEMENTATION=AdaptiveCpp -DACPP_TARGETS="hip:gfx1035;omp" $PROJECT_PATH
 ```
 
 ```bash
-cmake -DSRTB_SYCL_IMPLEMENTATION=hipSYCL -DHIPSYCL_TARGETS="generic;omp" $PROJECT_PATH
+cmake -DSRTB_SYCL_IMPLEMENTATION=AdaptiveCpp -DACPP_TARGETS="generic;omp" $PROJECT_PATH
 ```
 
 * using intel/llvm: (note C++ compiler is explicitly set here, assuming intel/llvm is installed at `/opt/intel-llvm`)
@@ -101,7 +101,7 @@ To fix this, Add
 ```
 when executing `buildbot/configure.py`.
 
-Also add `openmp` if needed, e.g. use intel/llvm as a compiler for hipSYCL
+Also add `openmp` if needed, e.g. use intel/llvm as a compiler for AdaptiveCpp
 
 ### 3. cannot load shared libraries
 When executing main program, some shared libraries may not be able to load:
