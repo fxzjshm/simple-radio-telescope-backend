@@ -21,11 +21,10 @@ Possible future plans include DPDK integration, search of disperse measurements,
 
 Due to **vendor independence** and API complexity,
 [SYCL 2020](https://www.khronos.org/sycl/) from Khronos Group is chosen as target API,
-Mainly used SYCL implementations are [hipSYCL](https://github.com/illuhad/hipSYCL) and [intel/llvm](https://github.com/intel/llvm/).
+Mainly used SYCL implementations are [AdaptiveCpp](https://github.com/AdaptiveCpp/AdaptiveCpp) and [intel/llvm](https://github.com/intel/llvm/).
 Tested setups are listed below.
 
-> It is noticed that there has been a tendency to equate GPGPU with CUDA, especially in HPC and AI.  
-> It must be emphasized that GPGPU != CUDA, although GPGPU is first developed by NVIDIA, for now there do exist other vendors that should not be neglected.
+> There do exist other GPGPUs, not only NVIDIA CUDA.
 
 Name of this project is inspired by SDDM: Simple Desktop Display Manager.
 
@@ -57,15 +56,8 @@ graph LR;
   simplify_spectrum_pipe --> gui
 ```
 
-## Building
-Note that this repository has submodule for dependency management, don't forget to add `--recursive` when cloning this git repo, or use
-```bash
-git submodule update --init
-```
-if you have cloned this repo.
 
-Then please refer to [BUILDING.md](BUILDING.md)
-
+## Compatibility
 ### Example Setup
 
 ```mermaid
@@ -121,52 +113,50 @@ mindmap
 
 Tested setup:
 
-* AMD GPU (gfx906; gfx1035)
-  * hipSYCL HIP backend
-  * intel/llvm HIP backend
-* Moore Threads MTT GPU (mp_21)
-  * hipSYCL MUSA backend [(working-in-progress)](https://github.com/OpenSYCL/OpenSYCL/pull/1095)
-    * waiting for optimization of library from this device vendor
-* [DATA EXPUNGED] ("Device X from Vendor V")
-* NVIDIA GPU (sm_86)
-  * hipSYCL CUDA backend
-  * intel/llvm CUDA backend
-* AMD Rembrandt CPU
-  * hipSYCL CPU backend (+CBS), which may extended to any CPU with C++ support
-  * hipSYCL OpenCL backend + PoCL
-  * hipSYCL OpenCL backend + Mesa Rusticl + llvmpipe
-  * intel/llvm OpenCL backend + [intel/opencl-intercept-layer](https://github.com/intel/opencl-intercept-layer) + [PoCL](http://portablecl.org/) CPU backend
-    * intel/opencl-intercept-layer used for SYCL USM -> OpenCL SVM emulation (not required for PoCL now, though):
+| SYCL implementation | Backend      |                         | Device Arch         | Deive Name                                                                            |
+|:--------------------|:-------------|:------------------------|:--------------------|:--------------------------------------------------------------------------------------|
+| AdaptiveCpp         | HIP/ROCm     |                         | gfx906              | AMD Radeon VII                                                                        |
+| AdaptiveCpp         | HIP/ROCm     |                         | gfx1035             | AMD Radeon 680M [4]                                                                   |
+| AdaptiveCpp         | HIP/ROCm     |                         | gfx1100             | AMD Radeon 7900 XTX                                                                   |
+| AdaptiveCpp         | MUSA [1] [2] |                         | mp_21               | Moore Threads MTT S3000                                                               |
+| AdaptiveCpp         | CUDA         |                         | sm_86               | NVIDIA A40 / RTX A4000 / 3090 / 3080                                                  |
+| AdaptiveCpp         | OpenCL       | PoCL + CPU              | x86_64 zen3+        | AMD Ryzen Pro R7-6850HS                                                               |
+| AdaptiveCpp         | OpenCL       | Mesa Rusticl + llvmpipe | x86_64 zen3+        | AMD Ryzen Pro R7-6850HS                                                               |
+| AdaptiveCpp         | OpenMP       | CPU                     | x86_64              | AMD Ryzen Pro R7-6850HS <br/> AMD Threadripper Pro 3955W <br/> Intel Xeon Silver 4314 |
+| AdaptiveCpp         | OpenMP       | CPU                     | riscv64 RV64GC virt | QEMU RISC-V 64                                                                        |
+| [DATA EXPUNGED]     |              |                         |                     | “Vendor V" "Device X" [5]                                                             |
+| Intel oneAPI DPC++  | HIP/ROCm     |                         | gfx906              | AMD Radeon VII                                                                        |
+| Intel oneAPI DPC++  | HIP/ROCm     |                         | gfx1035             | AMD Radeon 680M [4]                                                                   |
+| Intel oneAPI DPC++  | CUDA         |                         | sm_86               | NVIDIA A40                                                                            |
+| Intel oneAPI DPC++  | OpenCL       | PoCL [3] + CPU          | x86_64 zen3+        | AMD Ryzen Pro R7-6850HS                                                               | 
+
+[1] AdaptiveCpp MUSA backend [(working-in-progress)](https://github.com/AdaptiveCpp/AdaptiveCpp/pull/1095)  
+[2] due to numerical error in muFFT library, cannot get correct result on certain MUSA versions  
+[3] [intel/opencl-intercept-layer](https://github.com/intel/opencl-intercept-layer) used for SYCL USM -> OpenCL SVM emulation (not required for PoCL now, though):
 ```bash
 export LD_PRELOAD=/opt/opencl-intercept-layer/lib/libOpenCL.so
 export CLI_Emulate_cl_intel_unified_shared_memory=1
 export CLI_SuppressLogging=1
 ```
-* Intel Ice Lake CPU
-  * hipSYCL CPU backend (+CBS)
-* QEMU emulated RISC-V 64 CPU
-  * hipSYCL CPU backend
+[4] Integrated GPU of AMD Ryzen 6800 series.  
+[5] "GPU-like accelerator". Information not available due to policy of this vendor.
 
-To be tested:
-* Rusticl (except llvmpipe) & PoCL (except CPU)
-  * no device...
-  * some backends has no SVM support, like radeonsi
-* clspv + clvk
-  * blocked by SVM support...
-* Intel GPU
-  * no device...
-* Huawei Ascend
-  * no compiler & no device...
+Note: support of NVIDIA CUDA devices is of low priority and may be removed in the future.
 
-Tested NOT supported:
-* Codeplay ComputeCpp Experimental 2.11
-  * header not compatible with C++20
-  * segmentation fault in runtime library, not open-source so no way to debug
-  * didn't & maybe will never support (as it is [winding down](https://codeplay.com/portal/news/2023/07/07/the-future-of-computecpp))
+
+## Building
+Note that this repository has submodule for dependency management, don't forget to add `--recursive` when cloning this git repo, or use
+```bash
+git submodule update --init
+```
+if you have cloned this repo.
+
+Then please refer to [BUILDING.md](BUILDING.md)
+
 
 ## Usage
 Beside compile-time configurations (see [BUILDING.md](BUILDING.md)), 
-there are also runtime configurations that can be input with priority 
+there are also runtime configurations that can be set, with priority rule
 "by command-line" > "by config file" > "default value"
 
 An example config file is at `userspace/srtb_config.cfg`; meanings of these
@@ -283,6 +273,7 @@ Operation Options:
 * enlarge kernel buffer for networking, e.g.
 
 ```ini
+# /etc/sysctl.d/98-net.conf
 net.core.rmem_max = 536870912
 net.core.wmem_max = 536870912
 net.core.rmem_default = 536870912
@@ -330,9 +321,9 @@ Main part of this program is licensed under [Mulan Public License, Version 2](ht
 
 Please notice that Mulan Public License (MulanPubL) is different from Mulan Permissive License (MulanPSL). The former, which this project uses, is more of GPL-like.
 
-In accordance with the license, no contributor will be liable for any damaged caused by this program.
+Note: In accordance with the license, no contributor will be liable for any damaged caused by this program.
 A device failure has been encountered during daily observation using Intel server CPU + NVIDIA server GPU setup, although a reboot simply fixed it.
-**Please pay special attention to server cooling before observation.**
+Please pay special attention to server cooling before observation.
 
 ## Credits
 This repo uses 3rd-party code, including:
