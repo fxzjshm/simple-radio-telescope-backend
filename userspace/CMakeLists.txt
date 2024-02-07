@@ -72,8 +72,12 @@ if(SRTB_ENABLE_OPENCL)
     add_compile_definitions(SRTB_ENABLE_OPENCL=1)
 endif()
 
+if(SRTB_SYCL_IMPLEMENTATION STREQUAL "hipSYCL")
+  set(SRTB_SYCL_IMPLEMENTATION "AdaptiveCpp")
+endif()
+
 # setup SYCL compilers
-if(SRTB_SYCL_IMPLEMENTATION STREQUAL "hipSYCL" OR SRTB_SYCL_IMPLEMENTATION STREQUAL "AdaptiveCpp")
+if(SRTB_SYCL_IMPLEMENTATION STREQUAL "AdaptiveCpp")
   # e.g. ACPP_TARGETS=cuda:sm_86;hip:gfx906;omp or ACPP_TARGETS=generic;omp
   # using CMake list as it happens to be semi-column separated
   if(NOT DEFINED ACPP_TARGETS)
