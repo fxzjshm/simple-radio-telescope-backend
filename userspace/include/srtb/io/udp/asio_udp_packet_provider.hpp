@@ -18,8 +18,10 @@
 #include <boost/asio/io_service.hpp>
 #include <boost/asio/ip/udp.hpp>
 #include <cstddef>
-#include <string>
 #include <span>
+#include <string>
+
+#include "srtb/log/log.hpp"
 
 namespace srtb {
 namespace io {
@@ -54,6 +56,32 @@ class asio_packet_provider {
     auto receive_buffer = boost::asio::buffer(h_out.data(), h_out.size());
     const size_t udp_packet_size = socket.receive_from(receive_buffer, ep2);
     return udp_packet_size;
+  }
+
+  /**
+   * @brief Receive packet into given position (async version, return immediately)
+   * @param h_out (mutable) packet will be written to
+   */
+  template <typename Callback>
+  void receive_async(/* mutable */ std::span<std::byte> h_out,
+                     Callback callback) {
+    auto receive_buffer = boost::asio::buffer(h_out.data(), h_out.size());
+    socket.async_receive_from(
+        receive_buffer, ep2,
+        [=](const boost::system::error_code& err, std::size_t read_bytes) {
+          if (err) [[unlikely]] {
+            SRTB_LOGE << " [asio_packet_provider] "
+                      << "receiver callback error: " << err.to_string()
+                      << srtb::endl;
+          } else {
+            callback(read_bytes);
+          }
+        });
+  }
+
+  // TODO: is this name appropriate?
+  void run_eventloop() {
+    io_service.run();
   }
 };
 

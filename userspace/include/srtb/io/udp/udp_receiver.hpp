@@ -160,15 +160,24 @@ class udp_receiver_worker {
     packet_provider_thread =
         std::jthread{[=, this](std::stop_token stop_token) {
           srtb::thread_affinity::set_thread_affinity(cpu_preferred);
-          while (!stop_token.stop_requested()) [[likely]] {
-            packet_t* h_packet = packet_cache.get_or_allocate_free();
-            h_packet->bytes_received = packet_provider.receive(
-                std::span<std::byte>{h_packet->packet_countainer});
-            packet_cache.push_received(h_packet);
-          }
+          do_async_receive();
+          packet_provider.run_eventloop();
         }};
   }
 
+ protected:
+  void do_async_receive() {
+    packet_t* h_packet = packet_cache.get_or_allocate_free();
+    packet_provider.receive_async(
+        std::span<std::byte>{h_packet->packet_countainer},
+        /* callback = */ [=, this](size_t read_bytes) {
+          h_packet->bytes_received = read_bytes;
+          packet_cache.push_received(h_packet);
+          do_async_receive();
+        });
+  }
+
+ public:
   ~udp_receiver_worker() { packet_provider_thread = std::jthread{}; }
 
   /**
