@@ -19,8 +19,10 @@
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/io_service.hpp>
 #include <boost/asio/ip/udp.hpp>
+#include <boost/lockfree/spsc_queue.hpp>
 #include <chrono>
 #include <cstring>
+#include <deque>
 #include <iostream>
 #include <limits>
 #include <span>
@@ -28,10 +30,73 @@
 #include <vector>
 
 #include "srtb/commons.hpp"
+#include "srtb/thread_affinity.hpp"
 
 namespace srtb {
 namespace io {
 namespace udp {
+
+template <typename T>
+class packet_cache_t {
+ protected:
+  boost::lockfree::spsc_queue<T*> received_packet_queue;
+  boost::lockfree::spsc_queue<T*> free_packet_queue;
+  std::deque<std::unique_ptr<T> > packet_owner;
+
+ public:
+  explicit packet_cache_t(size_t initial_queue_size)
+      : received_packet_queue{initial_queue_size},
+        free_packet_queue{initial_queue_size} {
+    for (size_t i = 0; i < initial_queue_size / 2; i++) {
+      free_packet_queue.push(allocate_free());
+    }
+  }
+
+  auto allocate_free() -> T* {
+    auto h_packet_unique = std::make_unique<T>();
+    T* h_packet = h_packet_unique.get();
+    packet_owner.push_back(std::move(h_packet_unique));
+    return h_packet;
+  }
+
+  auto get_or_allocate_free() -> T* {
+    T* h_packet = nullptr;
+    const bool pop_success = free_packet_queue.pop(h_packet);
+    if (!pop_success) {
+      h_packet = allocate_free();
+    }
+    return h_packet;
+  }
+
+  void put_free(T* h_packet) {
+    bool push_success = false;
+    while (!push_success) {
+      push_success = free_packet_queue.push(h_packet);
+    }
+  }
+
+  void push_received(T* h_packet) {
+    bool push_success = false;
+    while (!push_success) {
+      push_success = received_packet_queue.push(h_packet);
+    }
+  }
+
+  auto pop_received() -> T* {
+    T* ret = nullptr;
+    bool pop_success = false;
+    while (!pop_success) {
+      pop_success = received_packet_queue.pop(ret);
+    }
+    return ret;
+  }
+};
+
+using packet_container_t = std::array<std::byte, UDP_MAX_SIZE>;
+struct alignas(srtb::MEMORY_ALIGNMENT) packet_t {
+  packet_container_t packet_countainer;
+  size_t bytes_received;
+};
 
 /**
  * @brief A source that receives UDP packet and unpack it.
@@ -46,14 +111,19 @@ namespace udp {
 template <typename PacketProvider, typename PacketParser>
 class udp_receiver_worker {
  protected:
-  PacketProvider packet_provider;
-  PacketParser packet_parser;
+  // TODO: this seems arbitary
+  size_t initial_queue_size =
+      static_cast<size_t>(std::numeric_limits<int>::max()) /
+          PacketParser::data_size +
+      1;
+  packet_cache_t<packet_t> packet_cache;
+  std::jthread packet_provider_thread;
 
   /**
    * @brief buffer for receiving one UDP packet
    * @note not directly writing to output because packet counter is in the packet.
    */
-  std::array<std::byte, UDP_MAX_SIZE> udp_packet_buffer;
+  packet_t* udp_packet_buffer = nullptr;
   size_t udp_packet_buffer_pos = 0;
   size_t udp_packet_buffer_size = 0;
 
@@ -75,11 +145,31 @@ class udp_receiver_worker {
 
   bool can_restart;
 
+  PacketProvider packet_provider;
+  PacketParser packet_parser;
+
  public:
   udp_receiver_worker(const std::string& sender_address,
-                      const unsigned short sender_port, bool can_restart_)
-      : packet_provider{sender_address, sender_port},
-        can_restart{can_restart_} {}
+                      const unsigned short sender_port, bool can_restart_,
+                      int32_t cpu_preferred)
+      : packet_cache{initial_queue_size},
+        can_restart{can_restart_},
+        packet_provider{sender_address, sender_port} {
+    srtb::thread_affinity::set_thread_affinity(cpu_preferred - 2);
+
+    packet_provider_thread =
+        std::jthread{[=, this](std::stop_token stop_token) {
+          srtb::thread_affinity::set_thread_affinity(cpu_preferred);
+          while (!stop_token.stop_requested()) [[likely]] {
+            packet_t* h_packet = packet_cache.get_or_allocate_free();
+            h_packet->bytes_received = packet_provider.receive(
+                std::span<std::byte>{h_packet->packet_countainer});
+            packet_cache.push_received(h_packet);
+          }
+        }};
+  }
+
+  ~udp_receiver_worker() { packet_provider_thread = std::jthread{}; }
 
   /**
    * @brief Receive given number of bytes, with counter continuity already checked
@@ -143,7 +233,8 @@ class udp_receiver_worker {
         const size_t data_to_be_copied_size =
             std::min(udp_packet_buffer_size - udp_packet_buffer_pos,
                      data_buffer_available_length);
-        std::copy_n(udp_packet_buffer.begin() + udp_packet_buffer_pos,
+        std::copy_n(udp_packet_buffer->packet_countainer.begin() +
+                        udp_packet_buffer_pos,
                     data_to_be_copied_size, /* -> */
                     data_buffer_ptr + data_buffer_content_size);
         udp_packet_buffer_pos += data_to_be_copied_size;
@@ -155,12 +246,17 @@ class udp_receiver_worker {
       } else if (udp_packet_buffer_pos < udp_packet_buffer_size) [[unlikely]] {
         copy_packet();
       } else [[likely]] {
-        // receive packet
-        udp_packet_buffer_size =
-            packet_provider.receive(std::span<std::byte>{udp_packet_buffer});
+        if (udp_packet_buffer) {
+          packet_cache.put_free(udp_packet_buffer);
+          udp_packet_buffer = nullptr;
+        }
+        // get received packet
+        udp_packet_buffer = packet_cache.pop_received();
+        udp_packet_buffer_size = udp_packet_buffer->bytes_received;
         const auto [header_size, received_counter_, timestamp] =
-            packet_parser.parse(std::span<std::byte>{udp_packet_buffer.begin(),
-                                                     udp_packet_buffer_size});
+            packet_parser.parse(std::span<std::byte>{
+                udp_packet_buffer->packet_countainer.begin(),
+                udp_packet_buffer_size});
         const size_t data_len = udp_packet_buffer_size - header_size;
 
         // remember to check whether this can hold all kinds of counters

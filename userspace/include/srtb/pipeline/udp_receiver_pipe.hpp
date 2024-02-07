@@ -83,12 +83,11 @@ class udp_receiver_pipe {
       }
     }
     const bool udp_receiver_can_restart = srtb::config.udp_receiver_can_restart;
-    opt_worker.emplace(sender_address, sender_port, udp_receiver_can_restart);
 
-    const auto& cpus_preferred = srtb::config.udp_receiver_cpu_preferred;
-    if (0 <= id && id < cpus_preferred.size()) {
-      const auto cpu_preferred = cpus_preferred.at(id);
-      srtb::thread_affinity::set_thread_affinity(cpu_preferred);
+    int32_t cpu_preferred = -1;
+    const auto& cpus_preferences = srtb::config.udp_receiver_cpu_preferred;
+    if (0 <= id && id < cpus_preferences.size()) {
+      cpu_preferred = cpus_preferences.at(id);
     } else {
       // no preferred CPU is set, so not setting thread affinity
       SRTB_LOGW << " [udp receiver pipe] "
@@ -96,6 +95,9 @@ class udp_receiver_pipe {
                 << "CPU affinity not set, performance may be degraded"
                 << srtb::endl;
     }
+
+    opt_worker.emplace(sender_address, sender_port, udp_receiver_can_restart,
+                       cpu_preferred);
 
     SRTB_LOGI << " [udp receiver pipe] "
               << "id = " << id << ": "

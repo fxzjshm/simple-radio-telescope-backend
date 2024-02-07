@@ -44,6 +44,8 @@ struct naocpsr_roach2_packet_parser {
   constexpr static size_t data_stream_count = 1;
   using counter_type = uint64_t;
   static inline constexpr size_t counter_size = sizeof(counter_type);
+  /** @brief typical bytes count of data inside a UDP packet. */
+  static inline constexpr size_t data_size = 4096;
 
   static inline constexpr auto parse(std::span<std::byte> udp_packet_buffer) {
     // what if packet_size < counter_size ?
@@ -93,6 +95,8 @@ struct naocpsr_snap1_packet_parser : public naocpsr_roach2_packet_parser {
 struct gznupsr_a1_packet_parser {
   /** @brief number of polarizations in a single data stream; was 4 in original version */
   constexpr static size_t data_stream_count = 2;
+  /** @brief typical bytes count of data inside a UDP packet. */
+  static inline constexpr size_t data_size = 8192;
 
   using counter_type = uint64_t;
   static constexpr size_t counter_size = sizeof(counter_type);
