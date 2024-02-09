@@ -32,13 +32,11 @@ namespace pipeline {
  * @see @c srtb::io::udp::udp_receiver_worker
  * TODO: separate reserving samples for coherent dedispersion
  */
-template <typename PacketProvider, typename PacketParser>
+template <typename UDPReceiverWorker>
 class udp_receiver_pipe {
  protected:
   sycl::queue q;
-  std::optional<
-      srtb::io::udp::udp_receiver_worker<PacketProvider, PacketParser> >
-      opt_worker;
+  std::optional<UDPReceiverWorker> opt_worker;
   /**
    * @brief identifier for different pipe instances
    * 
@@ -114,7 +112,8 @@ class udp_receiver_pipe {
     const size_t baseband_input_bytes = baseband_input_count *
                                         std::abs(baseband_input_bits) /
                                         srtb::BITS_PER_BYTE;
-    const size_t data_stream_count = PacketParser::data_stream_count;
+    const size_t data_stream_count =
+        UDPReceiverWorker::packet_parser_t::data_stream_count;
 
     // reserved some samples for next round
     size_t nsamps_reserved = srtb::codd::nsamps_reserved();
@@ -178,17 +177,26 @@ inline auto start_udp_receiver_pipe(std::string_view backend_name,
 
   if (backend_name == naocpsr_roach2::name) {
     using backend_t = naocpsr_roach2;
-    using pipe_t = udp_receiver_pipe<provider_t, backend_t::packet_parser>;
+    using worker_t =
+        srtb::io::udp::udp_receiver_worker<provider_t,
+                                           backend_t::packet_parser>;
+    using pipe_t = udp_receiver_pipe<worker_t>;
     return start_pipe<pipe_t>(args...);
   }
   if (backend_name == naocpsr_snap1::name) {
     using backend_t = naocpsr_snap1;
-    using pipe_t = udp_receiver_pipe<provider_t, backend_t::packet_parser>;
+    using worker_t =
+        srtb::io::udp::udp_receiver_worker<provider_t,
+                                           backend_t::packet_parser>;
+    using pipe_t = udp_receiver_pipe<worker_t>;
     return start_pipe<pipe_t>(args...);
   }
   if (backend_name == gznupsr_a1::name) {
     using backend_t = gznupsr_a1;
-    using pipe_t = udp_receiver_pipe<provider_t, backend_t::packet_parser>;
+    using worker_t =
+        srtb::io::udp::udp_receiver_worker<provider_t,
+                                           backend_t::packet_parser>;
+    using pipe_t = udp_receiver_pipe<worker_t>;
     return start_pipe<pipe_t>(args...);
   }
   throw std::invalid_argument{
