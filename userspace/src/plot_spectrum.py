@@ -61,8 +61,8 @@ def main():
     mpl.rcParams['agg.path.chunksize'] = 10000
     # https://stackoverflow.com/questions/42973223/how-to-share-x-axes-of-two-subplots-after-they-have-been-created
     fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, gridspec_kw={'width_ratios': [3, 1], 'height_ratios': [3, 1]})
-    ax1.get_shared_x_axes().join(ax1, ax3)
-    ax1.get_shared_y_axes().join(ax1, ax2)
+    ax1.sharex(ax3)
+    ax1.sharey(ax2)
     ax1.pcolormesh(spec_zoomed, vmin=0.0, vmax=10*spec_average)
     ax2.plot(freq_dist, np.array(range(freq_dist.shape[0])))
     ax3.plot(time_series)
