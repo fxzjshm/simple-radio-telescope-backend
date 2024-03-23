@@ -31,66 +31,14 @@
 
 #include "srtb/commons.hpp"
 #include "srtb/thread_affinity.hpp"
+#include "srtb/memory/dual_port_object_pool.hpp"
 
 namespace srtb {
 namespace io {
 namespace udp {
 
 template <typename T>
-class packet_cache_t {
- protected:
-  boost::lockfree::spsc_queue<T*> received_packet_queue;
-  boost::lockfree::spsc_queue<T*> free_packet_queue;
-  std::deque<std::unique_ptr<T> > packet_owner;
-
- public:
-  explicit packet_cache_t(size_t initial_queue_size)
-      : received_packet_queue{initial_queue_size},
-        free_packet_queue{initial_queue_size} {
-    for (size_t i = 0; i < initial_queue_size / 2; i++) {
-      free_packet_queue.push(allocate_free());
-    }
-  }
-
-  auto allocate_free() -> T* {
-    auto h_packet_unique = std::make_unique<T>();
-    T* h_packet = h_packet_unique.get();
-    packet_owner.push_back(std::move(h_packet_unique));
-    return h_packet;
-  }
-
-  auto get_or_allocate_free() -> T* {
-    T* h_packet = nullptr;
-    const bool pop_success = free_packet_queue.pop(h_packet);
-    if (!pop_success) {
-      h_packet = allocate_free();
-    }
-    return h_packet;
-  }
-
-  void put_free(T* h_packet) {
-    bool push_success = false;
-    while (!push_success) {
-      push_success = free_packet_queue.push(h_packet);
-    }
-  }
-
-  void push_received(T* h_packet) {
-    bool push_success = false;
-    while (!push_success) {
-      push_success = received_packet_queue.push(h_packet);
-    }
-  }
-
-  auto pop_received() -> T* {
-    T* ret = nullptr;
-    bool pop_success = false;
-    while (!pop_success) {
-      pop_success = received_packet_queue.pop(ret);
-    }
-    return ret;
-  }
-};
+using packet_cache_t = srtb::memory::dual_port_object_pool<T>;
 
 using packet_container_t = std::array<std::byte, UDP_MAX_SIZE>;
 struct alignas(srtb::MEMORY_ALIGNMENT) packet_t {
@@ -160,7 +108,9 @@ class udp_receiver_worker {
     packet_provider_thread =
         std::jthread{[=, this](std::stop_token stop_token) {
           srtb::thread_affinity::set_thread_affinity(cpu_preferred);
-          do_async_receive();
+          for (size_t i = 0; i < 2; i++) {
+            do_async_receive();
+          }
           packet_provider.run_eventloop();
         }};
   }
