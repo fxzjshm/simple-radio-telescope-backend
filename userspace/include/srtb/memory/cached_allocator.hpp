@@ -72,6 +72,21 @@ class cached_allocator {
     return *this;
   }
 
+ protected:
+  // not thread safe
+  void register_pointer_internal(pointer ptr, size_type ptr_size) {
+    used_ptrs.insert(std::make_pair(ptr, ptr_size));
+  }
+
+ public:
+  void register_pointer(pointer ptr, size_type ptr_size) {
+    std::lock_guard lock{mutex};
+    register_pointer_internal(ptr, ptr_size);
+    SRTB_LOGI << " [cached allocator] "
+              << "registered new memory of size "
+              << ptr_size * sizeof(value_type) << " bytes" << srtb::endl;
+  }
+
   [[nodiscard]] pointer allocate(size_type n) {
     std::lock_guard lock{mutex};
 
@@ -116,7 +131,7 @@ class cached_allocator {
                 << ptr_size * sizeof(value_type) << srtb::endl;
     }
 
-    used_ptrs.insert(std::make_pair(ptr, ptr_size));
+    register_pointer_internal(ptr, ptr_size);
     return ptr;
   }
 
@@ -221,7 +236,7 @@ class cached_allocator {
     free_ptrs.clear();
   }
 
-  const RealAllocator& real_allocator() { return allocator; }
+  RealAllocator& real_allocator() { return allocator; }
 
   ~cached_allocator() {
     deallocate_all_free_ptrs();

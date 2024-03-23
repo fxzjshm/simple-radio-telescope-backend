@@ -62,23 +62,35 @@ inline void allocate_memory_regions(size_t input_pipe_count) {
   const auto data_stream_count =
       srtb::io::backend_registry::get_data_stream_count(
           srtb::config.baseband_format_type);
-  // hold all pointers; using RAII
-  std::vector<std::shared_ptr<std::byte> > ptrs;
+  std::vector<std::jthread> threads;
 
-  for (size_t k = 0; k < input_pipe_count; k++) {
-    // host side udp receiver buffer, raw baseband data
-    for (size_t i = 0; i < 5; i++) {
-      ptrs.push_back(srtb::host_allocator.allocate_shared<std::byte>(
-          data_stream_count * sizeof(std::byte) *
-          srtb::config.baseband_input_count *
-          std::abs(srtb::config.baseband_input_bits) / srtb::BITS_PER_BYTE));
+  {
+    const size_t baseband_size = data_stream_count * sizeof(std::byte) *
+                                 srtb::config.baseband_input_count *
+                                 std::abs(srtb::config.baseband_input_bits) /
+                                 srtb::BITS_PER_BYTE;
+    for (size_t k = 0; k < input_pipe_count; k++) {
+      // host side udp receiver buffer, raw baseband data
+      for (size_t i = 0; i < 5; i++) {
+        threads.push_back(std::jthread{[=]() {
+          auto ptr =
+              srtb::host_allocator.real_allocator().allocate(baseband_size);
+          srtb::host_allocator.register_pointer(ptr, baseband_size);
+        }});
+      }
     }
 
-    // host side buffer to write processed spectrum
-    for (size_t i = 0; i < 2 * data_stream_count; i++) {
-      ptrs.push_back(srtb::host_allocator.allocate_shared<std::byte>(
-          sizeof(srtb::complex<srtb::real>) *
-          (srtb::config.baseband_input_count / 2 + 1)));
+    {
+      // host side buffer to write processed spectrum
+      const size_t spectrum_size = sizeof(srtb::complex<srtb::real>) *
+                                   (srtb::config.baseband_input_count / 2 + 1);
+      for (size_t i = 0; i < 5 * data_stream_count; i++) {
+        threads.push_back(std::jthread{[=]() {
+          auto ptr =
+              srtb::host_allocator.real_allocator().allocate(spectrum_size);
+          srtb::host_allocator.register_pointer(ptr, spectrum_size);
+        }});
+      }
     }
   }
 }
