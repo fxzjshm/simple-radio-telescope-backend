@@ -18,7 +18,6 @@
 #include <iostream>
 #include <sstream>
 
-#include "srtb/global_variables.hpp"
 #include "srtb/log/sync_ostream_wrapper.hpp"
 
 // reference: hipSYCL logger at hipSYCL/common/debug.hpp
@@ -48,6 +47,8 @@ inline srtb::log::levels log_level = srtb::log::levels::INFO;
 
 /** @brief record start time of program, used in log to indicate relative time */
 inline auto log_start_time = std::chrono::system_clock::now();
+
+inline constexpr size_t PREFIX_BUFFER_LENGTH = 64ul;
 
 inline std::string get_log_prefix(const log::levels level) {
   // TODO: std::string, std::string_view, char*, or else?
@@ -79,7 +80,7 @@ inline std::string get_log_prefix(const log::levels level) {
   auto interval = std::chrono::system_clock::now() - srtb::log::log_start_time;
   double interval_sec = static_cast<double>(interval.count()) / 1e9;
 
-  char str[srtb::LOG_PREFIX_BUFFER_LENGTH];
+  char str[srtb::log::PREFIX_BUFFER_LENGTH];
   std::snprintf(str, sizeof(str), "%s[%9.06f] %s%s:", prefix.c_str(),
                 interval_sec, tag.c_str(), suffix.c_str());
   return std::string(str);

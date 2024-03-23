@@ -20,7 +20,7 @@
 #include <hwloc.h>
 #endif
 
-#include "srtb/commons.hpp"
+#include "srtb/log/log.hpp"
 
 namespace srtb {
 namespace thread_affinity {
