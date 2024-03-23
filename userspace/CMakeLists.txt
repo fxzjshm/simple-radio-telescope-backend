@@ -154,6 +154,9 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 # set C++ language version requirement
 set(CMAKE_CXX_STANDARD 20)
 
+# for clangd
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 # https://cmake.org/cmake/help/v3.9/module/CheckIPOSupported.html
 # Optional IPO. Do not use IPO if it's not supported by compiler.
 include(CheckIPOSupported)
@@ -254,6 +257,7 @@ else()
 endif()
 
 ## 3rdparty
+add_subdirectory("3rdparty")
 include_directories(SYSTEM "3rdparty/")
 include_directories(SYSTEM "3rdparty/matplotlib-cpp/")
 include_directories(SYSTEM "3rdparty/SyclParallelSTL/include/")
@@ -261,7 +265,6 @@ include_directories(SYSTEM "3rdparty/dsmath/")
 include_directories(SYSTEM "3rdparty/concurrentqueue/")
 include_directories(SYSTEM "3rdparty/SyclCPLX/include/")
 include_directories(SYSTEM "3rdparty/cnpy/")
-add_subdirectory("3rdparty")
 
 ## Qt (optional)
 ### ref: https://doc.qt.io/qt-6/cmake-qt5-and-qt6-compatibility.html
