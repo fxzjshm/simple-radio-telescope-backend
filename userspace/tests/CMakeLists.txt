@@ -32,3 +32,5 @@ endforeach()
 add_test(NAME test-multi_reduce-1307-21996 COMMAND test-multi_reduce 1307 21996)
 add_test(NAME test-multi_reduce-7-1723 COMMAND test-multi_reduce 7 1723)
 add_test(NAME test-multi_reduce-2907-9 COMMAND test-multi_reduce 2907 9)
+
+add_subdirectory("misc")
