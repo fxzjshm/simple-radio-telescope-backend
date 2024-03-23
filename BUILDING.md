@@ -3,7 +3,7 @@
 * a C++ compiler that supports at least C++20
 * a SYCL 2020 implementation, such as [AdaptiveCpp](https://github.com/AdaptiveCpp/AdaptiveCpp) and [intel/llvm](https://github.com/intel/llvm/)
   * if use AdaptiveCpp, refer to [this guide](https://github.com/AdaptiveCpp/AdaptiveCpp/blob/develop/doc/installing.md)
-  * if use intel/llvm, version newer than `998fd91` (2022.11.07) is needed. Refer to [this guide](https://github.com/intel/llvm/blob/sycl/sycl/doc/GetStartedGuide.md) for installation.
+  * if use intel/llvm, refer to [this guide](https://github.com/intel/llvm/blob/sycl/sycl/doc/GetStartedGuide.md) for installation.
 * Boost libraries
   * the version of Boost libraries required may be newer than that provided by system package manager (see below "BOOST_INLINE and HIP conflicts")
 * hwloc (optional)
