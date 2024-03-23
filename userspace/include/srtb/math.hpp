@@ -17,15 +17,37 @@
 #include <type_traits>
 
 #include "srtb/sycl.hpp"
+// ---
 #include "dsmath_sycl.h"
 
 // defined _SYCL_CPLX_NAMESPACE to avoid namespace conflict
 #define _SYCL_CPLX_NAMESPACE argonne_lcf::sycl_cplx
 #include "sycl_ext_complex.hpp"
 
+/**
+ * @brief Shortcut for namespace of complex type.
+ * @see srtb::math::complex
+ */
+namespace akira {
+
+template <typename T>
+using complex = _SYCL_CPLX_NAMESPACE::complex<T>;
+
+}  // namespace akira
+
 namespace srtb {
 
 inline namespace math {
+
+// maybe double on CPU,
+//       float on most GPUs, even most professional cards of SOME VENDOR.
+using real = float;
+
+/**
+ * @brief In memory of Akira Complex, "My Guiding Star".
+ */
+template <typename T>
+using complex = akira::complex<T>;
 
 template <typename C>
 concept complex_like = requires(C c) {

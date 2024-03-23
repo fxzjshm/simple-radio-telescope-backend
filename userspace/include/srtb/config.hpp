@@ -22,25 +22,9 @@
 
 #include "srtb/math.hpp"
 
-/**
- * @brief Shortcut for namespace of complex type.
- * @see srtb::complex
- */
-namespace akira = _SYCL_CPLX_NAMESPACE;
-
 namespace srtb {
 
 // ------ Compile time configuration ------
-
-// maybe double on CPU,
-//       float on most GPUs, even most professional cards of SOME VENDOR.
-using real = float;
-
-/**
- * @brief In memory of Akira Complex, "My Guiding Star".
- */
-template <typename T>
-using complex = akira::complex<T>;
 
 // option to use managed/unified memory as device memory
 //#define SRTB_USE_USM_SHARED_MEMORY
