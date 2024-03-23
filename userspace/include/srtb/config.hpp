@@ -101,7 +101,7 @@ struct configs {
    *        negative value is signed integers
    *        TODO: 32 -> uint32 or float?
    */
-  int baseband_input_bits = 8;
+  int32_t baseband_input_bits = 8;
 
   /**
    * @brief Type of baseband format: 
@@ -151,7 +151,7 @@ struct configs {
   /**
    * @brief CPU core that UDP receiver should be bound to.
    */
-  std::vector<unsigned int> udp_receiver_cpu_preferred = {0};
+  std::vector<uint32_t> udp_receiver_cpu_preferred = {0};
 
   /**
    * @brief flag to indicate the UDP receivers can skip some if too many samples are lost,
