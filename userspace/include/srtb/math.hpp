@@ -17,6 +17,7 @@
 #include <type_traits>
 
 #include "srtb/sycl.hpp"
+#include "dsmath_sycl.h"
 
 // defined _SYCL_CPLX_NAMESPACE to avoid namespace conflict
 #define _SYCL_CPLX_NAMESPACE argonne_lcf::sycl_cplx
