@@ -108,9 +108,8 @@ inline void signal_handler(int signal) {
   }
   std::signal(signal, next_handler);
   // forward signal to the original one
-  if (next_handler) {
-    next_handler(signal);
-  }
+  // https://stackoverflow.com/questions/6015498/executing-default-signal-handler
+  raise(signal);
 }
 
 }  // namespace srtb
