@@ -13,3 +13,6 @@
 [submodule "userspace/3rdparty/cnpy"]
 	path = userspace/3rdparty/cnpy
 	url = https://github.com/rogersce/cnpy
+[submodule "userspace/3rdparty/mdspan"]
+	path = userspace/3rdparty/mdspan
+	url = https://github.com/kokkos/mdspan
