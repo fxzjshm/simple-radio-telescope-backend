@@ -171,21 +171,21 @@ auto set_config(boost::program_options::variables_map vm) {
   {
     std::vector<std::vector<std::string>> file_list;
     std::string meta_file_list = vm["meta_file_list"].as<std::string>();
-    SRTB_LOGI << " [21cma-make_beam] " << "Reading file list metadata: " << meta_file_list << srtb::endl;
+    SRTB_LOGI << " [program_options] " << "Reading file list metadata: " << meta_file_list << srtb::endl;
     std::vector<std::string> file_lists = read_lines_in_file(meta_file_list);
     auto base_folder = std::filesystem::absolute(std::filesystem::path{meta_file_list}).parent_path();
     BOOST_ASSERT(std::filesystem::exists(base_folder));
     for (size_t i = 0; i < file_lists.size(); i++) {
       std::filesystem::path path = base_folder / file_lists[i];
-      SRTB_LOGI << " [21cma-make_beam] " << "Reading file list: " << path.string() << srtb::endl;
+      SRTB_LOGI << " [program_options] " << "Reading file list: " << path.string() << srtb::endl;
       std::vector<std::string> files = read_lines_in_file(path);
       file_list.push_back(files);
-      BOOST_ASSERT_MSG(
-          files.size() == file_list[0].size(),
-          ("[21cma-make_beam] [main] file count mismatch: " + path.string() + "(" + std::to_string(files.size()) + ")" +
-           ", " + file_lists[0] + "(" + std::to_string(file_list[0].size()) + ")")
-              .c_str());
+      BOOST_ASSERT_MSG(files.size() == file_list[0].size(),
+                       ("[program_options] file count mismatch: " + path.string() + "(" + std::to_string(files.size()) +
+                        ")" + ", " + file_lists[0] + "(" + std::to_string(file_list[0].size()) + ")")
+                           .c_str());
     }
+    SRTB_LOGI << " [program_options] " << "Check file existence" << srtb::endl;
     std::vector<std::future<void>> future{file_lists.size()};
 
     cfg.baseband_file_list = std::move(file_list);

@@ -68,7 +68,7 @@ auto main(int argc, char **argv) -> int {
 
   // setup SYCL environment
   sycl::queue q;
-  SRTB_LOGI << "[21cma-make_beam] " << "device name = " << q.get_device().get_info<sycl::info::device::name>()
+  SRTB_LOGI << " [21cma-make_beam] " << "device name = " << q.get_device().get_info<sycl::info::device::name>()
             << srtb::endl;
 
   srtb::memory::cached_allocator<sycl::usm_allocator<std::byte, sycl::usm::alloc::host, srtb::MEMORY_ALIGNMENT>>
