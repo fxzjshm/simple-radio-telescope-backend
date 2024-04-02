@@ -132,6 +132,10 @@ auto parse_cmdline(int argc, char** argv) {
      "If set, use drifting scan observation mode. ")
     ("meta_file_list", po::value<std::string>(),
      "File containing file of file lists. ")
+    ("nchan", po::value<std::string>()->default_value("2 ** 15"),
+     "Channel count (of complex values)")
+    ("nsamp", po::value<std::string>()->default_value("2500"),
+     "Sample count in a \"subint\". nchan * nsamp complex values is processed at a time")
   ;
   // clang-format on
 
@@ -237,6 +241,12 @@ auto set_config(boost::program_options::variables_map vm) {
     const double mjd = jd - 2400000.5;
     cfg.start_mjd = mjd;
     SRTB_LOGI << " [program_options] " << "Input time = " << begin_str << ", MJD = " << mjd << srtb::endl;
+  }
+
+  // n_channel, n_sample
+  {
+    cfg.n_channel = parse_number(vm["nchan"].as<std::string>());
+    cfg.n_sample = parse_number(vm["nsamp"].as<std::string>());
   }
   return cfg;
 }

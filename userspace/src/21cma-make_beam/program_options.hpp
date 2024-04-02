@@ -27,6 +27,9 @@ struct config {
   std::vector<std::vector<std::string>> baseband_file_list;
   std::vector<sky_coord_t> pointing;
   double start_mjd;
+
+  uint64_t n_channel;
+  uint64_t n_sample;  // in a subint
 };
 
 namespace program_options {

@@ -10,6 +10,7 @@
  * See the Mulan PubL v2 for more details.
  ******************************************************************************/
 
+#include <atomic>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -17,11 +18,14 @@
 #include <future>
 #include <map>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <utility>
 
+#include "3rdparty/multi_file_reader.hpp"
 #include "assert.hpp"
 #include "form_beam.hpp"
+#include "global_variables.hpp"
 #include "mdspan/mdspan.hpp"
 #include "program_options.hpp"
 #include "srtb/algorithm/map_identity.hpp"
@@ -46,25 +50,17 @@ struct mem {
 
 }  // namespace detail
 
-std::string meta_file_list = "meta_file_list.txt";
-
-size_t expected_baseband_buffer_size = 819200000;
-constexpr size_t dada_dbdisk_file_header_size = 4096;
-constexpr size_t station_per_in_file_stream = 2;
-size_t expected_baseband_file_size = expected_baseband_buffer_size + dada_dbdisk_file_header_size;
-
-size_t n_channel = 1 << 15;  // complex numbers
-
 auto main(int argc, char **argv) -> int {
-  auto cfg = srtb::_21cma::make_beam::program_options::parse(argc, argv);
-  auto file_list = cfg.baseband_file_list;
+  const auto cfg = srtb::_21cma::make_beam::program_options::parse(argc, argv);
+  auto &file_list = cfg.baseband_file_list;
 
   // sizes used
-  const size_t n_in_file_stream = file_list.size();
-  const size_t n_station = station_per_in_file_stream * n_in_file_stream;
-  const size_t n_buffer_real = expected_baseband_buffer_size / station_per_in_file_stream;
-  const size_t n_buffer_complex = n_buffer_real / 2;
-  const size_t n_sample = n_buffer_complex / n_channel;
+  const size_t n_ifstream = file_list.size();
+  const size_t n_station = station_per_udp_stream * n_ifstream;
+  const size_t n_channel = static_cast<size_t>(cfg.n_channel);
+  const size_t n_sample = static_cast<size_t>(cfg.n_sample);
+  // const size_t n_buffer_complex = n_channel * n_sample * station_per_udp_stream;
+  // const size_t n_buffer_real = n_buffer_complex * 2;
 
   // setup SYCL environment
   sycl::queue q;
@@ -81,54 +77,61 @@ auto main(int argc, char **argv) -> int {
   srtb::memory::cached_allocator<srtb::memory::device_allocator<std::byte, srtb::MEMORY_ALIGNMENT>> device_allocator{q};
 #endif
 
-  // allocate memory regions used
-  std::vector<mem<std::shared_ptr<std::byte>, size_t>> h_in{n_in_file_stream};
-  for (size_t i = 0; i < h_in.size(); i++) {
-    h_in.at(i) = mem{host_allocator.allocate_shared(expected_baseband_buffer_size), expected_baseband_buffer_size};
+  std::vector<std::shared_ptr<MultiFileReader>> reader;
+  reader.resize(n_ifstream);
+  for (size_t i_ifstream = 0; i_ifstream < n_ifstream; i_ifstream++) {
+    reader.at(i_ifstream) = std::make_shared<MultiFileReader>(file_list.at(i_ifstream), dada_dbdisk_file_header_size);
+    //  reader.at(i) = MultiFileReader{file_list.at(i), dada_dbdisk_file_header_size};
   }
 
+  // allocate memory regions used
+  std::vector<mem<std::shared_ptr<std::byte>, size_t>> h_in{n_ifstream};
+  {
+    const size_t n_buffer_complex = n_channel * n_sample * station_per_udp_stream;
+    const size_t n_buffer_real = n_buffer_complex * 2;
+    for (size_t i = 0; i < h_in.size(); i++) {
+      h_in.at(i) = mem{host_allocator.allocate_shared<std::byte>(n_buffer_real), n_buffer_real};
+    }
+  }
   std::vector<mem<std::shared_ptr<std::byte>, size_t>> d_in{h_in.size()};
   for (size_t i = 0; i < d_in.size(); i++) {
-    const auto size_in_block = h_in.at(i).count;
-    d_in.at(i) = mem{device_allocator.allocate_shared(size_in_block), size_in_block};
+    const auto n_buffer_real = h_in.at(i).count;
+    d_in.at(i) = mem{device_allocator.allocate_shared(n_buffer_real), n_buffer_real};
   }
 
-  const size_t operate_buffer_count = n_in_file_stream * expected_baseband_buffer_size;
+  const size_t operate_buffer_count = n_station * n_channel * n_sample * 2;
   mem<std::shared_ptr<srtb::real>, size_t> d_buffer_real = {
       device_allocator.allocate_shared<srtb::real>(operate_buffer_count), operate_buffer_count};
   mem<std::shared_ptr<srtb::complex<srtb::real>>, size_t> d_buffer_complex = {
       std::reinterpret_pointer_cast<srtb::complex<srtb::real>>(d_buffer_real.ptr), d_buffer_real.count / 2};
 
-  std::vector<std::future<void>> task_future{n_in_file_stream};
+  std::vector<std::future<void>> task_future{n_ifstream};
   // std::vector<sycl::event> event{d_unpacked.size()};
 
   srtb::fft::fft_1d_dispatcher<srtb::fft::type::C2C_1D_FORWARD> fft_dispatcher{n_channel, n_sample * n_station, q};
 
-  for (size_t i_file = 0; i_file < file_list[0].size(); i_file++) {
+  std::atomic_uint64_t n_eof_reader = 0;
+
+  // main loop
+  while (n_eof_reader == 0) {
     // read, copy and unpack
-    Kokkos::mdspan<srtb::real, Kokkos::dextents<size_t, 2>> d_unpack{d_buffer_real.ptr.get(), n_station, n_buffer_real};
+    Kokkos::mdspan<srtb::real, Kokkos::dextents<size_t, 2>> d_unpack{d_buffer_real.ptr.get(), n_station,
+                                                                     n_channel * n_sample * 2};
     BOOST_ASSERT(d_unpack.size() == d_buffer_real.count);
-    for (size_t i_in_file_stream = 0; i_in_file_stream < n_in_file_stream; i_in_file_stream++) {
-      const auto file_path = std::filesystem::path{file_list[i_in_file_stream][i_file]};
-      task_future.at(i_in_file_stream) = std::async(
+    for (size_t i_ifstream = 0; i_ifstream < n_ifstream; i_ifstream++) {
+      task_future.at(i_ifstream) = std::async(
           std::launch::async,
-          [file_path, h_in = h_in.at(i_in_file_stream), d_in = d_in.at(i_in_file_stream),
-           d_unpack_1 = Kokkos::submdspan(d_unpack, station_per_in_file_stream * i_in_file_stream, Kokkos::full_extent),
-           d_unpack_2 =
-               Kokkos::submdspan(d_unpack, station_per_in_file_stream * i_in_file_stream + 1, Kokkos::full_extent),
-           _q = q] {
-            BOOST_ASSERT_MSG(std::filesystem::exists(file_path), (file_path.string() + "not found").c_str());
-            BOOST_ASSERT_MSG(std::filesystem::file_size(file_path) == expected_baseband_file_size,
-                             ("File size not expected, expected " + std::to_string(expected_baseband_file_size) +
-                              ", actural " + std::to_string(std::filesystem::file_size(file_path)))
-                                 .c_str());
+          [reader = reader[i_ifstream], h_in = h_in.at(i_ifstream), d_in = d_in.at(i_ifstream),
+           d_unpack_1 = Kokkos::submdspan(d_unpack, station_per_udp_stream * i_ifstream, Kokkos::full_extent),
+           d_unpack_2 = Kokkos::submdspan(d_unpack, station_per_udp_stream * i_ifstream + 1, Kokkos::full_extent),
+           _q = &q, &n_eof_reader] {
+            const auto read_byte = reader->read(reinterpret_cast<char *>(h_in.ptr.get()), h_in.count);
+            if (read_byte == 0) {
+              n_eof_reader++;
+            }
 
-            std::ifstream in_handle{file_path, std::ios::in | std::ios::binary};
-            in_handle.ignore(dada_dbdisk_file_header_size);
-            in_handle.read(reinterpret_cast<char *>(h_in.ptr.get()), h_in.count);
-
+            thread_local auto q = sycl::queue{*_q};
             BOOST_ASSERT(h_in.count == d_in.count);
-            auto q = _q;
             q.copy(h_in.ptr.get(), d_in.ptr.get(), h_in.count).wait();
 
             BOOST_ASSERT(d_unpack_1.size() == d_unpack_2.size());
@@ -148,7 +151,13 @@ auto main(int argc, char **argv) -> int {
     srtb::fft::fft_1d_r2c_in_place_post_process(d_fft.data_handle(), n_channel, n_station * n_sample, q);
   }
 
-  return EXIT_SUCCESS;
+  if (n_eof_reader != n_ifstream) {
+    SRTB_LOGE << " [21cma-make_beam] " << "n_eof_reader = " << std::to_string(n_eof_reader.load()) << ", "
+              << "n_ifstream = " << n_ifstream << srtb::endl;
+    return EXIT_FAILURE;
+  } else {
+    return EXIT_SUCCESS;
+  }
 }
 
 }  // namespace srtb::_21cma::make_beam

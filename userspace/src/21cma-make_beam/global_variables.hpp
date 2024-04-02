@@ -119,6 +119,9 @@ inline std::map<std::string, relative_location_t> antenna_location = {
 /** @brief location of reference point, axis: longitude, latitude, height, unit: degree, degree, meter */
 inline earth_location_t reference_point = {86.71737156, 42.92424534, 2598.13130186};
 
+constexpr static size_t dada_dbdisk_file_header_size = 4096;
+constexpr size_t station_per_udp_stream = 2;
+
 }  // namespace srtb::_21cma::make_beam
 
 #endif  // __SRTB_21CMA_MAKE_BEAM_GLOBAL_VARIABLES__
