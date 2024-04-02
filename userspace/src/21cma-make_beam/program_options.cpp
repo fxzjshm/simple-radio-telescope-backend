@@ -187,6 +187,18 @@ auto set_config(boost::program_options::variables_map vm) {
     }
     SRTB_LOGI << " [program_options] " << "Check file existence" << srtb::endl;
     std::vector<std::future<void>> future{file_lists.size()};
+    for (size_t i = 0; i < file_lists.size(); i++) {
+      future.at(i) = std::async(std::launch::async, [list = file_list.at(i)]() {
+        for (auto&& s : list) {
+          if (!std::filesystem::exists(s)) {
+            throw std::invalid_argument{"Cannot find file " + s};
+          }
+        }
+      });
+    }
+    for (auto&& ftr : future) {
+      ftr.wait();
+    }
 
     cfg.baseband_file_list = std::move(file_list);
   }
