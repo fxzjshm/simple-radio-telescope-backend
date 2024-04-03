@@ -18,6 +18,7 @@
 #include <future>
 #include <map>
 #include <memory>
+#include <span>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -42,10 +43,21 @@ namespace srtb::_21cma::make_beam {
 
 inline namespace detail {
 
+/** @brief similar to std::span. but use smart pointer & owning this memory */
 template <typename Pointer, typename SizeType = size_t>
 struct mem {
   Pointer ptr;
   SizeType count;
+  using Type = Pointer::element_type;
+
+  operator std::span<Type, std::dynamic_extent>() { return std::span{ptr.get(), count}; }
+
+  template <typename... T>
+  auto get_mdspan(T... sizes) {
+    SizeType n = (1 * ... * sizes);
+    BOOST_ASSERT(n == count);
+    return Kokkos::mdspan{ptr.get(), sizes...};
+  }
 };
 
 }  // namespace detail
@@ -115,8 +127,7 @@ auto main(int argc, char **argv) -> int {
   // main loop
   while (n_eof_reader == 0) {
     // read, copy and unpack
-    Kokkos::mdspan<srtb::real, Kokkos::dextents<size_t, 2>> d_unpack{d_buffer_real.ptr.get(), n_station,
-                                                                     n_channel * n_sample * 2};
+    auto d_unpack = d_buffer_real.get_mdspan(n_station, n_channel * n_sample * 2);
     BOOST_ASSERT(d_unpack.size() == d_buffer_real.count);
     for (size_t i_ifstream = 0; i_ifstream < n_ifstream; i_ifstream++) {
       task_future.at(i_ifstream) = std::async(
@@ -144,8 +155,7 @@ auto main(int argc, char **argv) -> int {
     }
 
     // FFT
-    Kokkos::mdspan<srtb::complex<srtb::real>, Kokkos::dextents<size_t, 3>> d_fft{d_buffer_complex.ptr.get(), n_station,
-                                                                                 n_sample, n_channel};
+    auto d_fft = d_buffer_complex.get_mdspan(n_station, n_sample, n_channel);
     BOOST_ASSERT(d_fft.size() == d_buffer_complex.count);
     fft_dispatcher.process(d_fft.data_handle(), d_fft.data_handle());
     srtb::fft::fft_1d_r2c_in_place_post_process(d_fft.data_handle(), n_channel, n_station * n_sample, q);
