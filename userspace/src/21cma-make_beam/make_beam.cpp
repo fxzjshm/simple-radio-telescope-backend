@@ -22,10 +22,13 @@
 #include <stdexcept>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "3rdparty/multi_file_reader.hpp"
 #include "assert.hpp"
+#include "common.hpp"
 #include "form_beam.hpp"
+#include "get_delay.hpp"
 #include "global_variables.hpp"
 #include "mdspan/mdspan.hpp"
 #include "program_options.hpp"
@@ -71,8 +74,12 @@ auto main(int argc, char **argv) -> int {
   const size_t n_station = station_per_udp_stream * n_ifstream;
   const size_t n_channel = static_cast<size_t>(cfg.n_channel);
   const size_t n_sample = static_cast<size_t>(cfg.n_sample);
-  // const size_t n_buffer_complex = n_channel * n_sample * station_per_udp_stream;
-  // const size_t n_buffer_real = n_buffer_complex * 2;
+  const size_t n_buffer_complex = n_channel * n_sample * station_per_udp_stream;
+  const size_t n_buffer_real = n_buffer_complex * 2;
+  const size_t n_pointing = cfg.pointing.size();
+
+  const double start_mjd = cfg.start_mjd;
+  const auto observation_mode = cfg.observation_mode;
 
   // setup SYCL environment
   sycl::queue q;
@@ -89,6 +96,7 @@ auto main(int argc, char **argv) -> int {
   srtb::memory::cached_allocator<srtb::memory::device_allocator<std::byte, srtb::MEMORY_ALIGNMENT>> device_allocator{q};
 #endif
 
+  // setup file reader
   std::vector<std::shared_ptr<MultiFileReader>> reader;
   reader.resize(n_ifstream);
   for (size_t i_ifstream = 0; i_ifstream < n_ifstream; i_ifstream++) {
@@ -99,15 +107,12 @@ auto main(int argc, char **argv) -> int {
   // allocate memory regions used
   std::vector<mem<std::shared_ptr<std::byte>, size_t>> h_in{n_ifstream};
   {
-    const size_t n_buffer_complex = n_channel * n_sample * station_per_udp_stream;
-    const size_t n_buffer_real = n_buffer_complex * 2;
     for (size_t i = 0; i < h_in.size(); i++) {
       h_in.at(i) = mem{host_allocator.allocate_shared<std::byte>(n_buffer_real), n_buffer_real};
     }
   }
   std::vector<mem<std::shared_ptr<std::byte>, size_t>> d_in{h_in.size()};
   for (size_t i = 0; i < d_in.size(); i++) {
-    const auto n_buffer_real = h_in.at(i).count;
     d_in.at(i) = mem{device_allocator.allocate_shared(n_buffer_real), n_buffer_real};
   }
 
@@ -117,11 +122,37 @@ auto main(int argc, char **argv) -> int {
   mem<std::shared_ptr<srtb::complex<srtb::real>>, size_t> d_buffer_complex = {
       std::reinterpret_pointer_cast<srtb::complex<srtb::real>>(d_buffer_real.ptr), d_buffer_real.count / 2};
 
+  mem<std::shared_ptr<double>, size_t> h_delay = {host_allocator.allocate_shared<double>(n_station), n_station};
+  mem<std::shared_ptr<double>, size_t> d_delay = {device_allocator.allocate_shared<double>(n_station), n_station};
+
+  mem<std::shared_ptr<srtb::complex<srtb::real>>, size_t> d_weight = {
+      device_allocator.allocate_shared<srtb::complex<srtb::real>>(n_station * n_channel), n_station * n_channel};
+  mem<std::shared_ptr<srtb::complex<srtb::real>>, size_t> d_out = {
+      device_allocator.allocate_shared<srtb::complex<srtb::real>>(n_sample * n_channel), n_sample * n_channel};
+  mem<std::shared_ptr<srtb::complex<srtb::real>>, size_t> h_out = {
+      host_allocator.allocate_shared<srtb::complex<srtb::real>>(n_sample * n_channel), n_sample * n_channel};
+
+  std::vector<std::ofstream> fout{n_pointing};
+  BOOST_ASSERT(n_pointing == cfg.out_path.size());
+  for (size_t i_pointing = 0; i_pointing < n_pointing; i_pointing++) {
+    fout.at(i_pointing) = std::ofstream{cfg.out_path.at(i_pointing)};
+  }
+
+  // station info
+  std::vector<relative_location_t> station_location(n_station);
+  std::vector<double> station_cable_delay(n_station);
+  for (size_t i_station = 0; i_station < n_station; i_station++) {
+    const auto &station = station_map.at(i_station);
+    station_location.at(i_station) = antenna_location[station];
+    station_cable_delay.at(i_station) = cable_delay_table[station];
+  }
+
   std::vector<std::future<void>> task_future{n_ifstream};
   // std::vector<sycl::event> event{d_unpacked.size()};
 
   srtb::fft::fft_1d_dispatcher<srtb::fft::type::C2C_1D_FORWARD> fft_dispatcher{n_channel, n_sample * n_station, q};
 
+  std::atomic_size_t read_byte = 0;
   std::atomic_uint64_t n_eof_reader = 0;
 
   // main loop
@@ -132,13 +163,16 @@ auto main(int argc, char **argv) -> int {
     for (size_t i_ifstream = 0; i_ifstream < n_ifstream; i_ifstream++) {
       task_future.at(i_ifstream) = std::async(
           std::launch::async,
-          [reader = reader[i_ifstream], h_in = h_in.at(i_ifstream), d_in = d_in.at(i_ifstream),
+          [i_ifstream, reader = reader[i_ifstream], h_in = h_in.at(i_ifstream), d_in = d_in.at(i_ifstream),
            d_unpack_1 = Kokkos::submdspan(d_unpack, station_per_udp_stream * i_ifstream, Kokkos::full_extent),
            d_unpack_2 = Kokkos::submdspan(d_unpack, station_per_udp_stream * i_ifstream + 1, Kokkos::full_extent),
-           _q = &q, &n_eof_reader] {
-            const auto read_byte = reader->read(reinterpret_cast<char *>(h_in.ptr.get()), h_in.count);
-            if (read_byte == 0) {
+           _q = &q, &n_eof_reader, &read_byte] {
+            const auto read_byte_this_round = reader->read(reinterpret_cast<char *>(h_in.ptr.get()), h_in.count);
+            if (read_byte_this_round == 0) [[unlikely]] {
               n_eof_reader++;
+            }
+            if (i_ifstream == 0) {
+              read_byte += read_byte_this_round;
             }
 
             thread_local auto q = sycl::queue{*_q};
@@ -146,6 +180,7 @@ auto main(int argc, char **argv) -> int {
             q.copy(h_in.ptr.get(), d_in.ptr.get(), h_in.count).wait();
 
             BOOST_ASSERT(d_unpack_1.size() == d_unpack_2.size());
+            BOOST_ASSERT(d_unpack_1.size() * 2 == d_in.count);
             srtb::unpack::unpack_naocpsr_snap1(d_in.ptr.get(), d_unpack_1.data_handle(), d_unpack_2.data_handle(),
                                                d_unpack_1.size(), srtb::algorithm::map_identity{}, q);
           });
@@ -159,6 +194,38 @@ auto main(int argc, char **argv) -> int {
     BOOST_ASSERT(d_fft.size() == d_buffer_complex.count);
     fft_dispatcher.process(d_fft.data_handle(), d_fft.data_handle());
     srtb::fft::fft_1d_r2c_in_place_post_process(d_fft.data_handle(), n_channel, n_station * n_sample, q);
+
+    // Beamform
+    const auto read_byte_ = read_byte.load();
+    double obstime_mjd_;
+    switch (observation_mode) {
+      case observation_mode_t::TRACKING:
+        obstime_mjd_ =
+            start_mjd + static_cast<double>(read_byte_) / station_per_udp_stream / sample_rate / second_in_day;
+        break;
+      case observation_mode_t::DRIFTING:
+        obstime_mjd_ = start_mjd;
+        break;
+    }
+    const double obstime_mjd = obstime_mjd_;
+    SRTB_LOGI << " [21cma-make_beam] " << "read_byte = " << read_byte_ << ", " << "obstime_mjd = " << std::to_string(obstime_mjd)
+              << srtb::endl;
+
+    auto d_form_beam_in = d_fft;
+    for (size_t i_pointing = 0; i_pointing < n_pointing; i_pointing++) {
+      const auto pointing = cfg.pointing.at(i_pointing);
+      get_delay(pointing, obstime_mjd, station_location, station_cable_delay, h_delay);
+      BOOST_ASSERT(h_delay.count == d_delay.count);
+      q.copy(h_delay.ptr.get(), d_delay.ptr.get(), h_delay.count).wait();
+
+      auto d_weight_ = d_weight.get_mdspan(n_station, n_channel);
+      get_weight(d_delay, freq_min, freq_max, d_weight_, q);
+      auto d_out_ = d_out.get_mdspan(n_sample, n_channel);
+      srtb::_21cma::make_beam::form_beam(d_form_beam_in, d_weight_, d_out_, q);
+      BOOST_ASSERT(d_out.count == h_out.count);
+      q.copy(d_out.ptr.get(), h_out.ptr.get(), d_out.count).wait();
+      fout.at(i_pointing).write(reinterpret_cast<char *>(h_out.ptr.get()), h_out.count);
+    }
   }
 
   if (n_eof_reader != n_ifstream) {

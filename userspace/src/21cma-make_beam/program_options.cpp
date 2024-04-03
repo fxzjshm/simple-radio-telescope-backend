@@ -21,6 +21,7 @@
 #include <fstream>
 #include <future>
 #include <iomanip>
+#include <limits>
 #include <regex>
 #include <sstream>
 #include <stdexcept>
@@ -61,27 +62,35 @@ inline auto parse_number(const std::string& expression) -> double {
   return exprgrammar_parse_double(iter, end);
 }
 
-auto parse_ra_dec(std::string s) -> sky_coord_t {
+auto parse_ra_dec(std::string s) -> std::pair<sky_coord_t, std::string> {
   sky_coord_t sky_coord;
   std::regex regex{R"(^(\d{2}):(\d{2}):(\d{2}(\.\d+)?)(_|\s+)(\+|-)?(\d{2}):(\d{2}):(\d{2}(\.\d+)?)$)"};
   std::smatch match_result;
   bool match_success = std::regex_match(s, match_result, regex);
-  if (!match_success) [[unlikely]] {
+  if (!match_success || !match_result.ready()) [[unlikely]] {
     throw std::invalid_argument("Cannot parse RA Dec: " + s);
   }
 
-  // match_result[0 is whole string result
-  const double ra_h = std::stod(match_result[1]);
-  const double ra_m = std::stod(match_result[2]);
-  const double ra_s = std::stod(match_result[3]);
-  // match[4]: ra_s fraction part
-  // match[5]: delimiter
-  const double dec_sgn = (match_result[6] == "-") ? -1 : +1;
-  const double dec_deg = std::stod(match_result[7]);
-  const double dec_min = std::stod(match_result[8]);
-  const double dec_sec = std::stod(match_result[9]);
-  // match[10]: dec_sec fraction part
-  // match[11:13]: ???
+  // match_result[0] is whole string result
+  const auto ra_h_str = match_result[1];
+  const auto ra_m_str = match_result[2];
+  const auto ra_s_str = match_result[3];
+  // match_result[4]: ra_s fraction part
+  // match_result[5]: delimiter
+  const std::string dec_sgn_str = (match_result[6] == "-") ? "-" : "+";
+  auto dec_deg_str = match_result[7];
+  auto dec_min_str = match_result[8];
+  auto dec_sec_str = match_result[9];
+  // match_result[10]: dec_sec fraction part
+  // match_result[11:13]: ???
+
+  const double ra_h = std::stod(ra_h_str);
+  const double ra_m = std::stod(ra_m_str);
+  const double ra_s = std::stod(ra_s_str);
+  const double dec_sgn = (dec_sgn_str == "-") ? -1 : +1;
+  const double dec_deg = std::stod(dec_deg_str);
+  const double dec_min = std::stod(dec_min_str);
+  const double dec_sec = std::stod(dec_sec_str);
 
   if (!(0 <= ra_h && ra_h < 24)) [[unlikely]] {
     throw std::invalid_argument("RA hour out of range: " + s);
@@ -91,6 +100,9 @@ auto parse_ra_dec(std::string s) -> sky_coord_t {
   }
   if (!(0 <= ra_s && ra_s < 60)) [[unlikely]] {
     throw std::invalid_argument("RA second out of range: " + s);
+  }
+  if (std::abs(dec_sgn) != 1) [[unlikely]] {
+    throw std::runtime_error{"Sign of Dec is incorrect: " + std::to_string(dec_sgn)};
   }
   if (!(0 <= dec_deg && dec_deg <= 90)) [[unlikely]] {
     throw std::invalid_argument("Dec degree out of range: " + s);
@@ -105,7 +117,11 @@ auto parse_ra_dec(std::string s) -> sky_coord_t {
   sky_coord.ra_hour = ra_h + (ra_m + (ra_s / 60)) / 60;
   sky_coord.dec_deg = dec_sgn * (dec_deg + (dec_min + (dec_sec / 60)) / 60);
 
-  return sky_coord;
+  // suitable for file name
+  std::string canonical_ra_dec = ra_h_str.str() + "-" + ra_m_str.str() + "-" + ra_s_str.str() + "_" + dec_sgn_str +
+                                 dec_deg_str.str() + "-" + dec_min_str.str() + "-" + dec_sec_str.str();
+
+  return {sky_coord, canonical_ra_dec};
 }
 
 }  // namespace detail
@@ -122,6 +138,8 @@ auto parse_cmdline(int argc, char** argv) {
    "decsription")
 */
   general_option.add_options()
+    ("help",
+     "Show help message. ")
     ("log_level", po::value<int>()->default_value(static_cast<int>(srtb::log::levels::INFO)),
      "Debug level for console log output. ")
     ("pointings,P", po::value<std::string>(),
@@ -135,7 +153,11 @@ auto parse_cmdline(int argc, char** argv) {
     ("nchan", po::value<std::string>()->default_value("2 ** 15"),
      "Channel count (of complex values)")
     ("nsamp", po::value<std::string>()->default_value("2500"),
-     "Sample count in a \"subint\". nchan * nsamp complex values is processed at a time")
+     "Sample count in a \"subint\". nchan * nsamp complex values is processed at a time. ")
+    ("out_folder,o", po::value<std::string>(),
+     "Output folder")
+    ("force,f",
+     "If set, force overwrite output file if exists. ")
   ;
   // clang-format on
 
@@ -162,11 +184,11 @@ auto set_config(boost::program_options::variables_map vm) {
   // set observation_mode
   {
     if (vm.count("drifting")) {
-      cfg.observation_mode = srtb::_21cma::make_beam::config::observation_mode_t::DRIFTING;
+      cfg.observation_mode = srtb::_21cma::make_beam::observation_mode_t::DRIFTING;
       SRTB_LOGI << " [program_options] " << "observation_mode" << " = " << "DRIFTING" << srtb::endl;
 
     } else {
-      cfg.observation_mode = srtb::_21cma::make_beam::config::observation_mode_t::TRACKING;
+      cfg.observation_mode = srtb::_21cma::make_beam::observation_mode_t::TRACKING;
       SRTB_LOGI << " [program_options] " << "observation_mode" << " = " << "TRACKING" << srtb::endl;
     }
   }
@@ -207,20 +229,32 @@ auto set_config(boost::program_options::variables_map vm) {
     cfg.baseband_file_list = std::move(file_list);
   }
 
-  // read pointing file
+  // read pointing file & set output path
+  std::filesystem::path out_folder = vm["out_folder"].as<std::string>();
+  bool force_overwrite = vm.count("force");
   {
     std::vector<std::string> pointing_str = read_lines_in_file(vm["pointings"].as<std::string>());
     std::vector<sky_coord_t> pointing{pointing_str.size()};
+    std::vector<std::filesystem::path> out_path{pointing_str.size()};
     std::stringstream ss;
     ss << " [program_options] " << "Pointings: " << "{";
     for (size_t i = 0; i < pointing_str.size(); i++) {
       std::string str = pointing_str[i];
       boost::algorithm::trim(str);
-      pointing.at(i) = parse_ra_dec(str);
+      const auto [sky_coord, canonical_ra_dec] = parse_ra_dec(str);
+      pointing.at(i) = sky_coord;
+      const auto out_file_path = out_folder / canonical_ra_dec;  // TODO: suffix
+      if (std::filesystem::exists(out_file_path) && !force_overwrite) {
+        throw std::runtime_error{"File already exists: " + out_file_path.string()};
+      }
+      out_path.at(i) = out_file_path;
       ss << "{" << pointing.at(i).ra_hour << ", " << pointing.at(i).dec_deg << "}" << ", ";
     }
     ss << "}" << srtb::endl;
     cfg.pointing = std::move(pointing);
+    cfg.out_path = std::move(out_path);
+    cfg.force_overwrite = force_overwrite;
+    BOOST_ASSERT(cfg.pointing.size() == cfg.out_path.size());
     SRTB_LOGI << ss.str();
   }
 
@@ -233,11 +267,10 @@ auto set_config(boost::program_options::variables_map vm) {
     std::tm tm;
     ss >> std::get_time(&tm, date_format);
     time_t time = timegm(&tm);
-    std::chrono::time_point<std::chrono::system_clock, std::chrono::duration<double>> sys_tp =
-        std::chrono::system_clock::from_time_t(time);
+    std::chrono::time_point<std::chrono::system_clock, std::chrono::duration<double /*, default unit = second */>>
+        sys_tp = std::chrono::system_clock::from_time_t(time);
     auto jdate_tp = jdate_clock::from_sys(sys_tp);
-    constexpr uint32_t seconds_in_day = 60 * 60 * 24;
-    const double jd = jdate_tp.time_since_epoch().count() / seconds_in_day;
+    const double jd = jdate_tp.time_since_epoch().count() / second_in_day;
     const double mjd = jd - 2400000.5;
     cfg.start_mjd = mjd;
     SRTB_LOGI << " [program_options] " << "Input time = " << begin_str << ", MJD = " << mjd << srtb::endl;
@@ -247,6 +280,21 @@ auto set_config(boost::program_options::variables_map vm) {
   {
     cfg.n_channel = parse_number(vm["nchan"].as<std::string>());
     cfg.n_sample = parse_number(vm["nsamp"].as<std::string>());
+  }
+
+  // write essential info
+  {
+    std::filesystem::path info_path = out_folder / "21cma-make_beam.info";
+    if (std::filesystem::exists(info_path) && !force_overwrite) {
+      throw std::runtime_error{"Info file already exists: " + info_path.string()};
+    }
+    std::ofstream fout{info_path};
+    // fout << std::setprecision(std::numeric_limits<double>::max_digits10);
+    fout << "n_channel = " << cfg.n_channel << srtb::endl;
+    fout << "n_sample = " << cfg.n_sample << srtb::endl;
+    fout << "start_mjd = " << cfg.start_mjd << srtb::endl;
+    fout << "observation_mode = " << to_string(cfg.observation_mode) << srtb::endl;
+    fout.flush();
   }
   return cfg;
 }

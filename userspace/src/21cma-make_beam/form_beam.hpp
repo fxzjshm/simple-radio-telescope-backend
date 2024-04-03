@@ -23,6 +23,11 @@
 
 namespace srtb::_21cma::make_beam {
 
+/**
+ * @param d_in d_in[n_station, n_sample, n_channel]
+ * @param d_weight d_weight[n_station, n_channel]
+ * @param d_out d_out[n_sample, n_channel]
+ */
 inline void form_beam(Kokkos::mdspan<srtb::complex<srtb::real>, Kokkos::dextents<size_t, 3>> d_in,
                       Kokkos::mdspan<srtb::complex<srtb::real>, Kokkos::dextents<size_t, 2>> d_weight,
                       Kokkos::mdspan<srtb::complex<srtb::real>, Kokkos::dextents<size_t, 2>> d_out, sycl::queue &q) {

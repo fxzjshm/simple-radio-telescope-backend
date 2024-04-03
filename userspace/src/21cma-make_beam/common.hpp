@@ -14,6 +14,10 @@
 #ifndef __SRTB_21CMA_MAKE_BEAM_COMMON__
 #define __SRTB_21CMA_MAKE_BEAM_COMMON__
 
+#include <cstddef>
+#include <cstdint>
+#include <string_view>
+
 namespace srtb::_21cma::make_beam {
 
 inline namespace detail {
@@ -30,7 +34,25 @@ struct sky_coord_t {
   double ra_hour, dec_deg;
 };
 
+enum observation_mode_t { TRACKING, DRIFTING };
+inline std::string_view to_string(observation_mode_t o) {
+  switch (o) {
+    case TRACKING:
+      return "TRACKING";
+    case DRIFTING:
+      return "DRIFTING";
+  }
+}
+
 }  // namespace detail
+
+inline constexpr size_t dada_dbdisk_file_header_size = 4096;
+inline constexpr uint32_t station_per_udp_stream = 2;
+inline constexpr double freq_min = 0;
+inline constexpr double freq_max = 204.8 * 1e6;
+inline constexpr uint64_t sample_rate = 2 * (freq_max - freq_min);
+inline constexpr uint32_t second_in_day = 60 * 60 * 24;
+inline constexpr double speed_of_light = 299792458;
 
 }  // namespace srtb::_21cma::make_beam
 

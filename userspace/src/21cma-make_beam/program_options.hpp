@@ -16,13 +16,14 @@
 
 #include <string>
 #include <vector>
+#include <filesystem>
 
 #include "common.hpp"
 
 namespace srtb::_21cma::make_beam {
 
 struct config {
-  enum observation_mode_t { TRACKING, DRIFTING } observation_mode;
+  observation_mode_t observation_mode;
 
   std::vector<std::vector<std::string>> baseband_file_list;
   std::vector<sky_coord_t> pointing;
@@ -30,6 +31,9 @@ struct config {
 
   uint64_t n_channel;
   uint64_t n_sample;  // in a subint
+
+  std::vector<std::filesystem::path> out_path;  // size == n_pointing
+  bool force_overwrite;
 };
 
 namespace program_options {
