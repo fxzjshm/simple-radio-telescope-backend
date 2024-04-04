@@ -226,8 +226,8 @@ auto main(int argc, char **argv) -> int {
         break;
     }
     const double obstime_mjd = obstime_mjd_;
-    SRTB_LOGI << " [21cma-make_beam] " << "read_byte = " << read_byte_ << ", " << "obstime_mjd = " << std::to_string(obstime_mjd)
-              << srtb::endl;
+    SRTB_LOGI << " [21cma-make_beam] " << "read_byte = " << read_byte_ << ", "
+              << "obstime_mjd = " << std::to_string(obstime_mjd) << srtb::endl;
 
     auto d_form_beam_in = d_fft;
     for (size_t i_pointing = 0; i_pointing < n_pointing; i_pointing++) {

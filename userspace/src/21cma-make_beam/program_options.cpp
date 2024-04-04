@@ -239,7 +239,7 @@ auto set_config(boost::program_options::variables_map vm) {
     std::vector<sky_coord_t> pointing{pointing_str.size()};
     std::vector<std::filesystem::path> out_path{pointing_str.size()};
     std::stringstream ss;
-    ss << " [program_options] " << "Pointings: " << "{";
+    ss << " [program_options] " << "Pointings (RA / hr, Dec / deg): " << "{";
     for (size_t i = 0; i < pointing_str.size(); i++) {
       std::string str = pointing_str[i];
       boost::algorithm::trim(str);
