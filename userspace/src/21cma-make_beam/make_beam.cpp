@@ -136,7 +136,11 @@ auto main(int argc, char **argv) -> int {
   std::vector<std::ofstream> fout{n_pointing};
   BOOST_ASSERT(n_pointing == cfg.out_path.size());
   for (size_t i_pointing = 0; i_pointing < n_pointing; i_pointing++) {
-    fout.at(i_pointing) = std::ofstream{cfg.out_path.at(i_pointing)};
+    auto &path = cfg.out_path.at(i_pointing);
+    fout.at(i_pointing) = std::ofstream{path};
+    if (!fout.at(i_pointing)) {
+      throw std::runtime_error{"Cannot write to output: " + path.string()};
+    }
   }
 
   // station info
@@ -246,9 +250,15 @@ auto main(int argc, char **argv) -> int {
 
       auto d_out_ = d_out.get_mdspan(n_sample, n_channel);
       srtb::_21cma::make_beam::form_beam(d_form_beam_in, d_weight_, d_out_, q);
+
+      // write out
       BOOST_ASSERT(d_out.count == h_out.count);
       q.copy(d_out.ptr.get(), h_out.ptr.get(), d_out.count).wait();
-      fout.at(i_pointing).write(reinterpret_cast<char *>(h_out.ptr.get()), h_out.count);
+      fout.at(i_pointing)
+          .write(reinterpret_cast<char *>(h_out.ptr.get()), h_out.count * sizeof(decltype(h_out.ptr)::element_type));
+      if (!fout.at(i_pointing)) {
+        throw std::runtime_error{"Cannot write to output, i_pointing = " + std::to_string(i_pointing)};
+      }
     }
   }
 

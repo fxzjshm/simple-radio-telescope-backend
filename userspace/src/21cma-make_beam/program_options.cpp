@@ -302,6 +302,9 @@ auto set_config(boost::program_options::variables_map vm) {
       throw std::runtime_error{"Info file already exists: " + info_path.string()};
     }
     std::ofstream fout{info_path};
+    if (!fout) {
+      throw std::runtime_error{"Cannot write to info_path: " + info_path.string()};
+    }
     // fout << std::setprecision(std::numeric_limits<double>::max_digits10);
     fout << "n_channel = " << cfg.n_channel << srtb::endl;
     fout << "n_sample = " << cfg.n_sample << srtb::endl;
