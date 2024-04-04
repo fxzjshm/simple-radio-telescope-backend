@@ -147,36 +147,48 @@ auto main(int argc, char **argv) -> int {
     station_cable_delay.at(i_station) = cable_delay_table[station];
   }
 
-  std::vector<std::future<void>> task_future{n_ifstream};
-  // std::vector<sycl::event> event{d_unpacked.size()};
+  std::vector<std::future<void>> read_future{n_ifstream};
+  std::vector<std::future<void>> copy_unpack_future{n_ifstream};
 
   srtb::fft::fft_1d_dispatcher<srtb::fft::type::C2C_1D_FORWARD> fft_dispatcher{n_channel, n_sample * n_station, q};
 
   std::atomic_size_t read_byte = 0;
   std::atomic_uint64_t n_eof_reader = 0;
 
+  auto request_read = [&](size_t i_ifstream) {
+    read_future.at(i_ifstream) = std::async(
+        std::launch::async,
+        [i_ifstream, reader = reader[i_ifstream], h_in = h_in.at(i_ifstream), &n_eof_reader, &read_byte]() {
+          const auto read_byte_this_round = reader->read(reinterpret_cast<char *>(h_in.ptr.get()), h_in.count);
+          if (read_byte_this_round == 0) [[unlikely]] {
+            n_eof_reader++;
+          }
+          if (i_ifstream == 0) {
+            read_byte += read_byte_this_round;
+          }
+        });
+  };
+
+  for (size_t i_ifstream = 0; i_ifstream < n_ifstream; i_ifstream++) {
+    request_read(i_ifstream);
+  }
+
   // main loop
   while (n_eof_reader == 0) {
-    // read, copy and unpack
+    // copy and unpack
     auto d_unpack = d_buffer_real.get_mdspan(n_station, n_channel * n_sample * 2);
     BOOST_ASSERT(d_unpack.size() == d_buffer_real.count);
     for (size_t i_ifstream = 0; i_ifstream < n_ifstream; i_ifstream++) {
-      task_future.at(i_ifstream) = std::async(
+      copy_unpack_future.at(i_ifstream) = std::async(
           std::launch::async,
-          [i_ifstream, reader = reader[i_ifstream], h_in = h_in.at(i_ifstream), d_in = d_in.at(i_ifstream),
+          [read_ftr = &read_future.at(i_ifstream), h_in = h_in.at(i_ifstream), d_in = d_in.at(i_ifstream),
            d_unpack_1 = Kokkos::submdspan(d_unpack, station_per_udp_stream * i_ifstream, Kokkos::full_extent),
            d_unpack_2 = Kokkos::submdspan(d_unpack, station_per_udp_stream * i_ifstream + 1, Kokkos::full_extent),
-           _q = &q, &n_eof_reader, &read_byte] {
-            const auto read_byte_this_round = reader->read(reinterpret_cast<char *>(h_in.ptr.get()), h_in.count);
-            if (read_byte_this_round == 0) [[unlikely]] {
-              n_eof_reader++;
-            }
-            if (i_ifstream == 0) {
-              read_byte += read_byte_this_round;
-            }
-
+           _q = &q] {
             thread_local auto q = sycl::queue{*_q};
             BOOST_ASSERT(h_in.count == d_in.count);
+            // wait for read
+            read_ftr->wait();
             q.copy(h_in.ptr.get(), d_in.ptr.get(), h_in.count).wait();
 
             BOOST_ASSERT(d_unpack_1.size() == d_unpack_2.size());
@@ -185,8 +197,9 @@ auto main(int argc, char **argv) -> int {
                                                d_unpack_1.size(), srtb::algorithm::map_identity{}, q);
           });
     }
-    for (auto &task : task_future) {
-      task.wait();
+    for (size_t i_ifstream = 0; i_ifstream < n_ifstream; i_ifstream++) {
+      copy_unpack_future.at(i_ifstream).wait();
+      request_read(i_ifstream);
     }
 
     // FFT
