@@ -40,12 +40,14 @@ void fft_1d_r2c_in_place_post_process(DeviceComplexInputIterator d_in,
   // operate in-place
   const auto out = d_in;
   // drop highest: not N / 2 + 1 here
-  q.parallel_for(sycl::range<2>{N / 2, batch_size}, [=](sycl::item<2> id) {
+  q.parallel_for(sycl::range<1>{N / 2 * batch_size}, [=](sycl::item<1> id) {
      using C = typename std::remove_cvref<decltype(d_in[0])>::type;
      using T = typename std::remove_cvref<decltype(d_in[0].real())>::type;
 
-     const size_t k = id.get_id(0);
-     const size_t l = id.get_id(1);
+     const size_t N_2 = N / 2;
+     const size_t idx = id.get_id(0);
+     const size_t l = idx / N_2;
+     const size_t k = idx - l * N_2;
      const C H_k = H[l * N + k];
      const C H_N_k = ((k == 0) ? (H[l * N + 0]) : (H[l * N + N - k]));
 
