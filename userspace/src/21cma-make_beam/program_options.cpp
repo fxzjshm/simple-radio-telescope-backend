@@ -154,6 +154,8 @@ auto parse_cmdline(int argc, char** argv) {
      "Channel count (of complex values)")
     ("nsamp", po::value<std::string>()->default_value("2500"),
      "Sample count in a \"subint\". nchan * nsamp complex values is processed at a time. ")
+    ("station_whitelist", po::value<std::vector<std::string>>()->multitoken(),
+     "Name of stations that can be used. ")
     ("out_folder,o", po::value<std::string>(),
      "Output folder")
     ("force,f",
@@ -282,6 +284,17 @@ auto set_config(boost::program_options::variables_map vm) {
     cfg.n_sample = parse_number(vm["nsamp"].as<std::string>());
   }
 
+  std::string station_whitelist_str;
+  {
+    cfg.station_whitelist = vm["station_whitelist"].as<std::vector<std::string>>();
+    std::stringstream ss;
+    for (auto&& s : cfg.station_whitelist) {
+      ss << s << " ";
+    }
+    station_whitelist_str = ss.str();
+    SRTB_LOGI << " [program_options] " << "station_whitelist = " << station_whitelist_str << srtb::endl;
+  }
+
   // write essential info
   {
     std::filesystem::path info_path = out_folder / "21cma-make_beam.info";
@@ -294,6 +307,7 @@ auto set_config(boost::program_options::variables_map vm) {
     fout << "n_sample = " << cfg.n_sample << srtb::endl;
     fout << "start_mjd = " << cfg.start_mjd << srtb::endl;
     fout << "observation_mode = " << to_string(cfg.observation_mode) << srtb::endl;
+    fout << "station_whitelist = " << station_whitelist_str << srtb::endl;
     fout.flush();
   }
   return cfg;

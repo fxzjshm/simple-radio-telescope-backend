@@ -67,7 +67,8 @@ struct mem {
 
 auto main(int argc, char **argv) -> int {
   const auto cfg = srtb::_21cma::make_beam::program_options::parse(argc, argv);
-  auto &file_list = cfg.baseband_file_list;
+  auto file_list = cfg.baseband_file_list;
+  auto station_whitelist = cfg.station_whitelist;
 
   // sizes used
   const size_t n_ifstream = file_list.size();
@@ -233,6 +234,16 @@ auto main(int argc, char **argv) -> int {
 
       auto d_weight_ = d_weight.get_mdspan(n_station, n_channel);
       get_weight(d_delay, freq_min, freq_max, d_weight_, q);
+      for (size_t i_station = 0; i_station < n_station; i_station++) {
+        if (std::find(station_whitelist.begin(), station_whitelist.end(), station_map[i_station]) ==
+            station_whitelist.end()) {
+          // station not found in whitelist
+          auto d_weight_i = Kokkos::submdspan(d_weight_, i_station, Kokkos::full_extent);
+          BOOST_ASSERT(d_weight_i.size() == n_channel);
+          q.fill(d_weight_i.data_handle(), srtb::complex<srtb::real>{0, 0}, d_weight_i.size()).wait();
+        }
+      }
+
       auto d_out_ = d_out.get_mdspan(n_sample, n_channel);
       srtb::_21cma::make_beam::form_beam(d_form_beam_in, d_weight_, d_out_, q);
       BOOST_ASSERT(d_out.count == h_out.count);
