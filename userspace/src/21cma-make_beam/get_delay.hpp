@@ -55,15 +55,20 @@ inline void get_weight(std::span<double> d_total_delay, double f_min, double f_m
      const auto i_channel = id.get_id(0);
      const auto i_station = id.get_id(1);
      const double freq = f_min + (f_max - f_min) / n_channel * i_channel;
-     // TODO: weight of station & bandpass
-     const double k = d_total_delay[i_station] / speed_of_light * freq;
-     double k_int;
-     const srtb::real k_frac = srtb::modf(k, &k_int);
-     const double delta_phi = srtb::real{2 * M_PI} * k_frac;  // TODO: check the sign!
-     srtb::real cos_delta_phi, sin_delta_phi;
-     // &cos_delta_phi cannot be used here, not in specification
-     sin_delta_phi = sycl::sincos(delta_phi, sycl::private_ptr<srtb::real>{&cos_delta_phi});
-     const srtb::complex<srtb::real> factor = srtb::complex<srtb::real>(cos_delta_phi, sin_delta_phi);
+     srtb::complex<srtb::real> factor;
+     if (freq == 0) [[unlikely]] {
+       factor = 0;
+     } else {
+       // TODO: weight of station & bandpass
+       const double k = d_total_delay[i_station] / speed_of_light * freq;
+       double k_int;
+       const srtb::real k_frac = srtb::modf(k, &k_int);
+       const double delta_phi = srtb::real{2 * M_PI} * k_frac;  // TODO: check the sign!
+       srtb::real cos_delta_phi, sin_delta_phi;
+       // &cos_delta_phi cannot be used here, not in specification
+       sin_delta_phi = sycl::sincos(delta_phi, sycl::private_ptr<srtb::real>{&cos_delta_phi});
+       factor = srtb::complex<srtb::real>(cos_delta_phi, sin_delta_phi);
+     }
      d_weight[i_station, i_channel] = factor;
    }).wait();
 }
