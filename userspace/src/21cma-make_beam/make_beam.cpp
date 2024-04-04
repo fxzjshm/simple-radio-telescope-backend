@@ -105,15 +105,15 @@ auto main(int argc, char **argv) -> int {
   }
 
   // allocate memory regions used
-  std::vector<mem<std::shared_ptr<std::byte>, size_t>> h_in{n_ifstream};
+  std::vector<mem<std::shared_ptr<int8_t>, size_t>> h_in{n_ifstream};
   {
     for (size_t i = 0; i < h_in.size(); i++) {
-      h_in.at(i) = mem{host_allocator.allocate_shared<std::byte>(n_buffer_real), n_buffer_real};
+      h_in.at(i) = mem{host_allocator.allocate_shared<int8_t>(n_buffer_real), n_buffer_real};
     }
   }
-  std::vector<mem<std::shared_ptr<std::byte>, size_t>> d_in{h_in.size()};
+  std::vector<mem<std::shared_ptr<int8_t>, size_t>> d_in{h_in.size()};
   for (size_t i = 0; i < d_in.size(); i++) {
-    d_in.at(i) = mem{device_allocator.allocate_shared(n_buffer_real), n_buffer_real};
+    d_in.at(i) = mem{device_allocator.allocate_shared<int8_t>(n_buffer_real), n_buffer_real};
   }
 
   const size_t operate_buffer_count = n_station * n_channel * n_sample * 2;
