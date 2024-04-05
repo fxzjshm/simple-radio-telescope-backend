@@ -202,8 +202,12 @@ auto main(int argc, char **argv) -> int {
                                                d_unpack_1.size(), srtb::algorithm::map_identity{}, q);
           });
     }
+    size_t read_byte_;
     for (size_t i_ifstream = 0; i_ifstream < n_ifstream; i_ifstream++) {
       copy_unpack_future.at(i_ifstream).wait();
+      if (i_ifstream == 0) {
+        read_byte_ = read_byte.load();
+      }
       request_read(i_ifstream);
     }
 
@@ -214,7 +218,6 @@ auto main(int argc, char **argv) -> int {
     srtb::fft::fft_1d_r2c_in_place_post_process(d_fft.data_handle(), n_channel, n_station * n_sample, q);
 
     // Beamform
-    const auto read_byte_ = read_byte.load();
     double obstime_mjd_;
     switch (observation_mode) {
       case observation_mode_t::TRACKING:
