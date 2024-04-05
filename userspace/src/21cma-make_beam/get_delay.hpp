@@ -36,6 +36,8 @@ inline void get_delay(sky_coord_t sky_coord, double obstime_mjd, const std::span
   const double lat_rad = srtb::_21cma::make_beam::reference_point.lat_deg * D2R;
   calc_beam_geom(sky_coord.ra_hour, sky_coord.dec_deg, obstime_mjd, lon_rad, lat_rad, &bg);
   const size_t N = location.size();
+  BOOST_ASSERT(N == cable_delay.size());
+  BOOST_ASSERT(N == total_delay.size());
   for (size_t i = 0; i < N; i++) {
     const auto _loc = location[i];
     // TODO: check the sign!
