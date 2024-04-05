@@ -38,7 +38,9 @@ inline void get_delay(sky_coord_t sky_coord, double obstime_mjd, const std::span
   const size_t N = location.size();
   for (size_t i = 0; i < N; i++) {
     const auto _loc = location[i];
-    total_delay[i] = _loc.E * bg.unit_E + _loc.N * bg.unit_N + _loc.H * bg.unit_H + cable_delay[i];
+    // TODO: check the sign!
+    const double geometry_delay = -(_loc.E * bg.unit_E + _loc.N * bg.unit_N + _loc.H * bg.unit_H);
+    total_delay[i] = geometry_delay + cable_delay[i];
   }
 }
 
