@@ -98,6 +98,7 @@ void calc_beam_geom(
         double            decs_degs,
         double            mjd,
         double            lon_rad,
+        double            lat_rad,
         beam_geom        *bg )
 {
     // Calculate geometry of pointings
@@ -134,7 +135,7 @@ void calc_beam_geom(
 
     /* now HA/Dec to Az/El */
 
-    palDe2h( ha, dec_ap, lon_rad, &az, &el );
+    palDe2h( ha, dec_ap, lat_rad, &az, &el );
     // ^-- Returns "geographic azimuth" and "elevation" (see documentation)
 
     /* now we need the direction cosines */
