@@ -179,7 +179,7 @@ auto main(int argc, char **argv) -> int {
   }
 
   // main loop
-  while (n_eof_reader == 0) {
+  do {
     // copy and unpack
     auto d_unpack = d_buffer_real.get_mdspan(n_station, n_channel * n_sample * 2);
     BOOST_ASSERT(d_unpack.size() == d_buffer_real.count);
@@ -263,7 +263,7 @@ auto main(int argc, char **argv) -> int {
         throw std::runtime_error{"Cannot write to output, i_pointing = " + std::to_string(i_pointing)};
       }
     }
-  }
+  } while(n_eof_reader == 0);
 
   if (n_eof_reader != n_ifstream) {
     SRTB_LOGE << " [21cma-make_beam] " << "n_eof_reader = " << std::to_string(n_eof_reader.load()) << ", "
