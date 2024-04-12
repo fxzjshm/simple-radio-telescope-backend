@@ -74,6 +74,9 @@ public:
             if (bytes_actually_read == 0) {
                 // 当前文件已经读取完毕，关闭文件并打开下一个文件
                 file.close();
+                if (filenames.empty()) {
+                    break;
+                }
                 openNextFile();
                 continue;
             }
