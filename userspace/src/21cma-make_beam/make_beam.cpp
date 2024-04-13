@@ -128,10 +128,12 @@ auto main(int argc, char **argv) -> int {
 
   mem<std::shared_ptr<srtb::complex<srtb::real>>, size_t> d_weight = {
       device_allocator.allocate_shared<srtb::complex<srtb::real>>(n_station * n_channel), n_station * n_channel};
-  mem<std::shared_ptr<srtb::complex<srtb::real>>, size_t> d_out = {
+  mem<std::shared_ptr<srtb::complex<srtb::real>>, size_t> d_formed = {
       device_allocator.allocate_shared<srtb::complex<srtb::real>>(n_sample * n_channel), n_sample * n_channel};
-  mem<std::shared_ptr<srtb::complex<srtb::real>>, size_t> h_out = {
-      host_allocator.allocate_shared<srtb::complex<srtb::real>>(n_sample * n_channel), n_sample * n_channel};
+  mem<std::shared_ptr<srtb::real>, size_t> d_integrated = {device_allocator.allocate_shared<srtb::real>(n_channel),
+                                                           n_channel};
+  mem<std::shared_ptr<srtb::real>, size_t> h_integrated = {host_allocator.allocate_shared<srtb::real>(n_channel),
+                                                           n_channel};
 
   std::vector<std::ofstream> fout{n_pointing};
   BOOST_ASSERT(n_pointing == cfg.out_path.size());
@@ -172,6 +174,7 @@ auto main(int argc, char **argv) -> int {
             read_byte += read_byte_this_round;
           }
         });
+    // read_future.at(i_ifstream).wait();
   };
 
   for (size_t i_ifstream = 0; i_ifstream < n_ifstream; i_ifstream++) {
@@ -251,19 +254,30 @@ auto main(int argc, char **argv) -> int {
         }
       }
 
-      auto d_out_ = d_out.get_mdspan(n_sample, n_channel);
-      srtb::_21cma::make_beam::form_beam(d_form_beam_in, d_weight_, d_out_, q);
+      auto d_formed_ = d_formed.get_mdspan(n_sample, n_channel);
+      srtb::_21cma::make_beam::form_beam(d_form_beam_in, d_weight_, d_formed_, q);
+
+      // temporary: integrate along n_sample axis
+      std::span<srtb::real> d_integrated_ = d_integrated;
+      q.parallel_for(sycl::range<1>{n_channel}, [=](sycl::item<1> id) {
+         const auto i_channel = id.get_id(0);
+         d_integrated_[i_channel] = 0;
+         for (size_t i_sample = 0; i_sample < n_sample; i_sample++) {
+           d_integrated_[i_channel] += srtb::norm(d_formed_[i_sample, i_channel]);
+         }
+       }).wait();
 
       // write out
-      BOOST_ASSERT(d_out.count == h_out.count);
-      q.copy(d_out.ptr.get(), h_out.ptr.get(), d_out.count).wait();
+      BOOST_ASSERT(d_integrated.count == h_integrated.count);
+      q.copy(d_integrated.ptr.get(), h_integrated.ptr.get(), d_integrated.count).wait();
       fout.at(i_pointing)
-          .write(reinterpret_cast<char *>(h_out.ptr.get()), h_out.count * sizeof(decltype(h_out.ptr)::element_type));
+          .write(reinterpret_cast<char *>(h_integrated.ptr.get()),
+                 h_integrated.count * sizeof(decltype(h_integrated.ptr)::element_type));
       if (!fout.at(i_pointing)) {
         throw std::runtime_error{"Cannot write to output, i_pointing = " + std::to_string(i_pointing)};
       }
     }
-  } while(n_eof_reader == 0);
+  } while (n_eof_reader == 0);
 
   if (n_eof_reader != n_ifstream) {
     SRTB_LOGE << " [21cma-make_beam] " << "n_eof_reader = " << std::to_string(n_eof_reader.load()) << ", "
