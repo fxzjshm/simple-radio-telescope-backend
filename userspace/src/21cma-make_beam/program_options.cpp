@@ -245,7 +245,7 @@ auto set_config(boost::program_options::variables_map vm) {
       boost::algorithm::trim(str);
       const auto [sky_coord, canonical_ra_dec] = parse_ra_dec(str);
       pointing.at(i) = sky_coord;
-      const auto out_file_path = out_folder / canonical_ra_dec;  // TODO: suffix
+      const auto out_file_path = out_folder / (canonical_ra_dec + ".fil");  // TODO: suffix
       if (std::filesystem::exists(out_file_path) && !force_overwrite) {
         throw std::runtime_error{"File already exists: " + out_file_path.string()};
       }
@@ -308,7 +308,7 @@ auto set_config(boost::program_options::variables_map vm) {
     // fout << std::setprecision(std::numeric_limits<double>::max_digits10);
     fout << "n_channel = " << cfg.n_channel << srtb::endl;
     fout << "n_sample = " << cfg.n_sample << srtb::endl;
-    fout << "start_mjd = " << cfg.start_mjd << srtb::endl;
+    fout << "start_mjd = " << std::to_string(cfg.start_mjd) << srtb::endl;
     fout << "observation_mode = " << to_string(cfg.observation_mode) << srtb::endl;
     fout << "station_whitelist = " << station_whitelist_str << srtb::endl;
     fout.flush();

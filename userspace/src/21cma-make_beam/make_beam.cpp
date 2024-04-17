@@ -35,6 +35,7 @@
 #include "srtb/algorithm/map_identity.hpp"
 #include "srtb/fft/fft.hpp"
 #include "srtb/fft/fft_1d_r2c_post_process.hpp"
+#include "srtb/io/sigproc_filterbank.hpp"
 #include "srtb/log/log.hpp"
 #include "srtb/math.hpp"
 #include "srtb/memory/cached_allocator.hpp"
@@ -81,6 +82,9 @@ auto main(int argc, char **argv) -> int {
 
   const double start_mjd = cfg.start_mjd;
   const auto observation_mode = cfg.observation_mode;
+
+  const auto channel_offset = n_channel / 4;
+  const auto n_channel_remain = n_channel - channel_offset;
 
   // setup SYCL environment
   sycl::queue q;
@@ -130,10 +134,10 @@ auto main(int argc, char **argv) -> int {
       device_allocator.allocate_shared<srtb::complex<srtb::real>>(n_station * n_channel), n_station * n_channel};
   mem<std::shared_ptr<srtb::complex<srtb::real>>, size_t> d_formed = {
       device_allocator.allocate_shared<srtb::complex<srtb::real>>(n_sample * n_channel), n_sample * n_channel};
-  mem<std::shared_ptr<srtb::real>, size_t> d_integrated = {device_allocator.allocate_shared<srtb::real>(n_channel),
-                                                           n_channel};
-  mem<std::shared_ptr<srtb::real>, size_t> h_integrated = {host_allocator.allocate_shared<srtb::real>(n_channel),
-                                                           n_channel};
+  mem<std::shared_ptr<srtb::real>, size_t> d_cut = {
+      device_allocator.allocate_shared<srtb::real>(n_sample * n_channel_remain), n_sample * n_channel_remain};
+  mem<std::shared_ptr<srtb::real>, size_t> h_cut = {
+      host_allocator.allocate_shared<srtb::real>(n_sample * n_channel_remain), n_sample * n_channel_remain};
 
   std::vector<std::ofstream> fout{n_pointing};
   BOOST_ASSERT(n_pointing == cfg.out_path.size());
@@ -179,6 +183,29 @@ auto main(int argc, char **argv) -> int {
 
   for (size_t i_ifstream = 0; i_ifstream < n_ifstream; i_ifstream++) {
     request_read(i_ifstream);
+  }
+
+  // write filterband header
+  // https://sigproc.sourceforge.net/sigproc.pdf
+  for (size_t i_pointing = 0; i_pointing < n_pointing; i_pointing++) {
+    const auto pointing = cfg.pointing.at(i_pointing);
+    using namespace srtb::io::sigproc::filterbank_header;
+    send(fout.at(i_pointing), "HEADER_START");
+    send(fout.at(i_pointing), "telescope_id", int{233});
+    send(fout.at(i_pointing), "machine_id", int{233});
+    send(fout.at(i_pointing), "data_type", int{1});  // filterbank
+    send(fout.at(i_pointing), "fch1", double{freq_min + ((freq_max - freq_min) / n_channel * channel_offset)} / 1e6);
+    send(fout.at(i_pointing), "foff", double{(freq_max - freq_min) / n_channel} / 1e6);
+    send(fout.at(i_pointing), "nchans", static_cast<int>(n_channel_remain));
+    send(fout.at(i_pointing), "tsamp", double{1.0 / sample_rate * n_channel * 2});
+    send(fout.at(i_pointing), "nbeams", static_cast<int>(n_pointing));
+    send(fout.at(i_pointing), "ibeam", static_cast<int>(i_pointing));
+    send(fout.at(i_pointing), "nbits", static_cast<int>(32));
+    send(fout.at(i_pointing), "nifs", int{1});
+    send(fout.at(i_pointing), "src_raj", double{to_sigproc_dms(pointing.ra_hour)});
+    send(fout.at(i_pointing), "src_dej", double{to_sigproc_dms(pointing.dec_deg)});
+    send(fout.at(i_pointing), "tstart", double{start_mjd});
+    send(fout.at(i_pointing), "HEADER_END");
   }
 
   // main loop
@@ -257,22 +284,20 @@ auto main(int argc, char **argv) -> int {
       auto d_formed_ = d_formed.get_mdspan(n_sample, n_channel);
       srtb::_21cma::make_beam::form_beam(d_form_beam_in, d_weight_, d_formed_, q);
 
-      // temporary: integrate along n_sample axis
-      std::span<srtb::real> d_integrated_ = d_integrated;
-      q.parallel_for(sycl::range<1>{n_channel}, [=](sycl::item<1> id) {
-         const auto i_channel = id.get_id(0);
-         d_integrated_[i_channel] = 0;
-         for (size_t i_sample = 0; i_sample < n_sample; i_sample++) {
-           d_integrated_[i_channel] += srtb::norm(d_formed_[i_sample, i_channel]);
-         }
+      auto d_cut_ = d_cut.get_mdspan(n_sample, n_channel_remain);
+      q.parallel_for(sycl::range<1>{n_channel_remain * n_sample}, [=](sycl::item<1> id) {
+         const auto i = id.get_id(0);
+         const auto i_sample = i / n_channel_remain;
+         const auto i_channel_remain = i - i_sample * n_channel_remain;
+         const auto i_channel = i_channel_remain + channel_offset;
+         d_cut_[i_sample, i_channel_remain] = srtb::norm(d_formed_[i_sample, i_channel]);
        }).wait();
 
       // write out
-      BOOST_ASSERT(d_integrated.count == h_integrated.count);
-      q.copy(d_integrated.ptr.get(), h_integrated.ptr.get(), d_integrated.count).wait();
+      BOOST_ASSERT(d_cut.count == h_cut.count);
+      q.copy(d_cut.ptr.get(), h_cut.ptr.get(), d_cut.count).wait();
       fout.at(i_pointing)
-          .write(reinterpret_cast<char *>(h_integrated.ptr.get()),
-                 h_integrated.count * sizeof(decltype(h_integrated.ptr)::element_type));
+          .write(reinterpret_cast<char *>(h_cut.ptr.get()), h_cut.count * sizeof(decltype(h_cut.ptr)::element_type));
       if (!fout.at(i_pointing)) {
         throw std::runtime_error{"Cannot write to output, i_pointing = " + std::to_string(i_pointing)};
       }

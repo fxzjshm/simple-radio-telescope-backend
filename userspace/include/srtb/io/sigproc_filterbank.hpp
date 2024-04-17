@@ -14,6 +14,9 @@
 #ifndef __SRTB_IO_SIGPROC_FILTERBANK__
 #define __SRTB_IO_SIGPROC_FILTERBANK__
 
+#include <cmath>
+#include <cstdint>
+#include <cstdlib>
 #include <string>
 #include <type_traits>
 
@@ -45,8 +48,7 @@ inline void send(Stream& stream, const T& value)
 }
 
 template <typename Stream>
-inline void send(Stream& stream, const char* value)
-{
+inline void send(Stream& stream, const char* value) {
   return send(stream, std::string(value));
 }
 
@@ -54,6 +56,17 @@ template <typename Stream, typename T, typename U>
 inline void send(Stream& stream, const T& key, const U& value) {
   send(stream, key);
   send(stream, value);
+}
+
+/** @brief convert RA/Dec to sigproc hhmmss.s / ddmmss.m style */
+template <typename T>
+inline auto to_sigproc_dms(T x) -> T {
+  const T sign = std::copysign(1.0, x);
+  const T x_abs = std::abs(x);
+  const int32_t x_d = static_cast<int32_t>(x_abs);
+  const int32_t x_m = static_cast<int32_t>((x_abs - x_d) * 60);
+  const T x_s = static_cast<T>(((x_abs - x_d) * 60 - x_m) * 60);
+  return sign * (x_d * 10000 + x_m * 100 + x_s);
 }
 
 }  // namespace filterbank_header
