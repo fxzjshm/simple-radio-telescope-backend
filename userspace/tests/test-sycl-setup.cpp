@@ -35,8 +35,8 @@ int main() {
   std::cout << "device name = "
             << q.get_device().get_info<sycl::info::device::name>() << std::endl;
 
-  real* d_in = sycl::malloc_shared<real>(n_real, q);
-  complex* d_spectrum = sycl::malloc_shared<complex>(n_complex, q);
+  real* d_in = sycl::malloc_device<real>(n_real, q);
+  complex* d_spectrum = sycl::malloc_device<complex>(n_complex, q);
   std::cout << "d_in = " << (size_t)d_in << ", "
             << "d_spectrum = " << (size_t)d_spectrum << std::endl;
 
