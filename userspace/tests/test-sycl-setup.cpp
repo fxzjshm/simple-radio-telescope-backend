@@ -10,6 +10,7 @@
  * See the Mulan PubL v2 for more details.
  ******************************************************************************/
 
+#include <chrono>
 #include <iostream>
 #include <sycl/sycl.hpp>
 
@@ -27,8 +28,8 @@
 int main() {
   using real = float;
   using complex = _SYCL_CPLX_NAMESPACE::complex<real>;
-  const int k = 10;
-  const size_t N = 1 << k;
+  const int k = 26;
+  const size_t N = size_t{1} << k;
   const size_t n_real = N, n_complex = n_real / 2 + 1;
 
   sycl::queue q;
@@ -40,14 +41,29 @@ int main() {
   std::cout << "d_in = " << (size_t)d_in << ", "
             << "d_spectrum = " << (size_t)d_spectrum << std::endl;
 
+  // trigger JIT / GPU kernel load
+  q.parallel_for(sycl::range{n_real}, [=](sycl::item<1> id) {
+     const auto i = id.get_id(0);
+     d_in[i] = 0;
+   }).wait();
+
+  std::chrono::steady_clock::time_point begin_generate =
+      std::chrono::steady_clock::now();
+
   // generate signal
   q.parallel_for(sycl::range{n_real}, [=](sycl::item<1> id) {
      const auto i = id.get_id(0);
      d_in[i] = sycl::sin(real{0.3} * i);
    }).wait();
 
+  std::chrono::steady_clock::time_point end_generate =
+      std::chrono::steady_clock::now();
+
   // naive FFT r2c
   naive_fft::fft_1d_r2c<real, complex>(k, d_in, d_spectrum, q);
+
+  std::chrono::steady_clock::time_point begin_rfi_mitigation =
+      std::chrono::steady_clock::now();
 
   // find threshold and delete radio frequency interference
   //// sum for total spectrum power
@@ -63,22 +79,22 @@ int main() {
       },
       /* reduce = */
       [](real a, real b) { return a + b; });
-  std::cout << "[test-setup] "
-            << "input signal strength = " << h_sum << std::endl;
   const real h_average = h_sum / n_real;
-  //// delete RFI && normalize
+  //// delete RFI
   q.parallel_for(sycl::range{n_complex}, [=](sycl::item<1> id) {
     const auto i = id.get_id(0);
     if (_SYCL_CPLX_NAMESPACE::norm(d_spectrum[i]) > real{1.5} * h_average) {
       d_spectrum[i] = 0;
     }
-    d_spectrum[i] /= n_real;
   });
 
-  // output signal
-  auto d_out = d_spectrum;
-  // in-place transformation
-  naive_fft::fft_1d_c2c<real, complex>(k - 1, d_spectrum, d_out, -1, q);
+  std::chrono::steady_clock::time_point end_rfi_mitigation =
+      std::chrono::steady_clock::now();
+
+  //// output signal
+  //auto d_out = d_spectrum;
+  //// in-place transformation
+  //naive_fft::fft_1d_c2c<real, complex>(k - 1, d_spectrum, d_out, -1, q);
 
   // output signal strength
   const real h_out_strength = sycl_pstl::impl::buffer_mapreduce(
@@ -92,7 +108,23 @@ int main() {
       [](real a, real b) { return a + b; });
 
   std::cout << "[test-setup] "
+            << "n_real = " << n_real << std::endl;
+  std::cout << "[test-setup] "
+            << "input signal strength = " << h_sum << std::endl;
+  std::cout << "[test-setup] "
+            << "h_average = " << h_average << std::endl;
+  std::cout << "[test-setup] "
             << "output signal strength = " << h_out_strength << std::endl;
+  std::cout << "[test-setup] generate time = "
+            << std::chrono::duration_cast<std::chrono::nanoseconds>(
+                   end_generate - begin_generate)
+                   .count()
+            << " ns" << std::endl;
+  std::cout << "[test-setup] rfi mitigation 1 time = "
+            << std::chrono::duration_cast<std::chrono::nanoseconds>(
+                   end_rfi_mitigation - begin_rfi_mitigation)
+                   .count()
+            << " ns" << std::endl;
 
   sycl::free(d_in, q);
   d_in = nullptr;
