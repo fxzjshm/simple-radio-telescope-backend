@@ -55,7 +55,7 @@ int main() {
       q.get_device(), /* size = */ n_complex, sizeof(complex));
   void* placeholder = nullptr;
   const real h_sum = sycl_pstl::impl::buffer_mapreduce(
-      placeholder, q, d_spectrum, /* init = */ 0, descriptor,
+      placeholder, q, d_spectrum, /* init = */ real{0}, descriptor,
       /* map = */
       [](size_t i, complex x) {
         (void)i;
@@ -82,7 +82,7 @@ int main() {
 
   // output signal strength
   const real h_out_strength = sycl_pstl::impl::buffer_mapreduce(
-      placeholder, q, d_spectrum, /* init = */ 0, descriptor,
+      placeholder, q, d_spectrum, /* init = */ real{0}, descriptor,
       /* map = */
       [](size_t i, complex x) {
         (void)i;
