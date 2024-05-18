@@ -148,6 +148,8 @@ auto parse_cmdline(int argc, char** argv) {
      "Begin time in UTC, format: \"yyyy-mm-dd_hh-mm-ss\". ")
     ("drifting",
      "If set, use drifting scan observation mode. ")
+    ("incoh",
+     "If set, use incoherent beamforming. ")
     ("meta_file_list", po::value<std::string>(),
      "File containing file of file lists. ")
     ("nchan", po::value<std::string>()->default_value("2 ** 15"),
@@ -187,12 +189,20 @@ auto set_config(boost::program_options::variables_map vm) {
   {
     if (vm.count("drifting")) {
       cfg.observation_mode = srtb::_21cma::make_beam::observation_mode_t::DRIFTING;
-      SRTB_LOGI << " [program_options] " << "observation_mode" << " = " << "DRIFTING" << srtb::endl;
-
     } else {
       cfg.observation_mode = srtb::_21cma::make_beam::observation_mode_t::TRACKING;
-      SRTB_LOGI << " [program_options] " << "observation_mode" << " = " << "TRACKING" << srtb::endl;
     }
+    SRTB_LOGI << " [program_options] " << "observation_mode" << " = " << to_string(cfg.observation_mode) << srtb::endl;
+  }
+
+  // set beamform_mode
+  {
+    if (vm.count("incoh")) {
+      cfg.beamform_mode = srtb::_21cma::make_beam::beamform_mode_t::INCOHERENT;
+    } else {
+      cfg.beamform_mode = srtb::_21cma::make_beam::beamform_mode_t::COHERENT;
+    }
+    SRTB_LOGI << " [program_options] " << "beamform_mode" << " = " << to_string(cfg.beamform_mode) << srtb::endl;
   }
 
   // read file lists
@@ -310,6 +320,7 @@ auto set_config(boost::program_options::variables_map vm) {
     fout << "n_sample = " << cfg.n_sample << srtb::endl;
     fout << "start_mjd = " << std::to_string(cfg.start_mjd) << srtb::endl;
     fout << "observation_mode = " << to_string(cfg.observation_mode) << srtb::endl;
+    fout << "beamform_mode = " << to_string(cfg.beamform_mode) << srtb::endl;
     fout << "station_whitelist = " << station_whitelist_str << srtb::endl;
     fout.flush();
   }

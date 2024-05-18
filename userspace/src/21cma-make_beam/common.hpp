@@ -35,12 +35,23 @@ struct sky_coord_t {
 };
 
 enum observation_mode_t { TRACKING, DRIFTING };
+enum beamform_mode_t { COHERENT, INCOHERENT };
+
 inline std::string_view to_string(observation_mode_t o) {
   switch (o) {
     case TRACKING:
       return "TRACKING";
     case DRIFTING:
       return "DRIFTING";
+  }
+}
+
+inline std::string_view to_string(beamform_mode_t o) {
+  switch (o) {
+    case COHERENT:
+      return "COHERENT";
+    case INCOHERENT:
+      return "INCOHERENT";
   }
 }
 

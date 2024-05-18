@@ -82,6 +82,7 @@ auto main(int argc, char **argv) -> int {
 
   const double start_mjd = cfg.start_mjd;
   const auto observation_mode = cfg.observation_mode;
+  const auto beamform_mode = cfg.beamform_mode;
 
   const auto channel_offset = n_channel / 4;
   const auto n_channel_remain = n_channel - channel_offset;
@@ -282,7 +283,14 @@ auto main(int argc, char **argv) -> int {
       }
 
       auto d_formed_ = d_formed.get_mdspan(n_sample, n_channel);
-      srtb::_21cma::make_beam::form_beam(d_form_beam_in, d_weight_, d_formed_, q);
+      switch (beamform_mode) {
+        case COHERENT:
+          srtb::_21cma::make_beam::form_beam(d_form_beam_in, d_weight_, d_formed_, q);
+          break;
+        case INCOHERENT:
+          srtb::_21cma::make_beam::form_beam_incoh(d_form_beam_in, d_weight_, d_formed_, q);
+          break;
+      }
 
       auto d_cut_ = d_cut.get_mdspan(n_sample, n_channel_remain);
       q.parallel_for(sycl::range<1>{n_channel_remain * n_sample}, [=](sycl::item<1> id) {

@@ -24,6 +24,7 @@ namespace srtb::_21cma::make_beam {
 
 struct config {
   observation_mode_t observation_mode;
+  beamform_mode_t beamform_mode;
 
   std::vector<std::vector<std::string>> baseband_file_list;
   std::vector<sky_coord_t> pointing;
