@@ -87,6 +87,8 @@ auto main(int argc, char **argv) -> int {
   const auto channel_offset = n_channel / 4;
   const auto n_channel_remain = n_channel - channel_offset;
 
+  const bool no_header = cfg.no_header;
+
   // setup SYCL environment
   sycl::queue q;
   SRTB_LOGI << " [21cma-make_beam] " << "device name = " << q.get_device().get_info<sycl::info::device::name>()
@@ -188,25 +190,27 @@ auto main(int argc, char **argv) -> int {
 
   // write filterband header
   // https://sigproc.sourceforge.net/sigproc.pdf
-  for (size_t i_pointing = 0; i_pointing < n_pointing; i_pointing++) {
-    const auto pointing = cfg.pointing.at(i_pointing);
-    using namespace srtb::io::sigproc::filterbank_header;
-    send(fout.at(i_pointing), "HEADER_START");
-    send(fout.at(i_pointing), "telescope_id", int{233});
-    send(fout.at(i_pointing), "machine_id", int{233});
-    send(fout.at(i_pointing), "data_type", int{1});  // filterbank
-    send(fout.at(i_pointing), "fch1", double{freq_min + ((freq_max - freq_min) / n_channel * channel_offset)} / 1e6);
-    send(fout.at(i_pointing), "foff", double{(freq_max - freq_min) / n_channel} / 1e6);
-    send(fout.at(i_pointing), "nchans", static_cast<int>(n_channel_remain));
-    send(fout.at(i_pointing), "tsamp", double{1.0 / sample_rate * n_channel * 2});
-    send(fout.at(i_pointing), "nbeams", static_cast<int>(n_pointing));
-    send(fout.at(i_pointing), "ibeam", static_cast<int>(i_pointing));
-    send(fout.at(i_pointing), "nbits", static_cast<int>(32));
-    send(fout.at(i_pointing), "nifs", int{1});
-    send(fout.at(i_pointing), "src_raj", double{to_sigproc_dms(pointing.ra_hour)});
-    send(fout.at(i_pointing), "src_dej", double{to_sigproc_dms(pointing.dec_deg)});
-    send(fout.at(i_pointing), "tstart", double{start_mjd});
-    send(fout.at(i_pointing), "HEADER_END");
+  if (!no_header) {
+    for (size_t i_pointing = 0; i_pointing < n_pointing; i_pointing++) {
+      const auto pointing = cfg.pointing.at(i_pointing);
+      using namespace srtb::io::sigproc::filterbank_header;
+      send(fout.at(i_pointing), "HEADER_START");
+      send(fout.at(i_pointing), "telescope_id", int{233});
+      send(fout.at(i_pointing), "machine_id", int{233});
+      send(fout.at(i_pointing), "data_type", int{1});  // filterbank
+      send(fout.at(i_pointing), "fch1", double{freq_min + ((freq_max - freq_min) / n_channel * channel_offset)} / 1e6);
+      send(fout.at(i_pointing), "foff", double{(freq_max - freq_min) / n_channel} / 1e6);
+      send(fout.at(i_pointing), "nchans", static_cast<int>(n_channel_remain));
+      send(fout.at(i_pointing), "tsamp", double{1.0 / sample_rate * n_channel * 2});
+      send(fout.at(i_pointing), "nbeams", static_cast<int>(n_pointing));
+      send(fout.at(i_pointing), "ibeam", static_cast<int>(i_pointing));
+      send(fout.at(i_pointing), "nbits", static_cast<int>(32));
+      send(fout.at(i_pointing), "nifs", int{1});
+      send(fout.at(i_pointing), "src_raj", double{to_sigproc_dms(pointing.ra_hour)});
+      send(fout.at(i_pointing), "src_dej", double{to_sigproc_dms(pointing.dec_deg)});
+      send(fout.at(i_pointing), "tstart", double{start_mjd});
+      send(fout.at(i_pointing), "HEADER_END");
+    }
   }
 
   // main loop

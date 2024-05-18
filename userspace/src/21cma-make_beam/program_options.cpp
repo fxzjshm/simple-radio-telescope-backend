@@ -160,6 +160,8 @@ auto parse_cmdline(int argc, char** argv) {
      "Name of stations that can be used. ")
     ("out_folder,o", po::value<std::string>(),
      "Output folder")
+    ("no_header",
+     "If set, do not write header in output file ")
     ("force,f",
      "If set, force overwrite output file if exists. ")
   ;
@@ -245,6 +247,7 @@ auto set_config(boost::program_options::variables_map vm) {
   {
     std::filesystem::path out_folder = vm["out_folder"].as<std::string>();
     bool force_overwrite = vm.count("force");
+    bool no_header = vm.count("no_header");
     std::vector<std::string> pointing_str = read_lines_in_file(vm["pointings"].as<std::string>());
     std::vector<sky_coord_t> pointing{pointing_str.size()};
     std::vector<std::filesystem::path> out_path{pointing_str.size()};
@@ -255,6 +258,10 @@ auto set_config(boost::program_options::variables_map vm) {
       boost::algorithm::trim(str);
       const auto [sky_coord, canonical_ra_dec] = parse_ra_dec(str);
       pointing.at(i) = sky_coord;
+      std::string file_name = canonical_ra_dec;
+      if (!no_header) {
+        file_name += ".fil";
+      }
       const auto out_file_path = out_folder / (canonical_ra_dec + ".fil");  // TODO: suffix
       if (std::filesystem::exists(out_file_path) && !force_overwrite) {
         throw std::runtime_error{"File already exists: " + out_file_path.string()};
@@ -266,6 +273,7 @@ auto set_config(boost::program_options::variables_map vm) {
     cfg.pointing = std::move(pointing);
     cfg.out_path = std::move(out_path);
     cfg.force_overwrite = force_overwrite;
+    cfg.no_header = no_header;
     BOOST_ASSERT(cfg.pointing.size() == cfg.out_path.size());
     SRTB_LOGI << ss.str();
   }

@@ -37,6 +37,7 @@ struct config {
 
   std::vector<std::filesystem::path> out_path;  // size == n_pointing
   bool force_overwrite;
+  bool no_header;
 };
 
 namespace program_options {
