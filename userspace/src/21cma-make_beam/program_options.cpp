@@ -242,9 +242,9 @@ auto set_config(boost::program_options::variables_map vm) {
   }
 
   // read pointing file & set output path
-  std::filesystem::path out_folder = vm["out_folder"].as<std::string>();
-  bool force_overwrite = vm.count("force");
   {
+    std::filesystem::path out_folder = vm["out_folder"].as<std::string>();
+    bool force_overwrite = vm.count("force");
     std::vector<std::string> pointing_str = read_lines_in_file(vm["pointings"].as<std::string>());
     std::vector<sky_coord_t> pointing{pointing_str.size()};
     std::vector<std::filesystem::path> out_path{pointing_str.size()};
@@ -294,21 +294,30 @@ auto set_config(boost::program_options::variables_map vm) {
     cfg.n_sample = parse_number(vm["nsamp"].as<std::string>());
   }
 
-  std::string station_whitelist_str;
-  {
-    cfg.station_whitelist = vm["station_whitelist"].as<std::vector<std::string>>();
-    std::stringstream ss;
-    for (auto&& s : cfg.station_whitelist) {
-      ss << s << " ";
-    }
-    station_whitelist_str = ss.str();
-    SRTB_LOGI << " [program_options] " << "station_whitelist = " << station_whitelist_str << srtb::endl;
-  }
+  cfg.station_whitelist = vm["station_whitelist"].as<std::vector<std::string>>();
+
+  return cfg;
+}
+
+auto parse(int argc, char** argv) -> config {
+  auto vm = parse_cmdline(argc, argv);
+  config cfg = set_config(vm);
 
   // write essential info
   {
+    std::string station_whitelist_str;
+    {
+      std::stringstream ss;
+      for (auto&& s : cfg.station_whitelist) {
+        ss << s << " ";
+      }
+      station_whitelist_str = ss.str();
+      SRTB_LOGI << " [program_options] " << "station_whitelist = " << station_whitelist_str << srtb::endl;
+    }
+
+    std::filesystem::path out_folder = vm["out_folder"].as<std::string>();
     std::filesystem::path info_path = out_folder / "21cma-make_beam.info";
-    if (std::filesystem::exists(info_path) && !force_overwrite) {
+    if (std::filesystem::exists(info_path) && !cfg.force_overwrite) {
       throw std::runtime_error{"Info file already exists: " + info_path.string()};
     }
     std::ofstream fout{info_path};
@@ -322,14 +331,14 @@ auto set_config(boost::program_options::variables_map vm) {
     fout << "observation_mode = " << to_string(cfg.observation_mode) << srtb::endl;
     fout << "beamform_mode = " << to_string(cfg.beamform_mode) << srtb::endl;
     fout << "station_whitelist = " << station_whitelist_str << srtb::endl;
+    fout << "# cmdline: ";
+    for (int i = 0; i < argc; i++) {
+      fout << " " << argv[i];
+    }
+    fout << srtb::endl;
     fout.flush();
   }
-  return cfg;
-}
 
-auto parse(int argc, char** argv) -> config {
-  auto vm = parse_cmdline(argc, argv);
-  config cfg = set_config(vm);
   return cfg;
 }
 
