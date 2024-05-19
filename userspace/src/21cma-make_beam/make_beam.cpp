@@ -89,6 +89,8 @@ auto main(int argc, char **argv) -> int {
 
   const bool no_header = cfg.no_header;
 
+  constexpr bool reverse_channel = false;
+
   // setup SYCL environment
   sycl::queue q;
   SRTB_LOGI << " [21cma-make_beam] " << "device name = " << q.get_device().get_info<sycl::info::device::name>()
@@ -198,8 +200,14 @@ auto main(int argc, char **argv) -> int {
       send(fout.at(i_pointing), "telescope_id", int{233});
       send(fout.at(i_pointing), "machine_id", int{233});
       send(fout.at(i_pointing), "data_type", int{1});  // filterbank
-      send(fout.at(i_pointing), "fch1", double{freq_min + ((freq_max - freq_min) / n_channel * channel_offset)} / 1e6);
-      send(fout.at(i_pointing), "foff", double{(freq_max - freq_min) / n_channel} / 1e6);
+      if (reverse_channel) {
+        send(fout.at(i_pointing), "fch1", double{freq_max} / 1e6);  // note: frequency table is inverted
+        send(fout.at(i_pointing), "foff", double{-(freq_max - freq_min) / n_channel} / 1e6);
+      } else {
+        send(fout.at(i_pointing), "fch1",
+             double{freq_min + ((freq_max - freq_min) / n_channel * channel_offset)} / 1e6);
+        send(fout.at(i_pointing), "foff", double{(freq_max - freq_min) / n_channel} / 1e6);
+      }
       send(fout.at(i_pointing), "nchans", static_cast<int>(n_channel_remain));
       send(fout.at(i_pointing), "tsamp", double{1.0 / sample_rate * n_channel * 2});
       send(fout.at(i_pointing), "nbeams", static_cast<int>(n_pointing));
@@ -301,7 +309,13 @@ auto main(int argc, char **argv) -> int {
          const auto i = id.get_id(0);
          const auto i_sample = i / n_channel_remain;
          const auto i_channel_remain = i - i_sample * n_channel_remain;
-         const auto i_channel = i_channel_remain + channel_offset;
+         size_t i_channel_;
+         if (reverse_channel) {
+           i_channel_ = n_channel_remain - 1 - i_channel_remain + channel_offset;  // note: frequency table is inverted
+         } else {
+           i_channel_ = i_channel_remain + channel_offset;
+         }
+         const auto i_channel = i_channel_;
          d_cut_[i_sample, i_channel_remain] = srtb::norm(d_formed_[i_sample, i_channel]);
        }).wait();
 
