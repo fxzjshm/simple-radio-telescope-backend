@@ -17,6 +17,7 @@
 #include <string>
 #include <vector>
 #include <filesystem>
+#include <optional>
 
 #include "common.hpp"
 
@@ -34,6 +35,8 @@ struct config {
   uint64_t n_sample;  // in a subint
 
   std::vector<std::string> station_whitelist;
+
+  std::optional<double> sk_threshold;
 
   std::vector<std::filesystem::path> out_path;  // size == n_pointing
   bool force_overwrite;

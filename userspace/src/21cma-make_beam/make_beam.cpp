@@ -18,20 +18,19 @@
 #include <future>
 #include <map>
 #include <memory>
+#include <optional>
 #include <span>
 #include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
 
-#include "3rdparty/multi_file_reader.hpp"
-#include "assert.hpp"
-#include "common.hpp"
-#include "form_beam.hpp"
-#include "get_delay.hpp"
-#include "global_variables.hpp"
+// clang-format barrier
+
 #include "mdspan/mdspan.hpp"
-#include "program_options.hpp"
+
+// clang-format barrier
+
 #include "srtb/algorithm/map_identity.hpp"
 #include "srtb/fft/fft.hpp"
 #include "srtb/fft/fft_1d_r2c_post_process.hpp"
@@ -42,6 +41,17 @@
 #include "srtb/memory/sycl_device_allocator.hpp"
 #include "srtb/termination_handler.hpp"
 #include "srtb/unpack.hpp"
+
+// clang-format barrier
+
+#include "3rdparty/multi_file_reader.hpp"
+#include "assert.hpp"
+#include "common.hpp"
+#include "form_beam.hpp"
+#include "get_delay.hpp"
+#include "global_variables.hpp"
+#include "program_options.hpp"
+#include "rfi_mitigation.hpp"
 
 namespace srtb::_21cma::make_beam {
 
@@ -70,6 +80,7 @@ auto main(int argc, char **argv) -> int {
   const auto cfg = srtb::_21cma::make_beam::program_options::parse(argc, argv);
   auto file_list = cfg.baseband_file_list;
   auto station_whitelist = cfg.station_whitelist;
+  std::optional<srtb::real> sk_threshold = cfg.sk_threshold;
 
   // sizes used
   const size_t n_ifstream = file_list.size();
@@ -318,6 +329,10 @@ auto main(int argc, char **argv) -> int {
          const auto i_channel = i_channel_;
          d_cut_[i_sample, i_channel_remain] = srtb::norm(d_formed_[i_sample, i_channel]);
        }).wait();
+
+      if (sk_threshold.has_value()) {
+        srtb::_21cma::spectrum::mitigate_rfi_spectral_kurtosis_method(d_cut_, sk_threshold.value(), q);
+      }
 
       // write out
       BOOST_ASSERT(d_cut.count == h_cut.count);

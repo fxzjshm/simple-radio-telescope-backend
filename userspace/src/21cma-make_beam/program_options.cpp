@@ -158,6 +158,8 @@ auto parse_cmdline(int argc, char** argv) {
      "Sample count in a \"subint\". nchan * nsamp complex values is processed at a time. ")
     ("station_whitelist", po::value<std::vector<std::string>>()->multitoken(),
      "Name of stations that can be used. ")
+    ("sk_threshold", po::value<std::string>(),
+     "Thresold of spectrual kurtosis method for radio interfere (RFI) mitigation. ")
     ("out_folder,o", po::value<std::string>(),
      "Output folder")
     ("no_header",
@@ -303,6 +305,10 @@ auto set_config(boost::program_options::variables_map vm) {
   }
 
   cfg.station_whitelist = vm["station_whitelist"].as<std::vector<std::string>>();
+
+  if (vm.count("sk_threshold")) {
+    cfg.sk_threshold = parse_number(vm["sk_threshold"].as<std::string>());
+  }
 
   return cfg;
 }
