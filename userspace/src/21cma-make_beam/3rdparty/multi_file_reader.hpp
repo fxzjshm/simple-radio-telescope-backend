@@ -57,10 +57,6 @@ public:
 
     // 从当前文件读取数据到ptr指向的位置，返回实际读取的字节数
     std::streamsize read(char* ptr, std::streamsize n) {
-        if (filenames.empty()) {
-            return 0; // 没有更多的文件可以打开
-        }
-
         if (!file.is_open()) {
             openNextFile();
         }
