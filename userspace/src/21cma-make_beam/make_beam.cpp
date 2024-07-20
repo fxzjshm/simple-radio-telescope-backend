@@ -16,6 +16,7 @@
 #include <fstream>
 #include <functional>
 #include <future>
+#include <limits>
 #include <map>
 #include <memory>
 #include <optional>
@@ -52,6 +53,7 @@
 #include "global_variables.hpp"
 #include "program_options.hpp"
 #include "rfi_mitigation.hpp"
+#include "statistics.hpp"
 
 namespace srtb::_21cma::make_beam {
 
@@ -64,7 +66,7 @@ struct mem {
   SizeType count;
   using Type = Pointer::element_type;
 
-  operator std::span<Type, std::dynamic_extent>() { return std::span{ptr.get(), count}; }
+  operator std::span<Type>() { return std::span{ptr.get(), count}; }
 
   template <typename... T>
   auto get_mdspan(T... sizes) {
@@ -150,10 +152,19 @@ auto main(int argc, char **argv) -> int {
       device_allocator.allocate_shared<srtb::complex<srtb::real>>(n_station * n_channel), n_station * n_channel};
   mem<std::shared_ptr<srtb::complex<srtb::real>>, size_t> d_formed = {
       device_allocator.allocate_shared<srtb::complex<srtb::real>>(n_sample * n_channel), n_sample * n_channel};
+
+  // normalization coefficients: new_val = scale.k * old_val + scale.b;
+  struct scale_t {
+    srtb::real k, b;
+  };
+  std::optional<scale_t> opt_scale;
+
   mem<std::shared_ptr<srtb::real>, size_t> d_cut = {
       device_allocator.allocate_shared<srtb::real>(n_sample * n_channel_remain), n_sample * n_channel_remain};
-  mem<std::shared_ptr<srtb::real>, size_t> h_cut = {
-      host_allocator.allocate_shared<srtb::real>(n_sample * n_channel_remain), n_sample * n_channel_remain};
+  mem<std::shared_ptr<uint8_t>, size_t> d_out = {device_allocator.allocate_shared<uint8_t>(n_sample * n_channel_remain),
+                                                 n_sample * n_channel_remain};
+  mem<std::shared_ptr<uint8_t>, size_t> h_out = {host_allocator.allocate_shared<uint8_t>(n_sample * n_channel_remain),
+                                                 n_sample * n_channel_remain};
 
   std::vector<std::ofstream> fout{n_pointing};
   BOOST_ASSERT(n_pointing == cfg.out_path.size());
@@ -223,7 +234,7 @@ auto main(int argc, char **argv) -> int {
       send(fout.at(i_pointing), "tsamp", double{1.0 / sample_rate * n_channel * 2});
       send(fout.at(i_pointing), "nbeams", static_cast<int>(n_pointing));
       send(fout.at(i_pointing), "ibeam", static_cast<int>(i_pointing));
-      send(fout.at(i_pointing), "nbits", static_cast<int>(32));
+      send(fout.at(i_pointing), "nbits", static_cast<int>(8));
       send(fout.at(i_pointing), "nifs", int{1});
       send(fout.at(i_pointing), "src_raj", double{to_sigproc_dms(pointing.ra_hour)});
       send(fout.at(i_pointing), "src_dej", double{to_sigproc_dms(pointing.dec_deg)});
@@ -315,6 +326,7 @@ auto main(int argc, char **argv) -> int {
           break;
       }
 
+      // cut spectrum
       auto d_cut_ = d_cut.get_mdspan(n_sample, n_channel_remain);
       q.parallel_for(sycl::range<1>{n_channel_remain * n_sample}, [=](sycl::item<1> id) {
          const auto i = id.get_id(0);
@@ -334,11 +346,65 @@ auto main(int argc, char **argv) -> int {
         srtb::_21cma::spectrum::mitigate_rfi_spectral_kurtosis_method(d_cut_, sk_threshold.value(), q);
       }
 
+      // quantize
+#define SRTB_21CMA_USE_MAD
+#ifdef SRTB_21CMA_USE_MAD
+      // current range: [max(0, median - 3 * mad), median + 10 * mad] -> [0, 255],
+      // where mad is median absolute deviation, mad(x) = median({x - median(x)})
+      // TODO: 10 seems arbitary, alway check this with bandpass
+#else
+      // RFI makes average & standard deviation
+#endif
+      if (!opt_scale.has_value()) {
+        auto d_mad_in = d_cut;
+        std::span<srtb::real> d_mad_in_ = d_mad_in;
+        auto [avg_val, std_val] = srtb::_21cma::make_beam::standard_deviation(d_mad_in_, q);
+#ifdef SRTB_21CMA_USE_MAD
+        mem<std::shared_ptr<srtb::real>, size_t> d_temp1 = {
+            device_allocator.allocate_shared<srtb::real>(d_mad_in.count), d_mad_in.count};
+        mem<std::shared_ptr<srtb::real>, size_t> d_temp2 = {
+            device_allocator.allocate_shared<srtb::real>(d_mad_in.count), d_mad_in.count};
+        std::span<srtb::real> d_temp1_ = d_temp1, d_temp2_ = d_temp2;
+        auto [median_val, mad_val] =
+            srtb::_21cma::make_beam::median_absolute_deviation(d_mad_in_, d_temp1_, d_temp2_, q);
+        const srtb::real real_range_min = sycl::max(srtb::real{0}, median_val - 3 * mad_val);
+        const srtb::real real_range_max = median_val + 10 * mad_val;
+#else
+        const srtb::real real_range_min = sycl::max(srtb::real{0}, avg_val - std_val);
+        const srtb::real real_range_max = avg_val + std_val;
+#endif
+        const srtb::real real_range_size = real_range_max - real_range_min;
+        constexpr srtb::real uint8_range_min = std::numeric_limits<uint8_t>::min();
+        constexpr srtb::real uint8_range_max = std::numeric_limits<uint8_t>::max();
+        constexpr srtb::real uint8_range_size = uint8_range_max - uint8_range_min;
+        opt_scale = scale_t{.k = uint8_range_size / real_range_size,
+                            .b = uint8_range_size / real_range_size * (-real_range_min)};
+#ifdef SRTB_21CMA_USE_MAD
+        SRTB_LOGI << " [21cma-make_beam] " << " [quantize] " << "median_val = " << median_val << ", "
+                  << "median absolute deviation = " << mad_val << srtb::endl;
+#endif
+        SRTB_LOGI << " [21cma-make_beam] " << " [quantize] " << "avg_val = " << avg_val << ", "
+                  << "std_val = " << std_val << srtb::endl;
+        SRTB_LOGI << " [21cma-make_beam] " << " [quantize] " << "scale.k = " << opt_scale.value().k << ", "
+                  << "scale.b = " << opt_scale.value().b << srtb::endl;
+      }
+      BOOST_ASSERT(d_cut.count == d_out.count);
+      std::span<srtb::real> d_cut_span = d_cut;
+      std::span<uint8_t> d_out_span = d_out;
+      auto scale = opt_scale.value();
+      q.parallel_for(sycl::range<1>{d_out.count}, [=](sycl::item<1> id) {
+         const auto i = id.get_id(0);
+         constexpr srtb::real uint8_range_min = std::numeric_limits<uint8_t>::min();
+         constexpr srtb::real uint8_range_max = std::numeric_limits<uint8_t>::max();
+         d_out_span[i] = static_cast<uint8_t>(
+             std::max(std::min(scale.k * d_cut_span[i] + scale.b, uint8_range_max), uint8_range_min));
+       }).wait();
+
       // write out
-      BOOST_ASSERT(d_cut.count == h_cut.count);
-      q.copy(d_cut.ptr.get(), h_cut.ptr.get(), d_cut.count).wait();
+      BOOST_ASSERT(d_out.count == h_out.count);
+      q.copy(d_out.ptr.get(), h_out.ptr.get(), d_out.count).wait();
       fout.at(i_pointing)
-          .write(reinterpret_cast<char *>(h_cut.ptr.get()), h_cut.count * sizeof(decltype(h_cut.ptr)::element_type));
+          .write(reinterpret_cast<char *>(h_out.ptr.get()), h_out.count * sizeof(decltype(h_out.ptr)::element_type));
       if (!fout.at(i_pointing)) {
         throw std::runtime_error{"Cannot write to output, i_pointing = " + std::to_string(i_pointing)};
       }
