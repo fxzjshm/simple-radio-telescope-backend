@@ -351,9 +351,8 @@ auto main(int argc, char **argv) -> int {
 #ifdef SRTB_21CMA_USE_MAD
       // current range: [max(0, median - 3 * mad), median + 10 * mad] -> [0, 255],
       // where mad is median absolute deviation, mad(x) = median({x - median(x)})
+      // RFI makes average & standard deviation unusable
       // TODO: 10 seems arbitary, alway check this with bandpass
-#else
-      // RFI makes average & standard deviation
 #endif
       if (!opt_scale.has_value()) {
         auto d_mad_in = d_cut;
