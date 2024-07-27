@@ -14,17 +14,21 @@
 #ifndef __SRTB_PIPELINE_DUMMY_PIPE__
 #define __SRTB_PIPELINE_DUMMY_PIPE__
 
+#include <optional>
 #include <stop_token>
-
-#include "srtb/work.hpp"
 
 namespace srtb {
 namespace pipeline {
 
 /**
+ * @brief Dummy work as place holder for work queue / pipe work transfer
+ */
+struct dummy_work {};
+
+/**
  * @brief this dummy pipe is a place holder to clean work queue.
  */
-template <typename DummyWork = srtb::work::dummy_work>
+template <typename DummyWork = srtb::pipeline::dummy_work>
 class dummy_pipe {
  public:
   template <typename... Args>

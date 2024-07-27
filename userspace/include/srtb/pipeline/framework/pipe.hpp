@@ -16,6 +16,8 @@
 
 #include <boost/type_traits.hpp>
 #include <functional>
+#include <memory>
+#include <optional>
 #include <stop_token>
 #include <thread>
 #include <type_traits>
@@ -24,7 +26,9 @@
 #include <pthread.h>
 #endif
 
-#include "srtb/commons.hpp"
+#include "srtb/log/log.hpp"
+#include "srtb/sycl.hpp"
+#include "srtb/type_name.hpp"
 
 namespace srtb {
 namespace pipeline {
@@ -169,8 +173,7 @@ static std::jthread start_pipe(sycl::queue q, InFunctor in_functor,
 #endif
 
   while (*is_pipe_initialized == false) {
-    std::this_thread::sleep_for(
-        std::chrono::nanoseconds(srtb::config.thread_query_work_wait_time));
+    std::this_thread::yield();
   }
 
   return jthread;

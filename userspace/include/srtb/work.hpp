@@ -21,6 +21,7 @@
 
 #include "concurrentqueue.h"
 #include "srtb/config.hpp"
+#include "srtb/pipeline/framework/dummy_pipe.hpp"
 
 namespace srtb {
 
@@ -80,7 +81,7 @@ namespace work {
 /**
  * @brief Dummy work as place holder for work queue / pipe work transfer
  */
-struct dummy_work {};
+using dummy_work = srtb::pipeline::dummy_work;
 
 /**
  * @brief this holds ownership of original baseband data & its size
@@ -281,8 +282,6 @@ struct draw_spectrum_work_2 {
   size_t width;
   size_t height;
 };
-
-// work queues are in global_variables.hpp
 
 }  // namespace work
 }  // namespace srtb
