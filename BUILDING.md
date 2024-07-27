@@ -6,11 +6,18 @@
   * if use intel/llvm, refer to [this guide](https://github.com/intel/llvm/blob/sycl/sycl/doc/GetStartedGuide.md) for installation.
 * Boost libraries
   * the version of Boost libraries required may be newer than that provided by system package manager (see below "BOOST_INLINE and HIP conflicts")
+  * Debian-like: `libboost-all-dev`
+  * RHEL-like: `boost-devel`
 * hwloc (optional)
 * FFTW 3 (optional)
+  * Debian-like: `libfftw-dev`
+  * RHEL-like: `fftw-devel`
 * Qt 5 (optional)
-  * Qt 6 may work, but not tested yet
-* Python 3 with development headers & matplotlib
+  * Debian-like: `qtdeclarative5-dev` `qml-module-qtquick2` `qml-module-qtquick-window2`
+  * RHEL-like: `qt5-qtdeclarative-devel`
+  * Qt 6 not working (TODO)
+* Python 3 with development headers & numpy & matplotlib
+  * Debian-like: `python3-numpy` `python3-matplotlib`
 
 if ROCm backend enabled, additional dependencies:
 * ROCm
