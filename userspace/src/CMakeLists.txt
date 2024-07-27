@@ -62,3 +62,5 @@ add_executable(21cma-genfil
   21cma-genfil/21cma-genfil.cpp
 )
 srtb_add_dependency(21cma-genfil)
+
+add_subdirectory(21cma-make_beam)

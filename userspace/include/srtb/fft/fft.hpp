@@ -17,7 +17,7 @@
 #include <exception>
 #include <optional>
 
-#include "srtb/config.hpp"
+#include "srtb/sycl.hpp"
 #include "srtb/fft/fft_wrapper.hpp"
 #ifdef SRTB_HAS_FFTW
 #include "srtb/fft/fftw_wrapper.hpp"
