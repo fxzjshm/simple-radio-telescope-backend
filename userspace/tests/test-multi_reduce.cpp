@@ -51,7 +51,8 @@ int main(int argc, char** argv) {
                 []() { return static_cast<T>(std::rand() % 256); });
   q.copy(&h_in[0], /* -> */ d_in, total_count).wait();
   srtb::algorithm::multi_mapreduce(d_in, count_per_batch, batch_size, d_out,
-                                   map, reduce, q);
+                                   map, reduce, q)
+      .wait();
   std::vector<T> h_out, h_ref;
   h_out.resize(batch_size);
   h_ref.resize(batch_size);

@@ -74,8 +74,8 @@ inline auto eval_rfi_ranges(const std::string& mitigate_rfi_freq_list) {
     boost::split(number_strings, str, boost::is_any_of("-"),
                  boost::token_compress_on);
     if (number_strings.size() != 2) [[unlikely]] {
-      SRTB_LOGW << " [eval_rfi_ranges] "
-                << "cannot parse \"" << str << "\"" << srtb::endl;
+      SRTB_LOGW << " [eval_rfi_ranges] " << "cannot parse \"" << str << "\""
+                << srtb::endl;
     } else {
       const srtb::real freq_1 =
           static_cast<srtb::real>(std::stod(number_strings[0]));
@@ -323,7 +323,8 @@ inline void mitigate_rfi_spectral_kurtosis_method_2(
       [](power_pair a, power_pair b) {
         return power_pair{a.first + b.first, a.second + b.second};
       },
-      q);
+      q)
+      .wait();
 
   q.parallel_for(sycl::range<1>(total_size), [=](sycl::item<1> id) {
      const size_t i = id.get_id(0);

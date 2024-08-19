@@ -62,9 +62,10 @@ struct sycl_algorithm_descriptor {
 // ref:  https://stackoverflow.com/questions/17862078/reduce-matrix-rows-with-cuda
 template <typename InputIterator, typename OutputIterator, typename Reduce,
           typename Map>
-void multi_mapreduce(InputIterator input, size_t count_per_batch,
+[[nodiscard]]
+auto multi_mapreduce(InputIterator input, size_t count_per_batch,
                      size_t batch_size, OutputIterator output, Map map,
-                     Reduce reduce, sycl::queue& q) {
+                     Reduce reduce, sycl::queue& q) -> sycl::event {
   using B = typename std::iterator_traits<OutputIterator>::value_type;
 
   const size_t total_count = count_per_batch * batch_size;
@@ -111,46 +112,46 @@ void multi_mapreduce(InputIterator input, size_t count_per_batch,
    * 'reduce': B * B -> B
    */
 
-  q.submit([&](sycl::handler& cgh) {
-     sycl::range<1> rg{d.nb_work_group};
-     sycl::range<1> ri{d.nb_work_item};
-     sycl::local_accessor<B, 1> sum{sycl::range<1>(d.nb_work_item), cgh};
-     cgh.parallel_for(
-         sycl::nd_range<1>(rg * ri, ri), [=](sycl::nd_item<1> nd_item) {
-           size_t group_id = nd_item.get_group(0);
-           size_t group_begin = group_id * d.size_per_work_group;
-           size_t group_end =
-               std::min((group_id + 1) * d.size_per_work_group, d.size);
-           //assert(group_id < d.nb_work_group);
-           //assert(group_begin < group_end); //< as we properly selected the
-           //  number of work_group
-           size_t local_id = nd_item.get_local_id(0);
-           size_t local_pos = group_begin + local_id;
-           if (local_pos < group_end) {
-             //we peal the first iteration
-             B acc = map(local_pos, input[local_pos]);
-             for (size_t read = local_pos + d.nb_work_item; read < group_end;
-                  read += d.nb_work_item) {
-               acc = reduce(acc, map(read, input[read]));
-             }
-             sum[local_id] = acc;
-           }
+  return q.submit([&](sycl::handler& cgh) {
+    sycl::range<1> rg{d.nb_work_group};
+    sycl::range<1> ri{d.nb_work_item};
+    sycl::local_accessor<B, 1> sum{sycl::range<1>(d.nb_work_item), cgh};
+    cgh.parallel_for(
+        sycl::nd_range<1>(rg * ri, ri), [=](sycl::nd_item<1> nd_item) {
+          size_t group_id = nd_item.get_group(0);
+          size_t group_begin = group_id * d.size_per_work_group;
+          size_t group_end =
+              std::min((group_id + 1) * d.size_per_work_group, d.size);
+          //assert(group_id < d.nb_work_group);
+          //assert(group_begin < group_end); //< as we properly selected the
+          //  number of work_group
+          size_t local_id = nd_item.get_local_id(0);
+          size_t local_pos = group_begin + local_id;
+          if (local_pos < group_end) {
+            //we peal the first iteration
+            B acc = map(local_pos, input[local_pos]);
+            for (size_t read = local_pos + d.nb_work_item; read < group_end;
+                 read += d.nb_work_item) {
+              acc = reduce(acc, map(read, input[read]));
+            }
+            sum[local_id] = acc;
+          }
 
-           nd_item.barrier(sycl::access::fence_space::local_space);
+          nd_item.barrier(sycl::access::fence_space::local_space);
 
-           // reduce_over_group, but SYCL 2020 doesn't support custom operations
-           // so custom one is used
-           if (local_id == 0) {
-             B acc = sum[0];
-             for (size_t i = 1;
-                  i < std::min(d.nb_work_item, group_end - group_begin); i++) {
-               acc = reduce(acc, sum[i]);
-             }
+          // reduce_over_group, but SYCL 2020 doesn't support custom operations
+          // so custom one is used
+          if (local_id == 0) {
+            B acc = sum[0];
+            for (size_t i = 1;
+                 i < std::min(d.nb_work_item, group_end - group_begin); i++) {
+              acc = reduce(acc, sum[i]);
+            }
 
-             output[group_id] = acc;
-           }
-         });
-   }).wait();
+            output[group_id] = acc;
+          }
+        });
+  });
 }
 
 template <typename InputIterator, typename OutputIterator, typename Reduce>

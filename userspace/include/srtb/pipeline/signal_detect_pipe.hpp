@@ -101,7 +101,7 @@ class signal_detect_pipe {
 
     srtb::algorithm::multi_mapreduce(
         d_in, count_per_batch, batch_size, d_time_series, map,
-        /* reduce = */ sycl::plus<srtb::real>(), q);
+        /* reduce = */ sycl::plus<srtb::real>(), q).wait();
 
     const srtb::real snr_threshold =
         srtb::config.signal_detect_signal_noise_threshold;
