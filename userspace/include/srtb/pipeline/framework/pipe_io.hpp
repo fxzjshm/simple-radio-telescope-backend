@@ -121,6 +121,11 @@ class multiple_works_out_functor {
  public:
   OutFunctor out_functor;
 
+#if defined(__clang__) && __clang_major__ <= 15
+  explicit multiple_works_out_functor(OutFunctor out_functor_)
+      : out_functor{out_functor_} {}
+#endif
+
   template <typename WorkContainer>
   auto operator()(std::stop_token stop_token, WorkContainer work_container) {
     for (auto&& work : work_container) {
