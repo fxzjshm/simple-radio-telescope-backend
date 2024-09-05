@@ -266,8 +266,7 @@ Operation Options:
 
 </details>
 
-<details>
-<summary><b>Additional steps if operating with UDP packets in real time</b></summary>
+### Additional steps if operating with UDP packets in real time
 
 * upgrade kernel and system libraries to use newer CPU instructions
 * enlarge kernel buffer for networking, e.g.
@@ -289,9 +288,7 @@ net.ipv4.udp_rmem_min = 8388608
 sudo numactl --preferred $NODE nice $NICE simple-radio-telescope-backend
 ```
 
-* set thread affinity of baseband/IF UDP receiver thread(s), using `udp_receiver_cpu_preferred` option
-
-</details>
+* set thread affinity of UDP receiver thread(s), using `udp_receiver_cpu_preferred` option
 
 
 ## Code structure

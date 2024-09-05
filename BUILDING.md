@@ -122,3 +122,49 @@ To fix this,
 export LD_LIBRARY_PATH=/opt/intel-llvm/lib:$LD_LIBRARY_PATH
 ```
 where `/opt/intel-llvm` should be substituted by actural intel/llvm installation location.
+
+### 4. QML compile error on old OS, e.g. Ubuntu 20.04
+Patch is needed to support old Qt & C++ standard library:
+```diff
+diff --git a/userspace/include/srtb/gui/spectrum_image_provider.hpp b/userspace/include/srtb/gui/spectrum_image_provider.hpp
+index c54ae76..5836f00 100644
+--- a/userspace/include/srtb/gui/spectrum_image_provider.hpp
++++ b/userspace/include/srtb/gui/spectrum_image_provider.hpp
+@@ -410,8 +410,8 @@ class SimpleSpectrumImageProvider : public QObject, public QQuickImageProvider {
+   void trigger_update(size_t data_stream_id) {
+     if (parent) {  // object should be main window
+       QMetaObject::invokeMethod(parent, "update_spectrum",
+-                                Q_ARG(int, data_stream_id),
+-                                Q_ARG(int, spectrum_update_counter));
++                                Q_ARG(QVariant, (int) data_stream_id),
++                                Q_ARG(QVariant, (int) spectrum_update_counter));
+       spectrum_update_counter++;
+       SRTB_LOGD << " [SimpleSpectrumImageProvider] "
+                 << "trigger update, spectrum_update_counter = "
+diff --git a/userspace/include/srtb/io/udp/packet_parser.hpp b/userspace/include/srtb/io/udp/packet_parser.hpp
+index ebdb29c..3ec6a60 100644
+--- a/userspace/include/srtb/io/udp/packet_parser.hpp
++++ b/userspace/include/srtb/io/udp/packet_parser.hpp
+@@ -130,7 +130,7 @@ struct gznupsr_a1_packet_parser {
+         (static_cast<counter_type>(word[6])) |
+         (static_cast<counter_type>(word[7]) << (CHAR_BIT * vdif_word_size));
+ 
+-    const vdif_header vh = std::bit_cast<vdif_header>(word);
++    const vdif_header vh = sycl::bit_cast<vdif_header>(word);
+ 
+     // TODO: timestamp
+     return std::make_tuple(/* header_size = */ packet_header_size,
+diff --git a/userspace/src/main.qml b/userspace/src/main.qml
+index 57d4441..9777da8 100644
+--- a/userspace/src/main.qml
++++ b/userspace/src/main.qml
+@@ -9,7 +9,7 @@ Window {
+     property var spectrum_window: new Map()
+     readonly property Component spectrum_window_component: Qt.createComponent("spectrum.qml")
+ 
+-    function update_spectrum(window_id: int, counter: int) {
++    function update_spectrum(window_id, counter) {
+         if (!spectrum_window.hasOwnProperty(window_id)) {
+             spectrum_window[window_id] = 
+                 spectrum_window_component.createObject(/* parent =  */ this, {
+```
