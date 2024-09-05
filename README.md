@@ -285,7 +285,7 @@ net.ipv4.udp_rmem_min = 8388608
 * move network interface and GPU to same NUMA node, topology can be viewed using tools like `lstopo` from hwloc
 * force running on this NUMA node ("`$NODE`") using `numactl` & set process priority (nice value, "`$NICE`"):
 ```bash
-sudo numactl --preferred $NODE nice $NICE simple-radio-telescope-backend
+numactl --preferred $NODE nice $NICE simple-radio-telescope-backend
 ```
 
 * set thread affinity of UDP receiver thread(s), using `udp_receiver_cpu_preferred` option
