@@ -155,7 +155,8 @@ auto multi_mapreduce(InputIterator input, size_t count_per_batch,
 }
 
 template <typename InputIterator, typename OutputIterator, typename Reduce>
-void multi_reduce(InputIterator input, size_t count_per_batch,
+[[nodiscard]]
+auto multi_reduce(InputIterator input, size_t count_per_batch,
                   size_t batch_size, OutputIterator output, Reduce reduce,
                   sycl::queue& q) {
   return multi_mapreduce(input, count_per_batch, batch_size, output,
