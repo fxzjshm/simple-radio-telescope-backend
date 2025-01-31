@@ -9,6 +9,7 @@ if(NOT DEFINED SRTB_SYCL_IMPLEMENTATION)
     message(WARNING "SRTB_SYCL_IMPLEMENTATION not defined, default to AdaptiveCpp")
     set(SRTB_SYCL_IMPLEMENTATION "AdaptiveCpp")
 endif()
+message(STATUS "SRTB_SYCL_IMPLEMENTATION = ${SRTB_SYCL_IMPLEMENTATION}")
 
 
 # detect backends
