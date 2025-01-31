@@ -121,21 +121,6 @@ int main(int argc, char** argv) {
     q.single_task([=]() { (*d_out) = srtb::real{42}; }).wait();
   }
 
-  // init matplotlib
-  {
-    namespace plt = matplotlibcpp;
-    // no GUI is used to show plot, so using Agg backend
-    // some backend may crash because Py_Finalize is called too late
-    // ref: https://github.com/lava/matplotlib-cpp/issues/248
-    plt::backend("Agg");
-    // plot something here to trigger creation of some resources
-    // so that it can be released later in this thread
-    std::vector<srtb::real> points(srtb::config.baseband_input_count /
-                                   srtb::config.spectrum_channel_count / 2);
-    plt::plot(points);
-    plt::cla();
-  }
-
   // work queues
   srtb::work_queue<srtb::work::copy_to_device_work, /* spsc = */ false>
       copy_to_device_queue;
@@ -375,10 +360,6 @@ int main(int argc, char** argv) {
 
   SRTB_LOGI << " [main] "
             << "Exiting." << srtb::endl;
-
-  // de-init matplotlibcpp
-  // https://stackoverflow.com/questions/67533541/py-finalize-resulting-in-segmentation-fault-for-python-3-9-but-not-for-python
-  matplotlibcpp::detail::_interpreter::kill();
 
   return return_value;
 }

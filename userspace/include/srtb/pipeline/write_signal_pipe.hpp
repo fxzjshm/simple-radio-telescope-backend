@@ -35,7 +35,6 @@
 #include <vector>
 
 #include "cnpy.h"
-#include "matplotlibcpp.h"
 #include "srtb/commons.hpp"
 #include "srtb/pipeline/framework/pipe.hpp"
 
@@ -53,12 +52,9 @@ class write_signal_pipe {
   /** @brief local container of timestamps of recent works with signal detected (positive) */
   std::deque<uint64_t> recent_positive_timestamps;
 
-  /** @brief temporary memory lent to time_series_plot_thread_pool for using matplotlib-cpp */
-  std::vector<srtb::real> time_series_buffer;
   boost::asio::thread_pool baseband_output_thread_pool;
-  // CPython interpretor is not thread-safe, so only one thread can access it.
   // Actually just don't want to introduce another pipe...
-  boost::asio::thread_pool time_series_plot_thread_pool{1};
+  boost::asio::thread_pool write_time_series_thread_pool{1};
 
   sycl::queue q;
 
@@ -277,7 +273,7 @@ class write_signal_pipe {
 
       // write time series & plot
       boost::asio::post(
-          time_series_plot_thread_pool,
+          write_time_series_thread_pool,
           [=, this, time_series = std::move(work_to_write.time_series)]() {
             // iterate over all time series, assumed with signal
             for (auto time_series_holder : time_series) {
@@ -306,22 +302,6 @@ class write_signal_pipe {
                       sizeof(decltype(time_series_holder
                                           .h_time_series)::element_type));
               time_series_output_stream.flush();
-
-              // draw time series using matplotlib cpp
-              try {
-                namespace plt = matplotlibcpp;
-                time_series_buffer.resize(time_series_length);
-                std::copy(time_series_ptr, time_series_ptr + time_series_length,
-                          time_series_buffer.begin());
-                plt::backend("Agg");
-                plt::named_plot(time_series_file_path, time_series_buffer);
-                plt::save(time_series_picture_file_path);
-                plt::cla();
-              } catch (const std::runtime_error& error) {
-                SRTB_LOGW << " [write_signal_pipe] "
-                          << "Failed to plot time series: " << error.what()
-                          << srtb::endl;
-              }
             }
           });
     }  // if (opt_work_to_write.has_value())

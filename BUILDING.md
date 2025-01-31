@@ -16,8 +16,6 @@
   * Debian-like: `qtdeclarative5-dev` `qml-module-qtquick2` `qml-module-qtquick-window2`
   * RHEL-like: `qt5-qtdeclarative-devel`
   * Qt 6 not working (TODO)
-* Python 3 with development headers & numpy & matplotlib
-  * Debian-like: `python3-numpy` `python3-matplotlib`
 
 if ROCm backend enabled, additional dependencies:
 * ROCm

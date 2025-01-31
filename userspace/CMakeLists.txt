@@ -239,11 +239,6 @@ include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
 #add_compile_definitions(BOOST_ASIO_HAS_IO_URING)
 #add_compile_definitions(BOOST_ASIO_DISABLE_EPOLL)
 
-## Python, for matplotlib-cpp
-## ref: https://github.com/lava/matplotlib-cpp/blob/master/CMakeLists.txt
-find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
-find_package(Python3 COMPONENTS NumPy)
-
 ## hwloc
 if(PKG_CONFIG_FOUND)
   find_package(hwloc)
@@ -267,7 +262,6 @@ endif()
 ## 3rdparty
 add_subdirectory("3rdparty")
 include_directories(SYSTEM "3rdparty/")
-include_directories(SYSTEM "3rdparty/matplotlib-cpp/")
 include_directories(SYSTEM "3rdparty/SyclParallelSTL/include/")
 include_directories(SYSTEM "3rdparty/dsmath/")
 include_directories(SYSTEM "3rdparty/concurrentqueue/")
