@@ -189,6 +189,11 @@ if(SRTB_ENABLE_CUDA)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ffp-contract=on ")
 endif()
 ## optimize flags
+### ref: https://stackoverflow.com/questions/24460486/cmake-build-type-is-not-being-used-in-cmakelists-txt/59724462#59724462
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE "RelWithDebInfo" CACHE STRING
+            "Default build type: RelWithDebInfo" FORCE)
+endif()
 if(NOT CMAKE_BUILD_TYPE MATCHES Debug)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ftree-vectorize ")
   # check whether -march=native is supported
