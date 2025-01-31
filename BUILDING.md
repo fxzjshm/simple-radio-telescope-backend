@@ -10,7 +10,7 @@
   * RHEL-like: `boost-devel`
 * hwloc (optional)
 * FFTW 3 (optional)
-  * Debian-like: `libfftw-dev`
+  * Debian-like: `libfftw3-dev`
   * RHEL-like: `fftw-devel`
 * Qt 5 (optional)
   * Debian-like: `qtdeclarative5-dev` `qml-module-qtquick2` `qml-module-qtquick-window2`
