@@ -12,10 +12,14 @@ endif()
 
 
 # detect backends
-## CUDA, SRTB_CUDA_ARCH required if with AdaptiveCpp and optional with intal-llvm
+## CUDA
 find_package(CUDAToolkit QUIET)
 option(SRTB_ENABLE_CUDA "option to enable CUDA backend" ${CUDAToolkit_FOUND})
 message(STATUS "SRTB_ENABLE_CUDA = ${SRTB_ENABLE_CUDA}")
+if(SRTB_ENABLE_CUDA AND NOT DEFINED SRTB_ROCM_ARCH)
+    message(NOTICE "CUDA backend enabled, but SRTB_CUDA_ARCH not defined, will use generic backend.")
+    set(SRTB_ENABLE_GENERIC TRUE)
+endif()
 
 ## ROCm/HIP, SRTB_ROCM_ARCH required
 if(DEFINED ROCM_PATH)
@@ -35,7 +39,8 @@ endif()
 option(SRTB_ENABLE_ROCM "option to enable ROCm backend" ${SRTB_ROCM_BACKEND_REQUIREMENT_MET})
 message(STATUS "SRTB_ENABLE_ROCM = ${SRTB_ENABLE_ROCM}")
 if(SRTB_ENABLE_ROCM AND NOT DEFINED SRTB_ROCM_ARCH)
-    message(FATAL_ERROR "ROCm backend enabled, but compiling for ROCm/HIP backend requires SRTB_ROCM_ARCH, e.g. gfx906")
+    message(NOTICE "ROCm backend enabled, but SRTB_ROCM_ARCH not defined, will use generic backend.")
+    set(SRTB_ENABLE_GENERIC TRUE)
 endif()
 if(SRTB_ENABLE_ROCM)
     link_directories("${ROCM_PATH}/lib")
@@ -83,9 +88,6 @@ if(SRTB_SYCL_IMPLEMENTATION STREQUAL "AdaptiveCpp")
   if(NOT DEFINED ACPP_TARGETS)
     set(SRTB_ACPP_TARGETS "")
     if(SRTB_ENABLE_CUDA AND NOT SRTB_ENABLE_GENERIC)
-        if(NOT DEFINED SRTB_CUDA_ARCH)
-            message(FATAL_ERROR "compiling for CUDA backend with AdaptiveCpp requires SRTB_CUDA_ARCH, e.g. sm_86")
-        endif()
         set(SRTB_ACPP_TARGETS ${SRTB_ACPP_TARGETS} cuda:${SRTB_CUDA_ARCH})
     endif()
     if(SRTB_ENABLE_ROCM AND NOT SRTB_ENABLE_GENERIC)
