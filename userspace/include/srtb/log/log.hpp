@@ -17,13 +17,12 @@
 #include <chrono>
 #include <iostream>
 #include <sstream>
-
-#include "srtb/log/sync_ostream_wrapper.hpp"
+#include <syncstream>
 
 // reference: hipSYCL logger at hipSYCL/common/debug.hpp
 #define SRTB_LOG(level)                                  \
   if (static_cast<int>(level) <= static_cast<int>(srtb::log::log_level)) \
-  srtb::log::sync_stream_wrapper{std::cout} << srtb::log::get_log_prefix(level)
+  std::osyncstream{std::cout} << srtb::log::get_log_prefix(level)
 
 namespace srtb {
 

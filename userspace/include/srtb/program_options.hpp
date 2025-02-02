@@ -180,8 +180,8 @@ namespace program_options {
 
   if (vm.count("help")) {
     SRTB_LOGI << " [program_options] "
-              << "Command line options:" << srtb::endl;
-    srtb::log::sync_stream_wrapper{std::cout} << all_option << srtb::endl;
+              << "Command line options:" << srtb::endl
+              << all_option << srtb::endl;
     std::exit(0);
   }
 
