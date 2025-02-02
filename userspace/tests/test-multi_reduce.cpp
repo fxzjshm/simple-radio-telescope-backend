@@ -45,7 +45,7 @@ int main(int argc, char** argv) {
   auto d_out_shared = srtb::device_allocator.allocate_shared<T>(batch_size);
   auto d_in = d_in_shared.get();
   auto d_out = d_out_shared.get();
-  sycl::queue q = srtb::queue;
+  sycl::queue q;
 
   std::generate(h_in.begin(), h_in.end(),
                 []() { return static_cast<T>(std::rand() % 256); });

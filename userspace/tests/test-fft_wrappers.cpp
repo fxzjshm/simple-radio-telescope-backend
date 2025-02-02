@@ -139,16 +139,16 @@ int main(int argc, char** argv) {
   // test for every device
   for (auto device : devices) {
     // set up test environment
-    srtb::queue = sycl::queue{device};
+    sycl::queue q = sycl::queue{device};
     srtb::device_allocator =
 #ifdef SRTB_USE_USM_SHARED_MEMORY
         srtb::memory::cached_allocator<sycl::usm_allocator<
             std::byte, sycl::usm::alloc::shared, srtb::MEMORY_ALIGNMENT> >{
-            srtb::queue};
+            q};
 #else
         srtb::memory::cached_allocator<
             srtb::memory::device_allocator<std::byte, srtb::MEMORY_ALIGNMENT> >{
-            srtb::queue};
+            q};
 #endif
     SRTB_LOGI << " [test fft wrappers] "
               << "device name = " << '\"'
@@ -157,7 +157,7 @@ int main(int argc, char** argv) {
     // R2C 1D test
     {
       srtb::fft::fft_1d_dispatcher<srtb::fft::type::R2C_1D> dispatcher{
-          n_real, batch_size, srtb::queue};
+          n_real, batch_size, q};
       auto d_in_shared =
           srtb::device_allocator.allocate_shared<srtb::real>(total_size_real);
       auto d_out_shared =
@@ -165,7 +165,7 @@ int main(int argc, char** argv) {
               total_size_complex);
       auto d_in = d_in_shared.get();
       auto d_out = d_out_shared.get();
-      srtb::queue.copy(&h_in[0], d_in, total_size_real).wait();
+      q.copy(&h_in[0], d_in, total_size_real).wait();
       for (size_t i = 0; i < test_count; i++) {
         auto start_time = std::chrono::system_clock::now();
         dispatcher.process(d_in, d_out);
@@ -175,7 +175,7 @@ int main(int argc, char** argv) {
                   << "size = 2^" << bit << ", "
                   << "batch_size = " << batch_size << ", "
                   << "time = " << run_time.count() << "ns" << srtb::endl;
-        srtb::queue.copy(d_out, &h_out[0], total_size_complex).wait();
+        q.copy(d_out, &h_out[0], total_size_complex).wait();
         // print result if n is small enough, for debug only
         if (n < print_result_threshold) {
           std::cout << "Input: ";

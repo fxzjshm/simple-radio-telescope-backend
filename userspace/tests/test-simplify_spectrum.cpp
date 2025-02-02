@@ -26,7 +26,7 @@
 template <typename HostContainer1, typename HostContainer2>
 bool test_simplify_spectrum(HostContainer1 h_in_original,
                             HostContainer2 h_out_expected,
-                            sycl::queue& q = srtb::queue) {
+                            sycl::queue& q) {
   std::vector<srtb::complex<srtb::real> > h_in;
   const size_t in_count = h_in_original.size(),
                out_count = h_out_expected.size();

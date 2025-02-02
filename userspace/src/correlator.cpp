@@ -39,7 +39,7 @@ int main() {
   std::string out_file_path = "/dev/shm/corr.bin";
   boost::iostreams::stream<boost::iostreams::file_descriptor_sink>
       output_stream{out_file_path, BOOST_IOS::binary | BOOST_IOS::out};
-  sycl::queue q = srtb::queue;
+  sycl::queue q;
 
   // input handles & size
   SRTB_LOGI << " [correlator] "
