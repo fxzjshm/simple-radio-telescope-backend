@@ -39,11 +39,25 @@ enum class levels : int {
   DEBUG = 4
 };
 
+inline auto get_level_from_env_or(srtb::log::levels default_level)
+    -> srtb::log::levels {
+  srtb::log::levels log_level = default_level;
+  try {
+    char* log_env = std::getenv("SRTB_LOG_LEVEL");
+    if (log_env != nullptr) {
+      log_level = static_cast<srtb::log::levels>(std::stoi(log_env));
+    }
+  } catch (const std::invalid_argument& ignored) {
+  }
+  return log_level;
+}
+
 /**
-  * @brief Debug level for console log output.
+  * @brief Log level for console output.
   * @see srtb::log::levels
   */
-inline srtb::log::levels log_level = srtb::log::levels::INFO;
+inline srtb::log::levels log_level =
+    get_level_from_env_or(srtb::log::levels::INFO);
 
 /** @brief record start time of program, used in log to indicate relative time */
 inline auto log_start_time = std::chrono::system_clock::now();

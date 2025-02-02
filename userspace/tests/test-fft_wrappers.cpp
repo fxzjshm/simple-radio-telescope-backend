@@ -15,6 +15,7 @@
 #include <random>
 
 #include "srtb/fft/fft.hpp"
+#include "srtb/log/log.hpp"
 #include "test-common.hpp"
 
 #define SRTB_CHECK_TEST_FFT_WRAPPERS(expr)                             \
@@ -98,14 +99,6 @@ int main(int argc, char** argv) {
     } catch (const std::invalid_argument& ignored) {
       // test_count should remain unchanged
     }
-  }
-  srtb::config.log_level = static_cast<int>(srtb::log::levels::DEBUG);
-  try {
-    char* log_env = std::getenv("SRTB_LOG_LEVEL");
-    if (log_env != nullptr) {
-      srtb::config.log_level = std::stoi(log_env);
-    }
-  } catch (const std::invalid_argument& ignored) {
   }
 
   const size_t n = static_cast<size_t>(1) << bit, n_real = n,
