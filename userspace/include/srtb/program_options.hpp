@@ -280,12 +280,12 @@ inline void evaluate_and_apply_changed_config(const std::string& name,
   /* else */ if (name == "config_file_name") {
     // has been processed earlier
   } else if (name == "log_level") {
-    using target_type = decltype(srtb::log::log_level);
+    using target_type = decltype(srtb::log::current_level);
     const target_type parsed_value = static_cast<target_type>(parse(value));
     SRTB_LOGI << " [program_options] "
               << "log_level"
               << " = " << static_cast<int>(parsed_value) << srtb::endl;
-    srtb::log::log_level = parsed_value;
+    srtb::log::current_level = parsed_value;
   } else {
     SRTB_LOGW << " [program_options] "
               << "Unrecognized config: name = " << '\"' << name << '\"' << ", "

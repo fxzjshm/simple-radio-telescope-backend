@@ -20,8 +20,8 @@
 #include <syncstream>
 
 // reference: hipSYCL logger at hipSYCL/common/debug.hpp
-#define SRTB_LOG(level)                                  \
-  if (static_cast<int>(level) <= static_cast<int>(srtb::log::log_level)) \
+#define SRTB_LOG(level)                                                      \
+  if (static_cast<int>(level) <= static_cast<int>(srtb::log::current_level)) \
   std::osyncstream{std::cout} << srtb::log::get_log_prefix(level)
 
 namespace srtb {
@@ -30,7 +30,7 @@ inline constexpr auto endl = '\n';
 
 namespace log {
 
-enum class levels : int {
+enum class level : int {
   NONE = 0,
   ERROR = 1,
   WARNING = 2,
@@ -38,13 +38,13 @@ enum class levels : int {
   DEBUG = 4
 };
 
-inline auto get_level_from_env_or(srtb::log::levels default_level)
-    -> srtb::log::levels {
-  srtb::log::levels log_level = default_level;
+inline auto get_level_from_env_or(srtb::log::level default_level)
+    -> srtb::log::level {
+  srtb::log::level log_level = default_level;
   try {
     char* log_env = std::getenv("SRTB_LOG_LEVEL");
     if (log_env != nullptr) {
-      log_level = static_cast<srtb::log::levels>(std::stoi(log_env));
+      log_level = static_cast<srtb::log::level>(std::stoi(log_env));
     }
   } catch (const std::invalid_argument& ignored) {
   }
@@ -55,36 +55,36 @@ inline auto get_level_from_env_or(srtb::log::levels default_level)
   * @brief Log level for console output.
   * @see srtb::log::levels
   */
-inline srtb::log::levels log_level =
-    get_level_from_env_or(srtb::log::levels::INFO);
+inline srtb::log::level current_level =
+    get_level_from_env_or(srtb::log::level::INFO);
 
 /** @brief record start time of program, used in log to indicate relative time */
 inline auto log_start_time = std::chrono::system_clock::now();
 
 inline constexpr size_t PREFIX_BUFFER_LENGTH = 64ul;
 
-inline std::string get_log_prefix(const log::levels level) {
+inline std::string get_log_prefix(const log::level level) {
   // TODO: std::string, std::string_view, char*, or else?
   //       when can we use std::format ?
   std::string prefix, suffix, tag;
   switch (level) {
-    case srtb::log::levels::ERROR:
+    case srtb::log::level::ERROR:
       prefix = "\033[1;31m";  // bright red
       tag = "E";
       break;
-    case srtb::log::levels::WARNING:
+    case srtb::log::level::WARNING:
       prefix = "\033[;35m";  // magenta
       tag = "W";
       break;
-    case srtb::log::levels::INFO:
+    case srtb::log::level::INFO:
       prefix = "\033[;32m";  // green
       tag = "I";
       break;
-    case srtb::log::levels::DEBUG:
+    case srtb::log::level::DEBUG:
       prefix = "\033[;36m";  // cyan
       tag = "D";
       break;
-    case srtb::log::levels::NONE:
+    case srtb::log::level::NONE:
     default:
       return "";
   }
@@ -118,9 +118,9 @@ inline auto container_to_string(const Container& container, U delimiter)
 }  // namespace log
 }  // namespace srtb
 
-#define SRTB_LOGE SRTB_LOG(srtb::log::levels::ERROR)
-#define SRTB_LOGW SRTB_LOG(srtb::log::levels::WARNING)
-#define SRTB_LOGI SRTB_LOG(srtb::log::levels::INFO)
-#define SRTB_LOGD SRTB_LOG(srtb::log::levels::DEBUG)
+#define SRTB_LOGE SRTB_LOG(srtb::log::level::ERROR)
+#define SRTB_LOGW SRTB_LOG(srtb::log::level::WARNING)
+#define SRTB_LOGI SRTB_LOG(srtb::log::level::INFO)
+#define SRTB_LOGD SRTB_LOG(srtb::log::level::DEBUG)
 
 #endif  // __SRTB_LOG__
