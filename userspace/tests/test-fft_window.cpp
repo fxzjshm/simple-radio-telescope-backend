@@ -78,11 +78,11 @@ void tiny_test() {
       srtb::fft::fft_window_functor_manager<
           srtb::real, srtb::fft::window::cosine_sum_window<2> >
           another_hamming_window_functor_manager{another_hamming_window, n, q};
-      srtb::fft::fft_window_functor hamming_window_functor =
+      srtb::fft::fft_window_functor another_hamming_window_functor =
           another_hamming_window_functor_manager.functor;
       q.parallel_for(sycl::range<1>(n), [=](sycl::item<1> id) {
          const auto i = id.get_id(0);
-         d_out[i] = hamming_window_functor(i, d_in[i]);
+         d_out[i] = another_hamming_window_functor(i, d_in[i]);
        }).wait();
       q.copy(d_out, /* -> */ h_out, n).wait();
       for (size_t i = 0; i < n; i++) {
