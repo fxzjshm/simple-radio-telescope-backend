@@ -4,4 +4,5 @@ UseTab:          Never
 Language:        Cpp
 BasedOnStyle:    Google
 
+ColumnLimit: 120
 ReflowComments: false
