@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "srtb/math.hpp"
+#include "srtb/gui/color_cast.hpp"
 
 namespace srtb {
 
@@ -57,6 +58,16 @@ inline constexpr size_t MEMORY_ALIGNMENT = 64ul;
 inline constexpr size_t BITS_PER_BYTE = 8ul;
 
 inline constexpr size_t UDP_MAX_SIZE = 1 << 16;
+
+namespace gui {
+
+constexpr uint32_t opaque = 0xff000000;
+/** When generating a pixmap from intensity (normalized to [0, 1], 0 -> color_0 and 1 -> color_1) */
+constexpr uint32_t color_0 = color_cast("#1f1e33") | opaque;
+constexpr uint32_t color_1 = color_cast("#33e1f1") | opaque;
+constexpr uint32_t color_overflow = static_cast<uint32_t>(0xe0e1ccull) | opaque;
+
+};  // namespace gui
 
 // ------ Runtime configuration ------
 
