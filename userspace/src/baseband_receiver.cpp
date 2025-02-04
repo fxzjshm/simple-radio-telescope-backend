@@ -68,8 +68,8 @@ int baseband_receiver(int argc, char** argv) {
 
   using namespace srtb::pipeline;
   std::jthread udp_receiver_thread =
-      srtb::pipeline::start_pipe<udp_receiver_pipe>(
-          q, dummy_in_functor{}, queue_out_functor{write_file_queue});
+      srtb::pipeline::start_udp_receiver_pipe(srtb::config.baseband_format_type, q, dummy_in_functor{},
+                                              queue_out_functor{write_file_queue}, /* id = */ size_t{0});
   std::jthread baseband_output_thread = srtb::pipeline::start_pipe<
       composite_pipe<baseband_receiver_cast_pipe, write_file_pipe>>(
       q, queue_in_functor{write_file_queue}, dummy_out_functor{});

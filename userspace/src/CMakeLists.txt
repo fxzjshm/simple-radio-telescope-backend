@@ -35,3 +35,4 @@ srtb_add_dependency(srtb-correlator)
 
 add_executable(srtb_baseband_receiver baseband_receiver.cpp)
 srtb_add_dependency(srtb_baseband_receiver)
+target_link_libraries(srtb_baseband_receiver PUBLIC exprgrammar)
