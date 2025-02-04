@@ -188,6 +188,16 @@ set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -rdynamic ")
 ## https://clang.llvm.org/docs/UsersManual.html#cmdoption-ffp-contract
 if(SRTB_ENABLE_CUDA)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ffp-contract=on ")
+else()
+  check_cxx_compiler_flag("-ffp-contract=fast-honor-pragmas" COMPILER_OPT_FP_CONTRACT_FAST_HONOR_PRAGMAS)
+  check_cxx_compiler_flag("-Xclang -ffp-contract=fast-honor-pragmas" COMPILER_OPT_FP_CONTRACT_FAST_HONOR_PRAGMAS_CLANG)
+  if (COMPILER_OPT_FP_CONTRACT_FAST_HONOR_PRAGMAS)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ffp-contract=fast-honor-pragmas ")
+  elseif(COMPILER_OPT_FP_CONTRACT_FAST_HONOR_PRAGMAS_CLANG)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Xclang -ffp-contract=fast-honor-pragmas ")
+  else()
+    message(WARNING "-ffp-contract=fast-honor-pragmas not suppored, may cause problem if using df64 emulation")
+  endif()
 endif()
 ## optimize flags
 ### ref: https://stackoverflow.com/questions/24460486/cmake-build-type-is-not-being-used-in-cmakelists-txt/59724462#59724462
