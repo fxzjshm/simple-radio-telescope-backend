@@ -98,7 +98,7 @@ inline std::string get_log_prefix(const log::level level) {
   double interval_sec = static_cast<double>(interval.count()) / 1e9;
 
   char str[srtb::log::PREFIX_BUFFER_LENGTH];
-  std::snprintf(str, sizeof(str), "%s[%9.06f] %s%s:", prefix.c_str(),
+  std::snprintf(str, sizeof(str), "%s[%12.06f] %s%s:", prefix.c_str(),
                 interval_sec, tag.c_str(), suffix.c_str());
   return std::string(str);
 }
