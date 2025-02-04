@@ -62,7 +62,7 @@ class write_signal_pipe {
   write_signal_pipe(sycl::queue q_) : q{q_} {
     // check if directory is writable, also record start time
     std::string check_file_path = srtb::config.baseband_output_file_prefix +
-                                  "begin_" + generate_time_tag();
+                                  ".check";
     try {
       boost::iostreams::stream<boost::iostreams::file_descriptor_sink>
           baseband_output_stream{check_file_path,
@@ -72,32 +72,6 @@ class write_signal_pipe {
                 << "cannot open file " << check_file_path << srtb::endl;
       throw error;
     }
-  }
-
-  ~write_signal_pipe() {
-    // record end time
-    // TODO: log file
-    std::string check_file_path =
-        srtb::config.baseband_output_file_prefix + "end_" + generate_time_tag();
-    try {
-      boost::iostreams::stream<boost::iostreams::file_descriptor_sink>
-          baseband_output_stream{check_file_path,
-                                 BOOST_IOS::binary | BOOST_IOS::out};
-    } catch (const boost::wrapexcept<std::ios_base::failure>& error) {
-      SRTB_LOGE << " [write_signal_pipe] "
-                << "cannot open file " << check_file_path << srtb::endl;
-      throw error;
-    }
-  }
-
-  static auto generate_time_tag() -> std::string {
-    // modified from example from https://en.cppreference.com/w/cpp/chrono/c/strftime
-    std::time_t time = std::time({});
-    // '\0' should included in string literal
-    char time_string[std::size("yyyymmdd_hhmmss")];
-    std::strftime(std::data(time_string), std::size(time_string),
-                  "%Y%m%d_%H%M%S", std::gmtime(&time));
-    return std::string{time_string};
   }
 
   auto operator()([[maybe_unused]] std::stop_token stop_token,
