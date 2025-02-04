@@ -100,22 +100,22 @@ inline constexpr sycl::backend cpu = sycl::backend::omp;
 /**
  * @brief Get an available native queue object
  * 
- * hipSYCL does not support sycl::get_native<queue>() directly,
- * see https://github.com/OpenSYCL/OpenSYCL/issues/867
+ * AdaptiveCpp does not support sycl::get_native<queue>() directly,
+ * see https://github.com/AdaptiveCpp/AdaptiveCpp/issues/867
  */
 template <sycl::backend backend, typename native_queue_t>
 inline auto get_native_queue(sycl::queue& q) -> native_queue_t {
-#if defined(__HIPSYCL__)
+#if defined(__ADAPTIVECPP__)
   // ref: https://github.com/illuhad/hipSYCL/issues/722
   native_queue_t stream;
   q.submit([&](sycl::handler& cgh) {
-     cgh.hipSYCL_enqueue_custom_operation([&](sycl::interop_handle& h) {
+     cgh.AdaptiveCpp_enqueue_custom_operation([&](sycl::interop_handle& h) {
        stream = h.get_native_queue<backend>();
      });
    }).wait();
 #else
-  stream = sycl::get_native<backend>(queue);
-#endif  // __HIPSYCL__
+  native_queue_t stream = sycl::get_native<backend>(q);
+#endif  // __ADAPTIVECPP__
   return stream;
 }
 
