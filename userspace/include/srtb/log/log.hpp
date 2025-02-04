@@ -63,32 +63,36 @@ inline auto log_start_time = std::chrono::system_clock::now();
 
 inline constexpr size_t PREFIX_BUFFER_LENGTH = 64ul;
 
+inline constexpr std::string bright_red = "\033[1;31m";
+inline constexpr std::string magenta = "\033[;35m";
+inline constexpr std::string green = "\033[;32m";
+inline constexpr std::string cyan = "\033[;36m";
+inline constexpr std::string clear_colour = "\033[0m";
+
 inline std::string get_log_prefix(const log::level level) {
-  // TODO: std::string, std::string_view, char*, or else?
-  //       when can we use std::format ?
   std::string prefix, suffix, tag;
   switch (level) {
     case srtb::log::level::ERROR:
-      prefix = "\033[1;31m";  // bright red
+      prefix = bright_red;
       tag = "E";
       break;
     case srtb::log::level::WARNING:
-      prefix = "\033[;35m";  // magenta
+      prefix = magenta;
       tag = "W";
       break;
     case srtb::log::level::INFO:
-      prefix = "\033[;32m";  // green
+      prefix = green;
       tag = "I";
       break;
     case srtb::log::level::DEBUG:
-      prefix = "\033[;36m";  // cyan
+      prefix = cyan;
       tag = "D";
       break;
     case srtb::log::level::NONE:
     default:
       return "";
   }
-  suffix = "\033[0m";  // clear colour
+  suffix = clear_colour;
 
   auto interval = std::chrono::system_clock::now() - srtb::log::log_start_time;
   double interval_sec = static_cast<double>(interval.count()) / 1e9;
