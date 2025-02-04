@@ -103,9 +103,11 @@ int main(int argc, char** argv) {
 
   const size_t n = static_cast<size_t>(1) << bit, n_real = n,
                n_complex = n / 2 + 1;
-  // assume operations related to an element gives 0.5 ulp error, and max tolerance is 5%
-  srtb::real threshold = std::min(
-      std::numeric_limits<srtb::real>::epsilon() * n / 2, srtb::real{0.05});
+  // assume operations related to an element gives 0.5 ulp error, and max tolerance is 5%, min = 1e-5
+  // 1e-5 is a common threshold when comparing floating-point numbers; 
+  // 5% is a common error threshold in general physics experiments
+  srtb::real threshold =
+      std::min(std::max(std::numeric_limits<srtb::real>::epsilon() * n / 2, srtb::real{1e-5}), srtb::real{0.05});
   srtb::config.baseband_input_count = n;
   size_t fft_1d_r2c_input_size = srtb::config.baseband_input_count;
   SRTB_LOGD << " [test fft wrappers] "
