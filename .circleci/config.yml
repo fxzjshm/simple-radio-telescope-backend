@@ -79,13 +79,13 @@ jobs:
 
   test-on-oneapi:
     parameters:
-      oneapi_version:
+      image_name:
         type: string
     # Specify the execution environment. You can specify an image from Docker Hub or use one of our convenience images from CircleCI's Developer Hub.
     # See: https://circleci.com/docs/executor-intro/ & https://circleci.com/docs/configuration-reference/#executor-job
     docker:
       # Specify the version you desire here
-      - image: intel/oneapi-basekit:<< parameters.oneapi_version >>
+      - image: << parameters.image_name >>
 
     # Add steps to the job
     # See: https://circleci.com/docs/jobs-steps/#steps-overview & https://circleci.com/docs/configuration-reference/#steps
@@ -97,7 +97,7 @@ jobs:
           condition:
             matches:
               pattern: ".*ubuntu.*"
-              value: << parameters.oneapi_version >>
+              value: << parameters.image_name >>
           steps:
             - run:
                 name: "Install dependencies on Ubuntu"
@@ -106,7 +106,7 @@ jobs:
           condition:
             matches:
               pattern: ".*rockylinux.*"
-              value: << parameters.oneapi_version >>
+              value: << parameters.image_name >>
           steps:
             - run:
                 name: "Install dependencies on Rocky Linux"
@@ -159,7 +159,7 @@ workflows:
               clang_version: [""]
               resource_class: ["medium"]
       - test-on-oneapi:
-          name: test-on-oneapi-<< matrix.oneapi_version >>
+          name: test-on-oneapi-<< matrix.image_name >>
           matrix:
             parameters:
-              oneapi_version: ["2025.0.2-0-devel-ubuntu24.04", "2025.0.2-0-devel-rockylinux9"]
+              image_name: ["intel/oneapi-basekit:2025.0.2-0-devel-ubuntu24.04", "intel/oneapi-basekit:2025.0.2-0-devel-rockylinux9"]
