@@ -141,21 +141,21 @@ workflows:
           name: test-on-adaptivecpp-<< matrix.image_name >>-<< matrix.resource_class >>-clang<< matrix.clang_version >>
           matrix:
             parameters:
-              image_name: ["ubuntu/24.04"]
+              image_name: ["ubuntu:24.04"]
               clang_version: ["19"]
               resource_class: ["medium", "arm.medium"]
       - test-on-adaptivecpp:
           name: test-on-adaptivecpp-<< matrix.image_name >>-<< matrix.resource_class >>-clang<< matrix.clang_version >>
           matrix:
             parameters:
-              image_name: ["ubuntu/24.04"]
+              image_name: ["ubuntu:24.04"]
               clang_version: ["15"]
               resource_class: ["medium"]
       - test-on-adaptivecpp:
           name: test-on-adaptivecpp-<< matrix.image_name >>-<< matrix.resource_class >>
           matrix:
             parameters:
-              image_name: ["rockylinux/9.3"]
+              image_name: ["rockylinux:9.3"]
               clang_version: [""]
               resource_class: ["medium"]
       - test-on-oneapi:
