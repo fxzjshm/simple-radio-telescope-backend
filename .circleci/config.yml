@@ -5,11 +5,13 @@ version: 2.1
 # Define a job to be invoked later in a workflow.
 # See: https://circleci.com/docs/jobs-steps/#jobs-overview & https://circleci.com/docs/configuration-reference/#jobs
 jobs:
-  test-on-adaptivecpp:
+  test:
     parameters:
+      backend:
+        type: string
       image_name:
         type: string
-      clang_version:  # currently not used in Rocky Linux
+      clang_version:  # only used with AdaptiveCpp on Ubuntu
         type: string
       resource_class:
         type: string
@@ -52,14 +54,18 @@ jobs:
               pattern: ".*ubuntu.*"
               value: << parameters.image_name >>
           steps:
-            # https://github.com/AdaptiveCpp/AdaptiveCpp/blob/e1c6c6ede4c17877a2005f876afc869f11fba5be/.github/workflows/linux.yml
-            - run: 
-                name: "Install LLVM << parameters.clang_version >> "
-                command: |
-                  wget https://apt.llvm.org/llvm.sh
-                  chmod +x llvm.sh
-                  sudo ./llvm.sh << parameters.clang_version >>
-                  sudo apt-get install -y libclang-<< parameters.clang_version >>-dev clang-tools-<< parameters.clang_version >> libomp-<< parameters.clang_version >>-dev
+            - when:
+                condition:
+                  equal: [ "adaptivecpp", << parameters.backend >> ]
+                steps:
+                  # https://github.com/AdaptiveCpp/AdaptiveCpp/blob/e1c6c6ede4c17877a2005f876afc869f11fba5be/.github/workflows/linux.yml
+                  - run: 
+                      name: "Install LLVM << parameters.clang_version >>"
+                      command: |
+                        wget https://apt.llvm.org/llvm.sh
+                        chmod +x llvm.sh
+                        sudo ./llvm.sh << parameters.clang_version >>
+                        sudo apt-get install -y libclang-<< parameters.clang_version >>-dev clang-tools-<< parameters.clang_version >> libomp-<< parameters.clang_version >>-dev
             - run:
                 name: "Install dependencies on Ubuntu"
                 command: |
@@ -70,109 +76,56 @@ jobs:
               pattern: ".*rockylinux.*"
               value: << parameters.image_name >>
           steps:
-            - run: 
-                name: "Install LLVM"
-                command: |
-                  sudo dnf install -y clang clang-devel libomp-devel clang-tools-extra
+            - when:
+                condition:
+                  equal: [ "adaptivecpp", << parameters.backend >> ]
+                steps:
+                  - run:
+                      name: "Install LLVM"
+                      command: |
+                        sudo dnf install -y clang clang-devel libomp-devel clang-tools-extra
             - run:
                 name: "Install dependencies on Rocky Linux"
                 command: |
                   sudo dnf install -y boost-devel hwloc-devel fftw-devel qt5-qtdeclarative-devel
-      - run:
-          name: "Build and install AdaptiveCpp"
-          command: |
-            cd /dev/shm
-            git clone --depth 1 https://github.com/AdaptiveCpp/AdaptiveCpp
-            cd AdaptiveCpp
-            cmake -S . -B build -DCMAKE_INSTALL_PREFIX=/opt/AdaptiveCpp
-            cmake --build build -j `nproc`
-      - run:
-          name: "Configure"
-          command: |
-            cmake -S . -B build
+      - when:
+          condition:
+            equal: [ "adaptivecpp", << parameters.backend >> ]
+          steps:
+            - run:
+                name: "Build and install AdaptiveCpp"
+                command: |
+                  cd /dev/shm
+                  git clone --depth 1 https://github.com/AdaptiveCpp/AdaptiveCpp
+                  cd AdaptiveCpp
+                  cmake -S . -B build -DCMAKE_INSTALL_PREFIX=/opt/AdaptiveCpp
+                  cmake --build build -j `nproc`
+                  cmake --install
+      - when:
+          condition:
+            equal: [ "adaptivecpp", << parameters.backend >> ]
+          steps:
+            - run:
+                name: "Configure w/ AdaptiveCpp"
+                command: |
+                  cmake -S . -B build -DAdaptiveCpp_DIR=/opt/AdaptiveCpp/lib/cmake/AdaptiveCpp
+      - when:
+          condition:
+            equal: [ "oneapi", << parameters.backend >> ]
+          steps:
+            # https://devmesh.intel.com/posts/991253/adding-intel-oneapi-toolkits-to-github-actions
+            - run:
+                name: "Configure w/ Intel oneAPI DPC++"
+                # source /opt/intel/oneapi/setvars.sh not required for oneapi image
+                command: |
+                  cmake -S . -B build -DCMAKE_C_COMPILER=icx -DCMAKE_CXX_COMPILER=dpcpp
       - run:
           name: "Build"
           command: |
-            cmake --build build -j `nproc` -DAdaptiveCpp_DIR=/opt/AdaptiveCpp/lib/cmake/AdaptiveCpp
-      - run:
-          name: "Test"
-          command: |
-            ctest --test-dir build --output-on-failure
-
-  test-on-oneapi:
-    parameters:
-      image_name:
-        type: string
-    # Specify the execution environment. You can specify an image from Docker Hub or use one of our convenience images from CircleCI's Developer Hub.
-    # See: https://circleci.com/docs/executor-intro/ & https://circleci.com/docs/configuration-reference/#executor-job
-    docker:
-      # Specify the version you desire here
-      - image: << parameters.image_name >>
-
-    # Add steps to the job
-    # See: https://circleci.com/docs/jobs-steps/#steps-overview & https://circleci.com/docs/configuration-reference/#steps
-    steps:
-      # Checkout the code as the first step.
-      - checkout
-      - when:
-          condition:
-            matches:
-              pattern: ".*ubuntu.*"
-              value: << parameters.image_name >>
-          steps:
-            - run:
-                name: "Install essential tools on Ubuntu"
-                command: |
-                  apt-get install -y sudo git
-      - when:
-          condition:
-            matches:
-              pattern: ".*rockylinux.*"
-              value: << parameters.image_name >>
-          steps:
-            - run:
-                name: "Install essential tools on Rocky Linux"
-                command: |
-                  dnf install -y sudo git
-      - run: git submodule update --init --recursive
-      - when:
-          condition:
-            matches:
-              pattern: ".*ubuntu.*"
-              value: << parameters.image_name >>
-          steps:
-            - run:
-                name: "Install dependencies on Ubuntu"
-                command: |
-                  sudo apt-get install -y libboost-all-dev libhwloc-dev libfftw3-dev qtdeclarative5-dev qml-module-qtquick2 qml-module-qtquick-window2
-      - when:
-          condition:
-            matches:
-              pattern: ".*rockylinux.*"
-              value: << parameters.image_name >>
-          steps:
-            - run:
-                name: "Install dependencies on Rocky Linux"
-                command: |
-                  sudo dnf install -y boost-devel hwloc-devel fftw-devel qt5-qtdeclarative-devel
-      # https://devmesh.intel.com/posts/991253/adding-intel-oneapi-toolkits-to-github-actions
-      - run:
-          name: "Configure"
-          command: |
-            source /opt/intel/oneapi/setvars.sh
-            cmake -S . -B build \
-              -DCMAKE_C_COMPILER=icx \
-              -DCMAKE_CXX_COMPILER=dpcpp
-      - run:
-          name: "Build"
-          command: |
-            source /opt/intel/oneapi/setvars.sh
             cmake --build build -j `nproc`
       - run:
           name: "Test"
           command: |
-            source /opt/intel/oneapi/setvars.sh
-            export SYCL_DEVICE_FILTER=opencl.cpu
             ctest --test-dir build --output-on-failure
 
 # Orchestrate jobs using workflows
@@ -181,29 +134,35 @@ workflows:
   test-workflow: # This is the name of the workflow, feel free to change it to better match your workflow.
     # Inside the workflow, you define the jobs you want to run.
     jobs:
-      - test-on-adaptivecpp:
-          name: test-on-adaptivecpp-<< matrix.image_name >>-<< matrix.resource_class >>-clang<< matrix.clang_version >>
+      - test:
+          name: test-on-<< matrix.backend >>-<< matrix.image_name >>-<< matrix.resource_class >>-clang<< matrix.clang_version >>
           matrix:
             parameters:
+              backend: ["adaptivecpp"]
               image_name: ["ubuntu:24.04"]
               clang_version: ["19"]
               resource_class: ["medium", "arm.medium"]
-      - test-on-adaptivecpp:
-          name: test-on-adaptivecpp-<< matrix.image_name >>-<< matrix.resource_class >>-clang<< matrix.clang_version >>
+      - test:
+          name: test-on-<< matrix.backend >>-<< matrix.image_name >>-clang<< matrix.clang_version >>
           matrix:
             parameters:
+              backend: ["adaptivecpp"]
               image_name: ["ubuntu:24.04"]
               clang_version: ["15"]
               resource_class: ["medium"]
-      - test-on-adaptivecpp:
-          name: test-on-adaptivecpp-<< matrix.image_name >>-<< matrix.resource_class >>
+      - test:
+          name: test-on-<< matrix.backend >>-<< matrix.image_name >>
           matrix:
             parameters:
+              backend: ["adaptivecpp"]
               image_name: ["rockylinux:9.3"]
               clang_version: [""]
               resource_class: ["medium"]
-      - test-on-oneapi:
-          name: test-on-oneapi-<< matrix.image_name >>
+      - test:
+          name: test-on-<< matrix.backend >>-<< matrix.image_name >>
           matrix:
             parameters:
+              backend: ["oneapi"]
               image_name: ["intel/oneapi-basekit:2025.0.2-0-devel-ubuntu24.04", "intel/oneapi-basekit:2025.0.2-0-devel-rockylinux9"]
+              clang_version: [""]
+              resource_class: ["medium"]
