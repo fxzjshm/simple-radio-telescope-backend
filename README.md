@@ -1,9 +1,10 @@
 # Simple radio telescope backend
-Everything working in progress...
-
-## About this project
-This is a simple backend of radio telescope. 
+This is a simple backend of radio telescope, currently contains a online transient signal capturing pipeline. 
 It reads raw "baseband"/"intermediate frequency" voltage data and should be capable of coherent dedispersion, radio frequency interference mitigation and single pulse signal detection in real-time, with spectrum waterfall shown in GUI.
+
+As the pipeline is composed of pipes, pipes of functions above can be reused for
+other purposes, or at least as a code reference for radio astronomy signal 
+processing.
 
 <div align="center">
 
@@ -21,15 +22,7 @@ Possible future plans include DPDK integration, search of disperse measurements,
 
 Due to **vendor independence** and API complexity,
 [SYCL 2020](https://www.khronos.org/sycl/) from Khronos Group is chosen as target API,
-Mainly used SYCL implementations are [AdaptiveCpp](https://github.com/AdaptiveCpp/AdaptiveCpp) and [intel/llvm](https://github.com/intel/llvm/).
-Tested setups are listed below.
-
-> There do exist other GPGPUs, not only NVIDIA CUDA.
-
-Name of this project is inspired by SDDM: Simple Desktop Display Manager.
-
-This is only an undergraduate "research" project, so many things are naively implemented. 
-Corrections and suggestions are very appreciated!
+Mainly used SYCL implementations are [AdaptiveCpp](https://github.com/AdaptiveCpp/AdaptiveCpp) and [Intel oneAPI DPC++](https://github.com/intel/llvm/).
 
 ### Pipeline Structure
 ```mermaid
@@ -106,10 +99,10 @@ mindmap
         clspv + clvk ? <br/> on Vulkan
         other devices ?
       OpenMP
-        any CPU <br/> with OpenMP
+        CPU <br/> with OpenMP
 ```
 
-*Schemantic of main SYCL implementations and theirs backends. Devices marked "?" have not been successfully tested.*
+*Schemantic of main SYCL implementations and theirs backends. Devices marked "?" have not been successfully tested with this pipeline.*
 
 Tested setup:
 
@@ -141,13 +134,11 @@ export CLI_SuppressLogging=1
 [4] Integrated GPU of AMD Ryzen 6800 series.  
 [5] "GPU-like accelerator". Information not available due to policy of this vendor.
 
-Note: support of NVIDIA CUDA devices is of low priority and may be removed in the future.
-
 
 ## Building
 Note that this repository has submodule for dependency management, don't forget to add `--recursive` when cloning this git repo, or use
 ```bash
-git submodule update --init
+git submodule update --init --recursive --progress
 ```
 if you have cloned this repo.
 
@@ -281,7 +272,7 @@ net.ipv4.tcp_window_scaling = 1
 net.ipv4.udp_rmem_min = 8388608
 ```
 
-* check MTU setting of network interface
+* check MTU setting of network interface, default is usually 1500, but typical packet size from FPGAs are ~4096 or ~8192
 * move network interface and GPU to same NUMA node, topology can be viewed using tools like `lstopo` from hwloc
 * force running on this NUMA node ("`$NODE`") using `numactl` & set process priority (nice value, "`$NICE`"):
 ```bash
@@ -323,6 +314,8 @@ A device failure has been encountered during daily observation using Intel serve
 Please pay special attention to server cooling before observation.
 
 ## Credits
+This work is also supported by undergraduate research project of Peking University "Pulsar and fast radio burst backend based on heterogeneous system".
+
 This repo uses 3rd-party code, including:
 * a [modified version](https://github.com/fxzjshm/SyclParallelSTL) of [SyclParallelSTL](https://github.com/KhronosGroup/SyclParallelSTL)
   * modified so that algorithms work direcly on input iterators
