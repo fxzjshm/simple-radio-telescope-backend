@@ -25,6 +25,26 @@ jobs:
     steps:
       # Checkout the code as the first step.
       - checkout
+      - when:
+          condition:
+            matches:
+              pattern: ".*ubuntu.*"
+              value: << parameters.image_name >>
+          steps:
+            - run:
+                name: "Install essential tools on Ubuntu"
+                command: |
+                  apt-get install -y sudo git
+      - when:
+          condition:
+            matches:
+              pattern: ".*rockylinux.*"
+              value: << parameters.image_name >>
+          steps:
+            - run:
+                name: "Install essential tools on Rocky Linux"
+                command: |
+                  dnf install -y sudo git
       - run: git submodule update --init --recursive
       - when:
           condition:
@@ -94,6 +114,26 @@ jobs:
     steps:
       # Checkout the code as the first step.
       - checkout
+      - when:
+          condition:
+            matches:
+              pattern: ".*ubuntu.*"
+              value: << parameters.image_name >>
+          steps:
+            - run:
+                name: "Install essential tools on Ubuntu"
+                command: |
+                  apt-get install -y sudo git
+      - when:
+          condition:
+            matches:
+              pattern: ".*rockylinux.*"
+              value: << parameters.image_name >>
+          steps:
+            - run:
+                name: "Install essential tools on Rocky Linux"
+                command: |
+                  dnf install -y sudo git
       - run: git submodule update --init --recursive
       - when:
           condition:
