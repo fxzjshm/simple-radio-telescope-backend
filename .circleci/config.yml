@@ -36,6 +36,7 @@ jobs:
             - run:
                 name: "Install essential tools on Ubuntu"
                 command: |
+                  apt-get update
                   apt-get install -y sudo git
       - when:
           condition:
@@ -83,7 +84,7 @@ jobs:
                   - run:
                       name: "Install LLVM"
                       command: |
-                        sudo dnf install -y clang clang-devel libomp-devel clang-tools-extra
+                        sudo dnf install -y clang clang-devel llvm-devel libomp-devel clang-tools-extra
             - run:
                 name: "Install dependencies on Rocky Linux"
                 command: |
