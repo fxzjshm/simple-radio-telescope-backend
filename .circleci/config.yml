@@ -37,7 +37,8 @@ jobs:
                 name: "Install essential tools on Ubuntu"
                 command: |
                   apt-get update
-                  apt-get install -y sudo git wget
+                  apt-get install -y sudo git
+                  apt-get install -y lsb-release wget software-properties-common gnupg
       - when:
           condition:
             matches:
@@ -99,6 +100,7 @@ jobs:
                   cd /tmp
                   git clone --depth 1 https://github.com/AdaptiveCpp/AdaptiveCpp
                   cd AdaptiveCpp
+                  git --no-pager log -1
                   cmake -S . -B build -DCMAKE_INSTALL_PREFIX=/opt/AdaptiveCpp
                   cmake --build build -j `nproc`
                   cmake --install
@@ -119,7 +121,7 @@ jobs:
                 name: "Configure w/ Intel oneAPI DPC++"
                 # source /opt/intel/oneapi/setvars.sh not required for oneapi image
                 command: |
-                  cmake -S . -B build -DCMAKE_C_COMPILER=icx -DCMAKE_CXX_COMPILER=dpcpp -DSRTB_SYCL_IMPLEMENTATION=intel-llvm
+                  cmake -S . -B build -DCMAKE_C_COMPILER=icx -DCMAKE_CXX_COMPILER=icpx -DSRTB_SYCL_IMPLEMENTATION=intel-llvm
       - run:
           name: "Build"
           command: |
@@ -142,7 +144,7 @@ workflows:
               backend: ["adaptivecpp"]
               image_name: ["ubuntu:24.04"]
               clang_version: ["19"]
-              resource_class: ["medium", "arm.medium"]
+              resource_class: ["medium+", "arm.medium"]
       - test:
           name: test-on-<< matrix.backend >>-<< matrix.image_name >>-clang<< matrix.clang_version >>
           matrix:
@@ -150,7 +152,7 @@ workflows:
               backend: ["adaptivecpp"]
               image_name: ["ubuntu:24.04"]
               clang_version: ["15"]
-              resource_class: ["medium"]
+              resource_class: ["medium+"]
       - test:
           name: test-on-<< matrix.backend >>-<< matrix.image_name >>
           matrix:
@@ -158,7 +160,7 @@ workflows:
               backend: ["adaptivecpp"]
               image_name: ["rockylinux:9.3"]
               clang_version: [""]
-              resource_class: ["medium"]
+              resource_class: ["medium+"]
       - test:
           name: test-on-<< matrix.backend >>-<< matrix.image_name >>
           matrix:
