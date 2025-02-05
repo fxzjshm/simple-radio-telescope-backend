@@ -42,7 +42,8 @@ jobs:
                   sudo apt-get install -y libclang-<< parameters.clang_version >>-dev clang-tools-<< parameters.clang_version >> libomp-<< parameters.clang_version >>-dev
             - run:
                 name: "Install dependencies on Ubuntu"
-                command: "sudo apt-get install -y libboost-all-dev libhwloc-dev libfftw3-dev qtdeclarative5-dev qml-module-qtquick2 qml-module-qtquick-window2"
+                command: |
+                  sudo apt-get install -y libboost-all-dev libhwloc-dev libfftw3-dev qtdeclarative5-dev qml-module-qtquick2 qml-module-qtquick-window2
       - when:
           condition:
             matches:
@@ -55,7 +56,8 @@ jobs:
                   sudo dnf install -y clang clang-devel libomp-devel clang-tools-extra
             - run:
                 name: "Install dependencies on Rocky Linux"
-                command: "sudo dnf install -y boost-devel hwloc-devel fftw-devel qt5-qtdeclarative-devel"
+                command: |
+                  sudo dnf install -y boost-devel hwloc-devel fftw-devel qt5-qtdeclarative-devel
       - run:
           name: "Build and install AdaptiveCpp"
           command: |
@@ -101,7 +103,8 @@ jobs:
           steps:
             - run:
                 name: "Install dependencies on Ubuntu"
-                command: "sudo apt-get install -y libboost-all-dev libhwloc-dev libfftw3-dev qtdeclarative5-dev qml-module-qtquick2 qml-module-qtquick-window2"
+                command: |
+                  sudo apt-get install -y libboost-all-dev libhwloc-dev libfftw3-dev qtdeclarative5-dev qml-module-qtquick2 qml-module-qtquick-window2
       - when:
           condition:
             matches:
@@ -110,7 +113,8 @@ jobs:
           steps:
             - run:
                 name: "Install dependencies on Rocky Linux"
-                command: "sudo dnf install -y boost-devel hwloc-devel fftw-devel qt5-qtdeclarative-devel"
+                command: |
+                  sudo dnf install -y boost-devel hwloc-devel fftw-devel qt5-qtdeclarative-devel
       # https://devmesh.intel.com/posts/991253/adding-intel-oneapi-toolkits-to-github-actions
       - run:
           name: "Configure"
