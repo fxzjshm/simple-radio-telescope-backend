@@ -146,6 +146,7 @@ jobs:
                       name: "Configure AdaptiveCpp with LLVM << parameters.clang_version >>"
                       command: |
                         cmake -S /tmp/AdaptiveCpp -B /tmp/AdaptiveCpp/build -DCMAKE_INSTALL_PREFIX=/opt/AdaptiveCpp -DWITH_OPENCL_BACKEND=OFF \
+                          -DCMAKE_C_COMPILER=clang-<< parameters.clang_version >> -DCMAKE_CXX_COMPILER=clang++-<< parameters.clang_version >> \
                           -DCLANG_EXECUTABLE_PATH=/usr/bin/clang++-<< parameters.clang_version >> \
                           -DLLVM_DIR=/usr/lib/llvm-<< parameters.clang_version >>/cmake
             - when:
@@ -157,7 +158,8 @@ jobs:
                   - run:
                       name: "Configure AdaptiveCpp"
                       command: |
-                        cmake -S /tmp/AdaptiveCpp -B /tmp/AdaptiveCpp/build -DCMAKE_INSTALL_PREFIX=/opt/AdaptiveCpp -DWITH_OPENCL_BACKEND=OFF
+                        cmake -S /tmp/AdaptiveCpp -B /tmp/AdaptiveCpp/build -DCMAKE_INSTALL_PREFIX=/opt/AdaptiveCpp -DWITH_OPENCL_BACKEND=OFF \
+                          -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
             - run:
                 name: "Build & install AdaptiveCpp"
                 command: |
@@ -167,10 +169,32 @@ jobs:
           condition:
             equal: [ "adaptivecpp", << parameters.backend >> ]
           steps:
+            - when:
+                condition:
+                  matches:
+                    pattern: ".*apt.*"
+                    value: << parameters.package_manager >>
+                steps:
+                  - run:
+                      name: "Configure w/ AdaptiveCpp + LLVM << parameters.clang_version >>"
+                      command: |
+                        cmake -S . -B build -DAdaptiveCpp_DIR=/opt/AdaptiveCpp/lib/cmake/AdaptiveCpp \
+                          -DCMAKE_C_COMPILER=clang-<< parameters.clang_version >> -DCMAKE_CXX_COMPILER=clang++-<< parameters.clang_version >>
+            - when:
+                condition:
+                  matches:
+                    pattern: ".*dnf.*"
+                    value: << parameters.package_manager >>
+                steps:
+                  - run:
+                      name: "Configure w/ AdaptiveCpp"
+                      command: |
+                        cmake -S . -B build -DAdaptiveCpp_DIR=/opt/AdaptiveCpp/lib/cmake/AdaptiveCpp \
+                          -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
             - run:
                 name: "Configure w/ AdaptiveCpp"
                 command: |
-                  cmake -S . -B build -DCMAKE_C_COMPILER=gcc-<< parameters.gcc_version >> -DCMAKE_CXX_COMPILER=g++-<< parameters.gcc_version >> -DAdaptiveCpp_DIR=/opt/AdaptiveCpp/lib/cmake/AdaptiveCpp
+                  cmake -S . -B build -DAdaptiveCpp_DIR=/opt/AdaptiveCpp/lib/cmake/AdaptiveCpp
       - when:
           condition:
             equal: [ "oneapi", << parameters.backend >> ]
