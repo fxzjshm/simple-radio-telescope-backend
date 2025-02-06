@@ -36,6 +36,8 @@ jobs:
             - run:
                 name: "Install essential tools on Ubuntu"
                 command: |
+                  # tzdata pops interactive dialog, annoying.
+                  export DEBIAN_FRONTEND=noninteractive
                   apt-get update
                   apt-get install -y sudo git
                   apt-get install -y lsb-release wget software-properties-common gnupg
@@ -89,6 +91,7 @@ jobs:
             - run:
                 name: "Install dependencies on Rocky Linux"
                 command: |
+                  sudo dnf config-manager --set-enabled crb
                   sudo dnf install -y boost-devel hwloc-devel fftw-devel qt5-qtdeclarative-devel ocl-icd-devel
       - when:
           condition:
