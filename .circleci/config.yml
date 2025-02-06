@@ -2,6 +2,33 @@
 # See: https://circleci.com/docs/configuration-reference
 version: 2.1
 
+executors:
+  ubuntu2404-x86:
+    machine:
+     image: ubuntu-2404:current
+    resource_class: medium
+  ubuntu2204-x86:
+    machine:
+      image: ubuntu-2204:current
+    resource_class: medium
+  ubuntu2404-arm:
+    machine:
+      image: ubuntu-2404:current
+    resource_class: arm.medium
+  rockylinux9-x86:
+    docker:
+      - image: rockylinux:9
+    resource_class: large  # for more RAM
+  oneapi-2025_0-ubuntu2404:
+    docker:
+      - image: intel/oneapi-basekit:2025.0.2-0-devel-ubuntu24.04
+    resource_class: medium+
+  oneapi-2025_0-rockylinux9:
+    docker:
+      - image: intel/oneapi-basekit:2025.0.2-0-devel-rockylinux9
+    resource_class: medium+
+
+
 # Define a job to be invoked later in a workflow.
 # See: https://circleci.com/docs/jobs-steps/#jobs-overview & https://circleci.com/docs/configuration-reference/#jobs
 jobs:
@@ -9,20 +36,17 @@ jobs:
     parameters:
       backend:
         type: string
-      image_name:
+      os:
+        type: executor
+      package_manager:
         type: string
       gcc_version:
         type: string
       clang_version:  # only used with AdaptiveCpp on Ubuntu
         type: string
-      resource_class:
-        type: string
     # Specify the execution environment. You can specify an image from Docker Hub or use one of our convenience images from CircleCI's Developer Hub.
     # See: https://circleci.com/docs/executor-intro/ & https://circleci.com/docs/configuration-reference/#executor-job
-    docker:
-      # Specify the version you desire here
-      - image: << parameters.image_name >>
-    resource_class: << parameters.resource_class >>
+    executor: << parameters.os >>
 
     # Add steps to the job
     # See: https://circleci.com/docs/jobs-steps/#steps-overview & https://circleci.com/docs/configuration-reference/#steps
@@ -32,11 +56,11 @@ jobs:
       - when:
           condition:
             matches:
-              pattern: ".*ubuntu.*"
-              value: << parameters.image_name >>
+              pattern: ".*apt.*"
+              value: << parameters.package_manager >>
           steps:
             - run:
-                name: "Install essential tools on Ubuntu"
+                name: "Install essential tools using apt"
                 command: |
                   # tzdata pops interactive dialog, annoying.
                   export DEBIAN_FRONTEND=noninteractive
@@ -46,11 +70,11 @@ jobs:
       - when:
           condition:
             matches:
-              pattern: ".*rockylinux.*"
-              value: << parameters.image_name >>
+              pattern: ".*dnf.*"
+              value: << parameters.package_manager >>
           steps:
             - run:
-                name: "Install essential tools on Rocky Linux"
+                name: "Install essential tools using dnf"
                 command: |
                   dnf install -y sudo git
                   dnf install -y 'dnf-command(config-manager)'
@@ -58,8 +82,8 @@ jobs:
       - when:
           condition:
             matches:
-              pattern: ".*ubuntu.*"
-              value: << parameters.image_name >>
+              pattern: ".*apt.*"
+              value: << parameters.package_manager >>
           steps:
             - when:
                 condition:
@@ -74,14 +98,14 @@ jobs:
                         sudo ./llvm.sh << parameters.clang_version >>
                         sudo apt-get install -y libclang-<< parameters.clang_version >>-dev clang-tools-<< parameters.clang_version >> libomp-<< parameters.clang_version >>-dev
             - run:
-                name: "Install dependencies on Ubuntu"
+                name: "Install dependencies using apt"
                 command: |
                   sudo apt-get install -y build-essential g++-<< parameters.gcc_version >> cmake libboost-all-dev libhwloc-dev libfftw3-dev qtdeclarative5-dev qml-module-qtquick2 qml-module-qtquick-window2 ocl-icd-opencl-dev
       - when:
           condition:
             matches:
-              pattern: ".*rockylinux.*"
-              value: << parameters.image_name >>
+              pattern: ".*dnf.*"
+              value: << parameters.package_manager >>
           steps:
             - when:
                 condition:
@@ -92,7 +116,7 @@ jobs:
                       command: |
                         sudo dnf install -y clang clang-devel llvm-devel libomp-devel clang-tools-extra
             - run:
-                name: "Install dependencies on Rocky Linux"
+                name: "Install dependencies using dnf"
                 command: |
                   sudo dnf config-manager --set-enabled crb
                   sudo dnf install -y gcc-toolset-<< parameters.gcc_version >> cmake boost-devel hwloc-devel fftw-devel qt5-qtdeclarative-devel ocl-icd-devel
@@ -145,38 +169,47 @@ workflows:
     # Inside the workflow, you define the jobs you want to run.
     jobs:
       - test:
-          name: test-on-<< matrix.backend >>-<< matrix.image_name >>-<< matrix.resource_class >>-clang<< matrix.clang_version >>
+          name: test-on-<< matrix.backend >>-<< matrix.os >>-clang<< matrix.clang_version >>
           matrix:
             parameters:
               backend: ["adaptivecpp"]
-              image_name: ["ubuntu:24.04"]
+              os: [ubuntu2404-x86, ubuntu2404-arm]
+              package_manager: ["apt"]
               gcc_version: ["14"]
               clang_version: ["19"]
-              resource_class: ["medium+", "arm.medium"]
       - test:
-          name: test-on-<< matrix.backend >>-<< matrix.image_name >>-clang<< matrix.clang_version >>
+          name: test-on-<< matrix.backend >>-<< matrix.os >>-clang<< matrix.clang_version >>
           matrix:
             parameters:
               backend: ["adaptivecpp"]
-              image_name: ["ubuntu:22.04"]
+              os: [ubuntu2204-x86]
+              package_manager: ["apt"]
               gcc_version: ["12"]
               clang_version: ["15"]  # for some vendor-specific compiler
-              resource_class: ["medium+"]
       - test:
-          name: test-on-<< matrix.backend >>-<< matrix.image_name >>
+          name: test-on-<< matrix.backend >>-<< matrix.os >>
           matrix:
             parameters:
               backend: ["adaptivecpp"]
-              image_name: ["rockylinux:9.3"]
+              os: [rockylinux9-x86]
+              package_manager: ["dnf"]
               gcc_version: ["14"]
               clang_version: [""]
-              resource_class: ["medium+"]
       - test:
-          name: test-on-<< matrix.backend >>-<< matrix.image_name >>
+          name: test-on-<< matrix.backend >>-<< matrix.os >>
           matrix:
             parameters:
               backend: ["oneapi"]
-              image_name: ["intel/oneapi-basekit:2025.0.2-0-devel-ubuntu24.04", "intel/oneapi-basekit:2025.0.2-0-devel-rockylinux9"]
+              os: [oneapi-2025_0-ubuntu2404]
+              package_manager: ["apt"]
               gcc_version: ["14"]
               clang_version: [""]
-              resource_class: ["medium+"]
+      - test:
+          name: test-on-<< matrix.backend >>-<< matrix.os >>
+          matrix:
+            parameters:
+              backend: ["oneapi"]
+              os: [oneapi-2025_0-rockylinux9]
+              package_manager: ["dnf"]
+              gcc_version: ["14"]
+              clang_version: [""]
