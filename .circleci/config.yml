@@ -107,9 +107,10 @@ jobs:
                   git clone --depth 1 https://github.com/AdaptiveCpp/AdaptiveCpp
                   cd AdaptiveCpp
                   git --no-pager log -1
-                  cmake -S . -B build -DCMAKE_INSTALL_PREFIX=/opt/AdaptiveCpp
+                  # don't build for OpenCL for now, to save CI run time
+                  cmake -S . -B build -DCMAKE_INSTALL_PREFIX=/opt/AdaptiveCpp -DWITH_OPENCL_BACKEND=OFF
                   cmake --build build -j `nproc`
-                  cmake --install
+                  cmake --install /opt/AdaptiveCpp
       - when:
           condition:
             equal: [ "adaptivecpp", << parameters.backend >> ]
