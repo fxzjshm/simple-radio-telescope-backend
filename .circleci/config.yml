@@ -103,7 +103,7 @@ jobs:
             - run:
                 name: "Install dependencies using apt"
                 command: |
-                  sudo apt-get install -y build-essential g++-<< parameters.gcc_version >> cmake libboost-all-dev libhwloc-dev libfftw3-dev qtdeclarative5-dev qml-module-qtquick2 qml-module-qtquick-window2 ocl-icd-opencl-dev
+                  sudo apt-get install -y build-essential g++-<< parameters.gcc_version >> cmake libboost-all-dev libhwloc-dev libfftw3-dev qtdeclarative5-dev qml-module-qtquick2 qml-module-qtquick-window2 ocl-icd-opencl-dev zlib1g-dev
       - when:
           condition:
             matches:
@@ -122,7 +122,7 @@ jobs:
                 name: "Install dependencies using dnf"
                 command: |
                   sudo dnf config-manager --set-enabled crb
-                  sudo dnf install -y gcc-toolset-<< parameters.gcc_version >> cmake boost-devel hwloc-devel fftw-devel qt5-qtdeclarative-devel ocl-icd-devel
+                  sudo dnf install -y gcc-toolset-<< parameters.gcc_version >> cmake boost-devel hwloc-devel fftw-devel qt5-qtdeclarative-devel ocl-icd-devel zlib-devel
       - when:
           condition:
             equal: [ "adaptivecpp", << parameters.backend >> ]
@@ -169,7 +169,7 @@ jobs:
             - run:
                 name: "Configure w/ AdaptiveCpp"
                 command: |
-                  cmake -S . -B build -DAdaptiveCpp_DIR=/opt/AdaptiveCpp/lib/cmake/AdaptiveCpp
+                  cmake -S . -B build -DCMAKE_C_COMPILER=gcc-<< parameters.gcc_version >> -DCMAKE_CXX_COMPILER=g++-<< parameters.gcc_version >> -DAdaptiveCpp_DIR=/opt/AdaptiveCpp/lib/cmake/AdaptiveCpp
       - when:
           condition:
             equal: [ "oneapi", << parameters.backend >> ]
