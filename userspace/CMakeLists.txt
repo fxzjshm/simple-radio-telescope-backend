@@ -9,6 +9,12 @@ if(NOT DEFINED SRTB_SYCL_IMPLEMENTATION)
     message(WARNING "SRTB_SYCL_IMPLEMENTATION not defined, default to AdaptiveCpp")
     set(SRTB_SYCL_IMPLEMENTATION "AdaptiveCpp")
 endif()
+if(SRTB_SYCL_IMPLEMENTATION STREQUAL "hipSYCL")
+  set(SRTB_SYCL_IMPLEMENTATION "AdaptiveCpp")
+endif()
+if(SRTB_SYCL_IMPLEMENTATION STREQUAL "intel-llvm")
+  set(SRTB_SYCL_IMPLEMENTATION "oneAPI")
+endif()
 message(STATUS "SRTB_SYCL_IMPLEMENTATION = ${SRTB_SYCL_IMPLEMENTATION}")
 
 
@@ -59,7 +65,7 @@ endif()
 # OpenCL
 find_package(OpenCL QUIET)
 ## workaround for compile error with target hip:gfx1035;generic
-if(OpenCL_FOUND AND ((SRTB_SYCL_IMPLEMENTATION STREQUAL "intel-llvm") OR SRTB_ENABLE_GENERIC OR NOT (SRTB_ENABLE_ROCM OR SRTB_ENABLE_CUDA)))
+if(OpenCL_FOUND AND ((SRTB_SYCL_IMPLEMENTATION STREQUAL "oneAPI") OR SRTB_ENABLE_GENERIC OR NOT (SRTB_ENABLE_ROCM OR SRTB_ENABLE_CUDA)))
   set(SRTB_DEFAULT_ENABLE_OPENCL ON)
 else()
   set(SRTB_DEFAULT_ENABLE_OPENCL OFF)
@@ -84,10 +90,6 @@ if(SRTB_ENABLE_OPENCL)
     add_compile_definitions(SRTB_ENABLE_OPENCL=1)
 endif()
 
-if(SRTB_SYCL_IMPLEMENTATION STREQUAL "hipSYCL")
-  set(SRTB_SYCL_IMPLEMENTATION "AdaptiveCpp")
-endif()
-
 # setup SYCL compilers
 if(SRTB_SYCL_IMPLEMENTATION STREQUAL "AdaptiveCpp")
   # e.g. ACPP_TARGETS=cuda:sm_86;hip:gfx906;omp or ACPP_TARGETS=generic;omp
@@ -109,7 +111,7 @@ if(SRTB_SYCL_IMPLEMENTATION STREQUAL "AdaptiveCpp")
   endif()
   message(STATUS "ACPP_TARGETS = ${ACPP_TARGETS}")
   find_package(AdaptiveCpp CONFIG REQUIRED)
-elseif(SRTB_SYCL_IMPLEMENTATION STREQUAL "intel-llvm")
+elseif(SRTB_SYCL_IMPLEMENTATION STREQUAL "oneAPI")
     # e.g. 
     # CUDA: clang -fsycl -fsycl-targets=nvptx64-nvidia-cuda -Xsycl-target-backend -cuda-gpu-arch=sm_86
     # ROCm: clang -fsycl -fsycl-targets=amdgcn-amd-amdhsa -Xsycl-target-backend --offload-arch=gfx906
@@ -303,7 +305,7 @@ function(srtb_add_dependency target_name)
     # add SYCL to targets
     if(SRTB_SYCL_IMPLEMENTATION STREQUAL "AdaptiveCpp")
         add_sycl_to_target(TARGET ${target_name})
-    elseif(SRTB_SYCL_IMPLEMENTATION STREQUAL "intel-llvm")
+    elseif(SRTB_SYCL_IMPLEMENTATION STREQUAL "oneAPI")
         # maybe nothing to do
     else()
 
