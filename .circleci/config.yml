@@ -62,11 +62,12 @@ jobs:
             - run:
                 name: "Install essential tools using apt"
                 command: |
+                  apt-get update || true
+                  apt-get install sudo || true
                   # tzdata pops interactive dialog, annoying.
                   export DEBIAN_FRONTEND=noninteractive
-                  apt-get update
-                  apt-get install -y sudo git
-                  apt-get install -y lsb-release wget software-properties-common gnupg
+                  sudo apt-get update
+                  sudo apt-get install -y git lsb-release wget software-properties-common gnupg
       - when:
           condition:
             matches:
@@ -76,8 +77,9 @@ jobs:
             - run:
                 name: "Install essential tools using dnf"
                 command: |
-                  dnf install -y sudo git
-                  dnf install -y 'dnf-command(config-manager)'
+                  dnf install -y sudo || true
+                  sudo dnf install -y git
+                  sudo dnf install -y 'dnf-command(config-manager)'
       - run: git submodule update --init --recursive
       - when:
           condition:
@@ -134,7 +136,7 @@ jobs:
                   # don't build for OpenCL for now, to save CI run time
                   cmake -S . -B build -DCMAKE_INSTALL_PREFIX=/opt/AdaptiveCpp -DWITH_OPENCL_BACKEND=OFF
                   cmake --build build -j `nproc`
-                  cmake --install /opt/AdaptiveCpp
+                  sudo cmake --install /opt/AdaptiveCpp
       - when:
           condition:
             equal: [ "adaptivecpp", << parameters.backend >> ]
