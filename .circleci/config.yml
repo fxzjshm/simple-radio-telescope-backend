@@ -71,7 +71,7 @@ jobs:
             - run:
                 name: "Install dependencies on Ubuntu"
                 command: |
-                  sudo apt-get install -y libboost-all-dev libhwloc-dev libfftw3-dev qtdeclarative5-dev qml-module-qtquick2 qml-module-qtquick-window2
+                  sudo apt-get install -y libboost-all-dev libhwloc-dev libfftw3-dev qtdeclarative5-dev qml-module-qtquick2 qml-module-qtquick-window2 ocl-icd-opencl-dev
       - when:
           condition:
             matches:
@@ -89,7 +89,7 @@ jobs:
             - run:
                 name: "Install dependencies on Rocky Linux"
                 command: |
-                  sudo dnf install -y boost-devel hwloc-devel fftw-devel qt5-qtdeclarative-devel
+                  sudo dnf install -y boost-devel hwloc-devel fftw-devel qt5-qtdeclarative-devel ocl-icd-devel
       - when:
           condition:
             equal: [ "adaptivecpp", << parameters.backend >> ]
