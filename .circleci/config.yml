@@ -11,6 +11,8 @@ jobs:
         type: string
       image_name:
         type: string
+      gcc_version:
+        type: string
       clang_version:  # only used with AdaptiveCpp on Ubuntu
         type: string
       resource_class:
@@ -74,7 +76,7 @@ jobs:
             - run:
                 name: "Install dependencies on Ubuntu"
                 command: |
-                  sudo apt-get install -y cmake libboost-all-dev libhwloc-dev libfftw3-dev qtdeclarative5-dev qml-module-qtquick2 qml-module-qtquick-window2 ocl-icd-opencl-dev
+                  sudo apt-get install -y build-essential g++-<< parameters.gcc_version >> cmake libboost-all-dev libhwloc-dev libfftw3-dev qtdeclarative5-dev qml-module-qtquick2 qml-module-qtquick-window2 ocl-icd-opencl-dev
       - when:
           condition:
             matches:
@@ -93,7 +95,7 @@ jobs:
                 name: "Install dependencies on Rocky Linux"
                 command: |
                   sudo dnf config-manager --set-enabled crb
-                  sudo dnf install -y cmake boost-devel hwloc-devel fftw-devel qt5-qtdeclarative-devel ocl-icd-devel
+                  sudo dnf install -y gcc-toolset-<< parameters.gcc_version >> cmake boost-devel hwloc-devel fftw-devel qt5-qtdeclarative-devel ocl-icd-devel
       - when:
           condition:
             equal: [ "adaptivecpp", << parameters.backend >> ]
@@ -147,6 +149,7 @@ workflows:
             parameters:
               backend: ["adaptivecpp"]
               image_name: ["ubuntu:24.04"]
+              gcc_version: ["14"]
               clang_version: ["19"]
               resource_class: ["medium+", "arm.medium"]
       - test:
@@ -155,7 +158,8 @@ workflows:
             parameters:
               backend: ["adaptivecpp"]
               image_name: ["ubuntu:22.04"]
-              clang_version: ["15"]
+              gcc_version: ["12"]
+              clang_version: ["15"]  # for some vendor-specific compiler
               resource_class: ["medium+"]
       - test:
           name: test-on-<< matrix.backend >>-<< matrix.image_name >>
@@ -163,6 +167,7 @@ workflows:
             parameters:
               backend: ["adaptivecpp"]
               image_name: ["rockylinux:9.3"]
+              gcc_version: ["14"]
               clang_version: [""]
               resource_class: ["medium+"]
       - test:
@@ -171,5 +176,6 @@ workflows:
             parameters:
               backend: ["oneapi"]
               image_name: ["intel/oneapi-basekit:2025.0.2-0-devel-ubuntu24.04", "intel/oneapi-basekit:2025.0.2-0-devel-rockylinux9"]
+              gcc_version: ["14"]
               clang_version: [""]
               resource_class: ["medium+"]
