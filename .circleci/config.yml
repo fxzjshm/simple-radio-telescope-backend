@@ -51,6 +51,7 @@ jobs:
                 name: "Install essential tools on Rocky Linux"
                 command: |
                   dnf install -y sudo git
+                  dnf install -y 'dnf-command(config-manager)'
       - run: git submodule update --init --recursive
       - when:
           condition:
@@ -73,7 +74,7 @@ jobs:
             - run:
                 name: "Install dependencies on Ubuntu"
                 command: |
-                  sudo apt-get install -y libboost-all-dev libhwloc-dev libfftw3-dev qtdeclarative5-dev qml-module-qtquick2 qml-module-qtquick-window2 ocl-icd-opencl-dev
+                  sudo apt-get install -y cmake libboost-all-dev libhwloc-dev libfftw3-dev qtdeclarative5-dev qml-module-qtquick2 qml-module-qtquick-window2 ocl-icd-opencl-dev
       - when:
           condition:
             matches:
@@ -92,7 +93,7 @@ jobs:
                 name: "Install dependencies on Rocky Linux"
                 command: |
                   sudo dnf config-manager --set-enabled crb
-                  sudo dnf install -y boost-devel hwloc-devel fftw-devel qt5-qtdeclarative-devel ocl-icd-devel
+                  sudo dnf install -y cmake boost-devel hwloc-devel fftw-devel qt5-qtdeclarative-devel ocl-icd-devel
       - when:
           condition:
             equal: [ "adaptivecpp", << parameters.backend >> ]
@@ -153,7 +154,7 @@ workflows:
           matrix:
             parameters:
               backend: ["adaptivecpp"]
-              image_name: ["ubuntu:24.04"]
+              image_name: ["ubuntu:22.04"]
               clang_version: ["15"]
               resource_class: ["medium+"]
       - test:
@@ -171,4 +172,4 @@ workflows:
               backend: ["oneapi"]
               image_name: ["intel/oneapi-basekit:2025.0.2-0-devel-ubuntu24.04", "intel/oneapi-basekit:2025.0.2-0-devel-rockylinux9"]
               clang_version: [""]
-              resource_class: ["medium"]
+              resource_class: ["medium+"]
