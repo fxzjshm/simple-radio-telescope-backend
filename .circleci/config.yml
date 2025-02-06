@@ -123,6 +123,7 @@ jobs:
                 command: |
                   sudo dnf config-manager --set-enabled crb
                   sudo dnf install -y gcc-toolset-<< parameters.gcc_version >> cmake boost-devel hwloc-devel fftw-devel qt5-qtdeclarative-devel ocl-icd-devel zlib-devel
+                  echo 'source /opt/rh/gcc-toolset-<< parameters.gcc_version >>/enable' >> "$BASH_ENV"
       - when:
           condition:
             equal: [ "adaptivecpp", << parameters.backend >> ]
