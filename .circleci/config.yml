@@ -121,7 +121,7 @@ jobs:
                 name: "Configure w/ Intel oneAPI DPC++"
                 # source /opt/intel/oneapi/setvars.sh not required for oneapi image
                 command: |
-                  cmake -S . -B build -DCMAKE_C_COMPILER=icx -DCMAKE_CXX_COMPILER=icpx -DSRTB_SYCL_IMPLEMENTATION=intel-llvm
+                  cmake -S . -B build -DCMAKE_C_COMPILER=icx -DCMAKE_CXX_COMPILER=icpx -DSRTB_SYCL_IMPLEMENTATION=oneAPI
       - run:
           name: "Build"
           command: |
