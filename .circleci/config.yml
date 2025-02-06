@@ -144,7 +144,7 @@ jobs:
                   - run:
                       name: "Configure AdaptiveCpp with LLVM << parameters.clang_version >>"
                       command: |
-                        cmake -S . -B build -DCMAKE_INSTALL_PREFIX=/opt/AdaptiveCpp -DWITH_OPENCL_BACKEND=OFF \
+                        cmake -S /tmp/AdaptiveCpp -B /tmp/AdaptiveCpp/build -DCMAKE_INSTALL_PREFIX=/opt/AdaptiveCpp -DWITH_OPENCL_BACKEND=OFF \
                           -DCLANG_EXECUTABLE_PATH=/usr/bin/clang++-<< parameters.clang_version >> \
                           -DLLVM_DIR=/usr/lib/llvm-<< parameters.clang_version >>/cmake
             - when:
@@ -156,7 +156,7 @@ jobs:
                   - run:
                       name: "Configure AdaptiveCpp"
                       command: |
-                        cmake -S . -B build -DCMAKE_INSTALL_PREFIX=/opt/AdaptiveCpp -DWITH_OPENCL_BACKEND=OFF
+                        cmake -S /tmp/AdaptiveCpp -B /tmp/AdaptiveCpp/build -DCMAKE_INSTALL_PREFIX=/opt/AdaptiveCpp -DWITH_OPENCL_BACKEND=OFF
             - run:
                 name: "Build & install AdaptiveCpp"
                 command: |
