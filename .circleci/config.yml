@@ -127,16 +127,40 @@ jobs:
             equal: [ "adaptivecpp", << parameters.backend >> ]
           steps:
             - run:
-                name: "Build and install AdaptiveCpp"
+                name: "Checkout AdaptiveCpp"
                 command: |
                   cd /tmp
                   git clone --depth 1 https://github.com/AdaptiveCpp/AdaptiveCpp
                   cd AdaptiveCpp
                   git --no-pager log -1
-                  # don't build for OpenCL for now, to save CI run time
-                  cmake -S . -B build -DCMAKE_INSTALL_PREFIX=/opt/AdaptiveCpp -DWITH_OPENCL_BACKEND=OFF
-                  cmake --build build -j `nproc`
-                  sudo cmake --install /opt/AdaptiveCpp
+            # don't build for OpenCL for now, to save CI run time
+            - when:
+                condition:
+                  matches:
+                    pattern: ".*apt.*"
+                    value: << parameters.package_manager >>
+                steps:
+                  - run:
+                      name: "Configure AdaptiveCpp with LLVM << parameters.clang_version >>"
+                      command: |
+                        cmake -S . -B build -DCMAKE_INSTALL_PREFIX=/opt/AdaptiveCpp -DWITH_OPENCL_BACKEND=OFF \
+                          -DCLANG_EXECUTABLE_PATH=/usr/bin/clang++-<< parameters.clang_version >> \
+                          -DLLVM_DIR=/usr/lib/llvm-<< parameters.clang_version >>/cmake
+            - when:
+                condition:
+                  matches:
+                    pattern: ".*dnf.*"
+                    value: << parameters.package_manager >>
+                steps:
+                  - run:
+                      name: "Configure AdaptiveCpp"
+                      command: |
+                        cmake -S . -B build -DCMAKE_INSTALL_PREFIX=/opt/AdaptiveCpp -DWITH_OPENCL_BACKEND=OFF
+            - run:
+                name: "Build & install AdaptiveCpp"
+                command: |
+                  cmake --build /tmp/AdaptiveCpp/build -j `nproc`
+                  sudo cmake --install /tmp/AdaptiveCpp/build
       - when:
           condition:
             equal: [ "adaptivecpp", << parameters.backend >> ]
