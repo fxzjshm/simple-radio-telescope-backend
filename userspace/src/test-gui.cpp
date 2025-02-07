@@ -11,7 +11,6 @@
  ******************************************************************************/
 
 #include <chrono>
-#include <format>
 #include <iostream>
 #include <thread>
 
@@ -102,7 +101,7 @@ int main(int argc, char **argv) {
       q.copy(d_pixmap_shared.ptr.get(), /* -> */ h_pixmap_shared.ptr.get(), d_pixmap_shared.count).wait();
       std::swap(oldMapBool, newMapBool);
 
-      SRTB_LOGI << std::format(" [test-gui] frame_count = {} ", frame_count) << srtb::endl;
+      SRTB_LOGI << " [test-gui] " << "frame_count = " << frame_count << srtb::endl;
 
       srtb::work::draw_spectrum_work_2 draw_spectrum_work;
       draw_spectrum_work.ptr = h_pixmap_shared.ptr;
