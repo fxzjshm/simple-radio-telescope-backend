@@ -22,7 +22,7 @@ Possible future plans include DPDK integration, search of disperse measurements,
 
 Due to **vendor independence** and API complexity,
 [SYCL 2020](https://www.khronos.org/sycl/) from Khronos Group is chosen as target API,
-Mainly used SYCL implementations are [AdaptiveCpp](https://github.com/AdaptiveCpp/AdaptiveCpp) and [Intel oneAPI DPC++](https://github.com/intel/llvm/).
+Mainly used SYCL implementations are [AdaptiveCpp](https://github.com/AdaptiveCpp/AdaptiveCpp) and Intel oneAPI DPC++.
 
 ### Pipeline Structure
 ```mermaid
