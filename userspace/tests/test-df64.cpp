@@ -59,6 +59,8 @@ int main() {
                                                   srtb::complex<srtb::real> >(
              f, f_max, dm);
    }).wait();
+  q.copy(d_double_out, /* -> */ h_double_out, N).wait();
+  q.copy(d_dsmath_out, /* -> */ h_dsmath_out, N).wait();
 
   if (write_out) {
     std::string double_file_name = "dedisp_double.bin";
@@ -67,8 +69,6 @@ int main() {
     FILE *double_file = fopen(double_file_name.c_str(), "wb");
     FILE *dsmath_file = fopen(dsmath_file_name.c_str(), "wb");
 
-    q.copy(d_double_out, /* -> */ h_double_out, N).wait();
-    q.copy(d_dsmath_out, /* -> */ h_dsmath_out, N).wait();
     SRTB_LOGI << " [test-coherent_dedispersion] "
               << "writing to " << double_file_name << srtb::endl;
     fwrite(h_double_out, sizeof(srtb::complex<srtb::real>), N, double_file);
@@ -79,17 +79,13 @@ int main() {
     fclose(dsmath_file);
   }
 
-  std::shared_ptr<size_t> d_error_count_shared = srtb::algorithm::map_sum(
-      boost::iterators::make_counting_iterator(size_t{0}), N,
-      [=]([[maybe_unused]] size_t pos, size_t i) {
-        return ((srtb::norm(d_double_out[i] - d_dsmath_out[i]) > eps)
-                    ? size_t{1}
-                    : size_t{0});
-      },
-      q);
-  size_t h_error_count;
-  q.copy(d_error_count_shared.get(), /* -> */ &h_error_count, 1).wait();
-  if (h_error_count) {
+  size_t h_error_count = 0;
+  for (size_t i = 0; i < N; i++) {
+    if (srtb::norm(d_double_out[i] - d_dsmath_out[i]) > eps) {
+      h_error_count += 1;
+    }
+  }
+  if (h_error_count > 0) {
     throw std::runtime_error{"Detected double and dsmath::df64 mismatch: " +
                              std::to_string(h_error_count)};
   }
