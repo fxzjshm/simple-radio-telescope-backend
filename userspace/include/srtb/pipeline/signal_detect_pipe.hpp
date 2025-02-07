@@ -22,6 +22,7 @@
 // --- divide line for clang-format
 #include "srtb/commons.hpp"
 #include "srtb/pipeline/framework/pipe.hpp"
+#include "srtb/sycl_device_copyable.hpp"
 // --- divide line for clang-format
 #include "srtb/algorithm/map_reduce.hpp"
 #include "srtb/algorithm/multi_reduce.hpp"
