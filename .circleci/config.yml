@@ -1,0 +1,267 @@
+# Use the latest 2.1 version of CircleCI pipeline process engine.
+# See: https://circleci.com/docs/configuration-reference
+version: 2.1
+
+executors:
+  ubuntu2404-x86:
+    machine:
+     image: ubuntu-2404:current
+    resource_class: medium
+  ubuntu2204-x86:
+    machine:
+      image: ubuntu-2204:current
+    resource_class: medium
+  ubuntu2404-arm:
+    machine:
+      image: ubuntu-2404:current
+    resource_class: arm.medium
+  rockylinux9-x86:
+    docker:
+      - image: rockylinux:9
+    resource_class: large  # for more RAM
+  oneapi-2025_0-ubuntu2404:
+    docker:
+      - image: intel/oneapi-basekit:2025.0.2-0-devel-ubuntu24.04
+    resource_class: medium+
+  oneapi-2025_0-rockylinux9:
+    docker:
+      - image: intel/oneapi-basekit:2025.0.2-0-devel-rockylinux9
+    resource_class: medium+
+
+
+# Define a job to be invoked later in a workflow.
+# See: https://circleci.com/docs/jobs-steps/#jobs-overview & https://circleci.com/docs/configuration-reference/#jobs
+jobs:
+  test:
+    parameters:
+      backend:
+        type: string
+      os:
+        type: executor
+      package_manager:
+        type: string
+      gcc_version:
+        type: string
+      clang_version:  # only used with AdaptiveCpp on Ubuntu
+        type: string
+    # Specify the execution environment. You can specify an image from Docker Hub or use one of our convenience images from CircleCI's Developer Hub.
+    # See: https://circleci.com/docs/executor-intro/ & https://circleci.com/docs/configuration-reference/#executor-job
+    executor: << parameters.os >>
+    environment:
+      # tzdata pops interactive dialog, annoying.
+      DEBIAN_FRONTEND: noninteractive
+
+    # Add steps to the job
+    # See: https://circleci.com/docs/jobs-steps/#steps-overview & https://circleci.com/docs/configuration-reference/#steps
+    steps:
+      # Checkout the code as the first step.
+      - checkout
+      - when:
+          condition:
+            matches:
+              pattern: ".*apt.*"
+              value: << parameters.package_manager >>
+          steps:
+            - run:
+                name: "Install essential tools using apt"
+                command: |
+                  apt-get update || true
+                  apt-get install sudo || true
+                  sudo apt-get update
+                  sudo apt-get install -y git lsb-release wget software-properties-common gnupg
+      - when:
+          condition:
+            matches:
+              pattern: ".*dnf.*"
+              value: << parameters.package_manager >>
+          steps:
+            - run:
+                name: "Install essential tools using dnf"
+                command: |
+                  dnf install -y sudo || true
+                  sudo dnf install -y git
+                  sudo dnf install -y 'dnf-command(config-manager)'
+      - run: git submodule update --init --recursive
+      - when:
+          condition:
+            matches:
+              pattern: ".*apt.*"
+              value: << parameters.package_manager >>
+          steps:
+            - when:
+                condition:
+                  equal: [ "adaptivecpp", << parameters.backend >> ]
+                steps:
+                  # https://github.com/AdaptiveCpp/AdaptiveCpp/blob/e1c6c6ede4c17877a2005f876afc869f11fba5be/.github/workflows/linux.yml
+                  - run: 
+                      name: "Install LLVM << parameters.clang_version >>"
+                      command: |
+                        wget https://apt.llvm.org/llvm.sh
+                        chmod +x llvm.sh
+                        sudo ./llvm.sh << parameters.clang_version >>
+                        sudo apt-get install -y libclang-<< parameters.clang_version >>-dev clang-tools-<< parameters.clang_version >> libomp-<< parameters.clang_version >>-dev
+            - run:
+                name: "Install dependencies using apt"
+                command: |
+                  sudo apt-get install -y build-essential g++-<< parameters.gcc_version >> cmake libboost-all-dev libhwloc-dev libfftw3-dev qtdeclarative5-dev qml-module-qtquick2 qml-module-qtquick-window2 ocl-icd-opencl-dev zlib1g-dev
+      - when:
+          condition:
+            matches:
+              pattern: ".*dnf.*"
+              value: << parameters.package_manager >>
+          steps:
+            - when:
+                condition:
+                  equal: [ "adaptivecpp", << parameters.backend >> ]
+                steps:
+                  - run:
+                      name: "Install LLVM"
+                      command: |
+                        sudo dnf install -y clang clang-devel llvm-devel libomp-devel clang-tools-extra
+            - run:
+                name: "Install dependencies using dnf"
+                command: |
+                  sudo dnf config-manager --set-enabled crb
+                  sudo dnf install -y gcc-toolset-<< parameters.gcc_version >> cmake boost-devel hwloc-devel fftw-devel qt5-qtdeclarative-devel ocl-icd-devel zlib-devel
+                  echo 'source /opt/rh/gcc-toolset-<< parameters.gcc_version >>/enable' >> "$BASH_ENV"
+      - when:
+          condition:
+            equal: [ "adaptivecpp", << parameters.backend >> ]
+          steps:
+            - run:
+                name: "Checkout AdaptiveCpp"
+                command: |
+                  cd /tmp
+                  git clone --depth 1 https://github.com/AdaptiveCpp/AdaptiveCpp
+                  cd AdaptiveCpp
+                  git --no-pager log -1
+            # don't build for OpenCL for now, to save CI run time
+            - when:
+                condition:
+                  matches:
+                    pattern: ".*apt.*"
+                    value: << parameters.package_manager >>
+                steps:
+                  - run:
+                      name: "Configure AdaptiveCpp with LLVM << parameters.clang_version >>"
+                      command: |
+                        cmake -S /tmp/AdaptiveCpp -B /tmp/AdaptiveCpp/build -DCMAKE_INSTALL_PREFIX=/opt/AdaptiveCpp -DWITH_OPENCL_BACKEND=OFF \
+                          -DCMAKE_C_COMPILER=clang-<< parameters.clang_version >> -DCMAKE_CXX_COMPILER=clang++-<< parameters.clang_version >> \
+                          -DCLANG_EXECUTABLE_PATH=/usr/bin/clang++-<< parameters.clang_version >> \
+                          -DLLVM_DIR=/usr/lib/llvm-<< parameters.clang_version >>/cmake
+            - when:
+                condition:
+                  matches:
+                    pattern: ".*dnf.*"
+                    value: << parameters.package_manager >>
+                steps:
+                  - run:
+                      name: "Configure AdaptiveCpp"
+                      command: |
+                        cmake -S /tmp/AdaptiveCpp -B /tmp/AdaptiveCpp/build -DCMAKE_INSTALL_PREFIX=/opt/AdaptiveCpp -DWITH_OPENCL_BACKEND=OFF \
+                          -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+            - run:
+                name: "Build & install AdaptiveCpp"
+                command: |
+                  cmake --build /tmp/AdaptiveCpp/build -j `nproc`
+                  sudo cmake --install /tmp/AdaptiveCpp/build
+      - when:
+          condition:
+            equal: [ "adaptivecpp", << parameters.backend >> ]
+          steps:
+            - when:
+                condition:
+                  matches:
+                    pattern: ".*apt.*"
+                    value: << parameters.package_manager >>
+                steps:
+                  - run:
+                      name: "Configure w/ AdaptiveCpp + LLVM << parameters.clang_version >>"
+                      command: |
+                        cmake -S . -B build -DAdaptiveCpp_DIR=/opt/AdaptiveCpp/lib/cmake/AdaptiveCpp \
+                          -DCMAKE_C_COMPILER=clang-<< parameters.clang_version >> -DCMAKE_CXX_COMPILER=clang++-<< parameters.clang_version >>
+            - when:
+                condition:
+                  matches:
+                    pattern: ".*dnf.*"
+                    value: << parameters.package_manager >>
+                steps:
+                  - run:
+                      name: "Configure w/ AdaptiveCpp"
+                      command: |
+                        cmake -S . -B build -DAdaptiveCpp_DIR=/opt/AdaptiveCpp/lib/cmake/AdaptiveCpp \
+                          -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+            - run:
+                name: "Configure w/ AdaptiveCpp"
+                command: |
+                  cmake -S . -B build -DAdaptiveCpp_DIR=/opt/AdaptiveCpp/lib/cmake/AdaptiveCpp
+      - when:
+          condition:
+            equal: [ "oneapi", << parameters.backend >> ]
+          steps:
+            # https://devmesh.intel.com/posts/991253/adding-intel-oneapi-toolkits-to-github-actions
+            - run:
+                name: "Configure w/ Intel oneAPI DPC++"
+                # source /opt/intel/oneapi/setvars.sh not required for oneapi image
+                command: |
+                  cmake -S . -B build -DCMAKE_C_COMPILER=icx -DCMAKE_CXX_COMPILER=icpx -DSRTB_SYCL_IMPLEMENTATION=oneAPI
+      - run:
+          name: "Build"
+          command: |
+            cmake --build build -j `nproc`
+      - run:
+          name: "Test"
+          command: |
+            ctest --test-dir build --output-on-failure
+
+# Orchestrate jobs using workflows
+# See: https://circleci.com/docs/workflows/ & https://circleci.com/docs/configuration-reference/#workflows
+workflows:
+  test-workflow: # This is the name of the workflow, feel free to change it to better match your workflow.
+    # Inside the workflow, you define the jobs you want to run.
+    jobs:
+      - test:
+          name: test-on-<< matrix.backend >>-<< matrix.os >>-clang<< matrix.clang_version >>
+          matrix:
+            parameters:
+              backend: ["adaptivecpp"]
+              os: [ubuntu2404-x86, ubuntu2404-arm]
+              package_manager: ["apt"]
+              gcc_version: ["14"]
+              clang_version: ["19"]
+      - test:
+          name: test-on-<< matrix.backend >>-<< matrix.os >>-clang<< matrix.clang_version >>
+          matrix:
+            parameters:
+              backend: ["adaptivecpp"]
+              os: [ubuntu2204-x86]
+              package_manager: ["apt"]
+              gcc_version: ["12"]
+              clang_version: ["15"]  # for some vendor-specific compiler
+      - test:
+          name: test-on-<< matrix.backend >>-<< matrix.os >>
+          matrix:
+            parameters:
+              backend: ["adaptivecpp"]
+              os: [rockylinux9-x86]
+              package_manager: ["dnf"]
+              gcc_version: ["14"]
+              clang_version: [""]
+      - test:
+          name: test-on-<< matrix.backend >>-<< matrix.os >>
+          matrix:
+            parameters:
+              backend: ["oneapi"]
+              os: [oneapi-2025_0-ubuntu2404]
+              package_manager: ["apt"]
+              gcc_version: ["14"]
+              clang_version: [""]
+      - test:
+          name: test-on-<< matrix.backend >>-<< matrix.os >>
+          matrix:
+            parameters:
+              backend: ["oneapi"]
+              os: [oneapi-2025_0-rockylinux9]
+              package_manager: ["dnf"]
+              gcc_version: ["14"]
+              clang_version: [""]
