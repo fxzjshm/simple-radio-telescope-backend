@@ -14,7 +14,7 @@
   * Debian-like: `libfftw3-dev`
   * RHEL-like: `fftw-devel`
 * Qt 5 (optional)
-  * Debian-like: `qtdeclarative5-dev` `qml-module-qtquick2` `qml-module-qtquick-window2`
+  * Debian-like: `qtdeclarative5-dev` `qml-module-qtquick2` `qml-module-qtquick-window2` `qml-module-qtquick-controls` `qml-module-qtquick-layouts`
   * RHEL-like: `qt5-qtdeclarative-devel`
   * Qt 6 not working (TODO)
 
