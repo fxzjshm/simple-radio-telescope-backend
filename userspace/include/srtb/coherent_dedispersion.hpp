@@ -77,6 +77,7 @@ inline T dispersion_delay_time(const T f, const T f_c, const T dm) {
   return -D * dm * (1.0 / (f * f) - 1.0 / (f_c * f_c));
 }
 
+// TODO: not a pure function, move this
 inline srtb::real max_delay_time() {
   return dispersion_delay_time(
       srtb::config.baseband_freq_low + srtb::config.baseband_bandwidth,
@@ -97,7 +98,7 @@ inline srtb::real max_delay_time() {
   * hence nsamps_reserved = 2 * max delayed samples.
   * @note Additional requirement: accurate time samples (i.e. not reserved for next round)
   *       should be a multiple of 2 * spectrum_channel_count so that refft can be done in correct size.
-  * TODO: check this
+  * TODO: not a pure function, move this
   */
 inline auto nsamps_reserved() -> size_t {
   if (!srtb::config.baseband_reserve_sample) {
@@ -127,6 +128,60 @@ inline auto nsamps_reserved() -> size_t {
 }
 
 /**
+ * @brief v3: optimized from v2.1 using modf
+ */
+template <typename phase_real, typename T, typename C>
+inline C phase_factor_v3(const phase_real f, const phase_real f_c, const phase_real dm) noexcept {
+  // NOTE: this delta_phi may be up to 10^9, so precision of float may not be sufficient here.
+
+  // coefficient 1e6 is here because the unit of f is MHz, not Hz.
+  // explicitly constexpr, wish device compiler won't generate cl_khr_fp64 operations...
+  constexpr phase_real D_ = D * 1e6;
+  const phase_real delta_f = f - f_c;
+  const phase_real k = D_ * dm / f * ((delta_f / f_c) * (delta_f / f_c));
+  phase_real k_int;
+  const T k_frac = srtb::modf(k, &k_int);
+  const T delta_phi = -T{2 * M_PI} * k_frac;
+  T cos_delta_phi, sin_delta_phi;
+  // &cos_delta_phi cannot be used here, not in specification
+  sin_delta_phi = sycl::sincos(delta_phi, sycl::private_ptr<T>{&cos_delta_phi});
+  const C factor = C(cos_delta_phi, sin_delta_phi);
+  return factor;
+}
+
+/** @brief v2.1: optimized from v2 using sincos */
+template <typename phase_real, typename T, typename C>
+inline C phase_factor_v2_1(const phase_real f, const phase_real f_c, const phase_real dm) noexcept {
+  constexpr phase_real D_ = D * 1e6;
+  const phase_real delta_f = f - f_c;
+  const phase_real delta_phi = -T{2 * M_PI} * D * 1e6 * dm * ((delta_f * delta_f) / (f * f_c * f_c));
+  phase_real cos_delta_phi, sin_delta_phi;
+  // &cos_delta_phi cannot be used here, not in specification
+  sin_delta_phi = sycl::sincos(delta_phi, sycl::private_ptr<phase_real>{&cos_delta_phi});
+  const C factor = C(cos_delta_phi, sin_delta_phi);
+  return factor;
+}
+
+/** @brief v2: J.C. Jiang (2022)  ->  Lorimer et al. (2004) Pulsar Handbook */
+template <typename phase_real, typename T, typename C>
+inline C phase_factor_v2(const phase_real f, const phase_real f_c, const phase_real dm) noexcept {
+  constexpr phase_real D_ = D * 1e6;
+  const phase_real delta_f = f - f_c;
+  const phase_real delta_phi = -T{2 * M_PI} * D * 1e6 * dm * ((delta_f * delta_f) / (f * f_c * f_c));
+  const C factor = C(sycl::cos(delta_phi), sycl::sin(delta_phi));
+  return factor;
+}
+
+/** @brief v1: original formula */
+template <typename phase_real, typename T, typename C>
+inline C phase_factor_v1(const phase_real f, const phase_real f_c, const phase_real dm) noexcept {
+  const phase_real delta_phi =
+      -T{2 * M_PI} * D * 1e6 * dm * (phase_real(1.0) / (f * f) - phase_real(1.0) / (f_c * f_c)) * f;
+  const C factor = C(sycl::cos(delta_phi), sycl::sin(delta_phi));
+  return factor;
+}
+
+/**
  * @brief Calculates the factor used in coherent dedispersion.
  * 
  * Consider light with frequency $\omega = 2 \pi f$, 
@@ -145,69 +200,9 @@ inline auto nsamps_reserved() -> size_t {
  *      (arXiv:1607.00909), https://github.com/cbassa/cdmt/blob/master/cdmt.cu
  */
 template <typename phase_real, typename T, typename C>
-inline C coherent_dedispersion_factor(const phase_real f, const phase_real f_c,
-                                      const phase_real dm) noexcept {
+inline C phase_factor(const phase_real f, const phase_real f_c, const phase_real dm) noexcept {
   // TODO: does pre-computing delta_phi saves time?
-  // TODO: check the sign!
-  // phase delay
-  // coefficient 1e6 is here because the unit of f is MHz, not Hz.
-  // NOTE: this delta_phi may be up to 10^9, so the precision of float may not be sufficient here.
-
-  //// 1) original formula
-  //const phase_real delta_phi =
-  //    -T{2 * M_PI} * D * 1e6 * dm *
-  //    (phase_real(1.0) / (f * f) - phase_real(1.0) / (f_c * f_c)) * f;
-
-  //// 2) J.C. Jiang (2022)  ->  Lorimer et al. (2004)
-  //const phase_real delta_f = f - f_c;
-  //const phase_real delta_phi =
-  //    -T{2 * M_PI} * D * 1e6 * dm * ((delta_f * delta_f) / (f * f_c * f_c));
-  //// 2.1)
-  //const C factor = C(sycl::cos(delta_phi), sycl::sin(delta_phi));
-  //// 2.2)
-  //phase_real cos_delta_phi, sin_delta_phi;
-  //// &cos_delta_phi cannot be used here, not in specification
-  //sin_delta_phi =
-  //    sycl::sincos(delta_phi, sycl::private_ptr<phase_real>{&cos_delta_phi});
-  //const C factor = C(cos_delta_phi, sin_delta_phi);
-
-  //// 3) optimized from (2)
-  // dedispertion constant D with unit Hz -> MHz corrected
-  // this is explicitly constexpr, wish device compiler won't generate cl_khr_fp64 operations...
-  constexpr phase_real D_ = D * 1e6;
-  const phase_real delta_f = f - f_c;
-  const phase_real k = D_ * dm / f * ((delta_f / f_c) * (delta_f / f_c));
-  phase_real k_int;
-  const T k_frac = srtb::modf(k, &k_int);
-  const T delta_phi = -T{2 * M_PI} * k_frac;
-  T cos_delta_phi, sin_delta_phi;
-  // &cos_delta_phi cannot be used here, not in specification
-  sin_delta_phi = sycl::sincos(delta_phi, sycl::private_ptr<T>{&cos_delta_phi});
-  const C factor = C(cos_delta_phi, sin_delta_phi);
-  return factor;
-}
-
-/**
- * @brief coherent dedispersion of one frequency channel
- * @param i operate on input[i]
- * @param df frequency difference between one channel and the next
- * @see srtb::codd::D
- * @see crtb::codd::coherent_dedispertion
- */
-template <typename T, typename Accessor>
-BOOST_FORCEINLINE void coherent_dedispertion_item(Accessor input,
-                                                  Accessor output,
-                                                  const T f_min, const T f_c,
-                                                  const T df, const T dm,
-                                                  const size_t i) {
-  using C = typename std::iterator_traits<Accessor>::value_type;
-  const dedisp_real_t f =
-      dedisp_real_t{f_min} + dedisp_real_t{df} * static_cast<dedisp_real_t>(i);
-  const C factor = coherent_dedispersion_factor<dedisp_real_t, T, C>(
-      f, dedisp_real_t{f_c}, dedisp_real_t{dm});
-  const C in = input[i];
-  const C out = in * factor;
-  output[i] = out;
+  return phase_factor_v3<phase_real, T, C>(f, f_c, dm);
 }
 
 /**
@@ -231,8 +226,13 @@ inline void coherent_dedispertion(Accessor input, Accessor output,
                                   const T f_c, const T df, const T dm,
                                   sycl::queue& q) {
   q.parallel_for(sycl::range<1>(length), [=](sycl::item<1> id) {
-     coherent_dedispertion_item(input, output, f_min, f_c, df, dm,
-                                id.get_id(0));
+     using C = typename std::iterator_traits<Accessor>::value_type;
+     const auto i = id.get_id(0);
+     const dedisp_real_t f = dedisp_real_t{f_min} + dedisp_real_t{df} * static_cast<dedisp_real_t>(i);
+     const C factor = phase_factor<dedisp_real_t, T, C>(f, dedisp_real_t{f_c}, dedisp_real_t{dm});
+     const C in = input[i];
+     const C out = in * factor;
+     output[i] = out;
    }).wait();
 }
 

@@ -50,14 +50,8 @@ int main() {
   q.parallel_for(sycl::range<1>(N), [=](sycl::item<1> id) {
      auto i = id.get_id(0);
      srtb::real f = f_min + df * i;
-     d_double_out[i] =
-         srtb::codd::coherent_dedispersion_factor<double, srtb::real,
-                                                  srtb::complex<srtb::real> >(
-             f, f_max, dm);
-     d_dsmath_out[i] =
-         srtb::codd::coherent_dedispersion_factor<dsmath::df64, srtb::real,
-                                                  srtb::complex<srtb::real> >(
-             f, f_max, dm);
+     d_double_out[i] = srtb::codd::phase_factor<double, srtb::real, srtb::complex<srtb::real> >(f, f_max, dm);
+     d_dsmath_out[i] = srtb::codd::phase_factor<dsmath::df64, srtb::real, srtb::complex<srtb::real> >(f, f_max, dm);
    }).wait();
   q.copy(d_double_out, /* -> */ h_double_out, N).wait();
   q.copy(d_dsmath_out, /* -> */ h_dsmath_out, N).wait();
