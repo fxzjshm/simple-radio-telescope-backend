@@ -27,7 +27,6 @@
 #endif
 
 #include "srtb/log/log.hpp"
-#include "srtb/sycl.hpp"
 #include "srtb/type_name.hpp"
 
 namespace srtb {
@@ -146,19 +145,15 @@ class pipe {
   * @brief Start working in a new thread
   * @return std::jthread the thread running on.
   */
-template <typename PipeFunctor, typename InFunctor, typename OutFunctor,
-          typename... Args>
-static std::jthread start_pipe(sycl::queue q, InFunctor in_functor,
-                               OutFunctor out_functor, Args... args) {
+template <typename PipeFunctor, typename InFunctor, typename OutFunctor, typename... Args>
+static std::jthread start_pipe(InFunctor in_functor, OutFunctor out_functor, Args... args) {
   // (over)use shared_ptr to manage memory, to reduce memory error
   std::shared_ptr is_pipe_initialized =
       std::make_shared<std::atomic<bool> >(false);
   std::jthread jthread{
-      [is_pipe_initialized, q, in_functor, out_functor](
-          std::stop_token stop_token, Args... args) mutable {
+      [is_pipe_initialized, in_functor, out_functor](std::stop_token stop_token, Args... args) mutable {
         // the pipe lives on its thread
-        srtb::pipeline::pipe<PipeFunctor, InFunctor, OutFunctor> pipe{
-            PipeFunctor{q, args...}, in_functor, out_functor};
+        srtb::pipeline::pipe<PipeFunctor, InFunctor, OutFunctor> pipe{PipeFunctor{args...}, in_functor, out_functor};
         *is_pipe_initialized = true;
         is_pipe_initialized.reset();
         pipe.run(stop_token);

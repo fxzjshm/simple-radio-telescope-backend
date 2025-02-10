@@ -12,6 +12,7 @@
 
 #include <cstdlib>
 #include <optional>
+#include <tuple>
 
 #include "srtb/commons.hpp"
 #include "srtb/pipeline/framework/composite_pipe.hpp"
@@ -68,11 +69,12 @@ int baseband_receiver(int argc, char** argv) {
 
   using namespace srtb::pipeline;
   std::jthread udp_receiver_thread =
-      srtb::pipeline::start_udp_receiver_pipe(srtb::config.baseband_format_type, q, dummy_in_functor{},
-                                              queue_out_functor{write_file_queue}, /* id = */ size_t{0});
-  std::jthread baseband_output_thread = srtb::pipeline::start_pipe<
-      composite_pipe<baseband_receiver_cast_pipe, write_file_pipe>>(
-      q, queue_in_functor{write_file_queue}, dummy_out_functor{});
+      srtb::pipeline::start_udp_receiver_pipe(srtb::config.baseband_format_type, dummy_in_functor{},
+                                              queue_out_functor{write_file_queue}, q, /* id = */ size_t{0});
+  std::jthread baseband_output_thread =
+      srtb::pipeline::start_pipe<composite_pipe<baseband_receiver_cast_pipe, write_file_pipe>>(
+          queue_in_functor{write_file_queue}, dummy_out_functor{},
+          /* composite_pipe: */ std::tuple{/* baseband_receiver_cast_pipe: */ q, /* write_file_pipe */ q});
 
   return EXIT_SUCCESS;
 }

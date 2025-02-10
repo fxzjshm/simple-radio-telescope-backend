@@ -15,6 +15,7 @@
 #define __SRTB_PIPELINE_COMPOSITE_PIPE__
 
 #include <stop_token>
+#include <tuple>
 
 #include "srtb/pipeline/framework/pipe.hpp"
 
@@ -30,8 +31,10 @@ class composite_pipe {
   Pipe1 pipe_1;
   composite_pipe<Pipes...> pipes;
 
-  // TODO: support arguments
-  explicit composite_pipe(sycl::queue q_) : pipe_1{q_}, pipes{q_} {}
+  composite_pipe() = default;
+
+  template <typename... Args>
+  composite_pipe(std::tuple<Args...> args) : pipe_1{std::get<0>(args)}, pipes{std::get<1>(args)} {}
 
   auto operator()(std::stop_token stop_token, auto in_work) {
     std::optional opt_work = pipe_1(stop_token, in_work);
