@@ -11,8 +11,8 @@
  ******************************************************************************/
 
 #pragma once
-#ifndef __21CMA_MEM__
-#define __21CMA_MEM__
+#ifndef SRTB_MEM
+#define SRTB_MEM
 
 #include <cstddef>
 #include <span>
@@ -65,4 +65,4 @@ inline auto mem_allocate_shared(Allocator allocator, size_t count) {
 
 }  // namespace srtb
 
-#endif  // __21CMA_MEM__
+#endif  // SRTB_MEM
