@@ -21,7 +21,7 @@
 #include <string>
 
 #include "srtb/log/log.hpp"
-#include "srtb/termination_handler.hpp"
+#include "srtb/util/termination_handler.hpp"
 
 namespace srtb::log {
 

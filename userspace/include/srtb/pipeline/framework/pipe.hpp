@@ -27,7 +27,7 @@
 #endif
 
 #include "srtb/log/log.hpp"
-#include "srtb/type_name.hpp"
+#include "srtb/util/type_name.hpp"
 
 namespace srtb {
 namespace pipeline {

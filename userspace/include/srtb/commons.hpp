@@ -47,6 +47,6 @@
 
 #include "srtb/global_variables.hpp"
 #include "srtb/log/log.hpp"
-#include "srtb/termination_handler.hpp"
+#include "srtb/util/termination_handler.hpp"
 
 #endif  // __SRTB_COMMONS__

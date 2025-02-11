@@ -19,8 +19,8 @@
 
 #include "mdspan/mdspan.hpp"
 // ---
-#if __has_include("srtb/assert.hpp")
-#include "srtb/assert.hpp"
+#if __has_include("srtb/util/assert.hpp")
+#include "srtb/util/assert.hpp"
 #else
 #include <boost/assert.hpp>
 #endif

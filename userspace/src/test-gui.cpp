@@ -16,13 +16,13 @@
 
 #include "mdspan/mdspan.hpp"
 // ---
-#include "srtb/assert.hpp"
 #include "srtb/config.hpp"
 #include "srtb/global_variables.hpp"
 #include "srtb/gui/gui.hpp"
 #include "srtb/memory/mem.hpp"
 #include "srtb/pipeline/framework/pipe_io.hpp"
 #include "srtb/spectrum/simplify_spectrum.hpp"
+#include "srtb/util/assert.hpp"
 
 int main(int argc, char **argv) {
   srtb::work_queue<srtb::work::draw_spectrum_work_2> draw_spectrum_queue_2;

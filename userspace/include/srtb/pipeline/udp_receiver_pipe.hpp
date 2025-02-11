@@ -22,7 +22,7 @@
 #include "srtb/io/udp/packet_parser.hpp"
 #include "srtb/io/udp/udp_receiver.hpp"
 #include "srtb/pipeline/framework/pipe.hpp"
-#include "srtb/thread_affinity.hpp"
+#include "srtb/util/thread_affinity.hpp"
 
 namespace srtb {
 namespace pipeline {
