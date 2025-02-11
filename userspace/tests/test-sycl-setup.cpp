@@ -38,8 +38,8 @@ int main() {
 
   real* d_in = sycl::malloc_device<real>(n_real, q);
   complex* d_spectrum = sycl::malloc_device<complex>(n_complex, q);
-  std::cout << "d_in = " << (size_t)d_in << ", "
-            << "d_spectrum = " << (size_t)d_spectrum << std::endl;
+  std::cout << "d_in = " << reinterpret_cast<size_t>(d_in) << ", "
+            << "d_spectrum = " << reinterpret_cast<size_t>(d_spectrum) << std::endl;
 
   // trigger JIT / GPU kernel load
   q.parallel_for(sycl::range{n_real}, [=](sycl::item<1> id) {
