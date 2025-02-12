@@ -14,9 +14,9 @@
 #ifndef __SRTB_PIPELINE_PIPE_IO__
 #define __SRTB_PIPELINE_PIPE_IO__
 
+#include <memory>
 #include <stop_token>
 #include <thread>
-#include <type_traits>
 
 #include "srtb/commons.hpp"
 
@@ -24,18 +24,18 @@ namespace srtb {
 namespace pipeline {
 
 /** @brief This functor reads input work from work queue */
-template <typename Queue>
+template <typename QueuePtr>
 class queue_in_functor {
  protected:
-  Queue& work_queue;
-  using Work = typename Queue::work_type;
+  QueuePtr work_queue;
+  using Work = typename std::pointer_traits<QueuePtr>::element_type::work_type;
 
  public:
-  explicit queue_in_functor(Queue& work_queue_) : work_queue{work_queue_} {}
+  explicit queue_in_functor(QueuePtr work_queue_) : work_queue{work_queue_} {}
 
   auto operator()(std::stop_token stop_token) {
     Work work;
-    bool ret = work_queue.pop(work);
+    bool ret = work_queue->pop(work);
     if (!ret) [[unlikely]] {
       while (!ret) {
         if (stop_token.stop_requested()) [[unlikely]] {
@@ -43,7 +43,7 @@ class queue_in_functor {
         }
         std::this_thread::sleep_for(
             std::chrono::nanoseconds(srtb::config.thread_query_work_wait_time));
-        ret = work_queue.pop(work);
+        ret = work_queue->pop(work);
       }
     }
     return std::optional{work};
@@ -51,17 +51,17 @@ class queue_in_functor {
 };
 
 /** @brief This functor pushes output work to work queue */
-template <typename Queue>
+template <typename QueuePtr>
 class queue_out_functor {
  protected:
-  Queue& work_queue;
-  using Work = typename Queue::work_type;
+  QueuePtr work_queue;
+  using Work = typename std::pointer_traits<QueuePtr>::element_type::work_type;
 
  public:
-  explicit queue_out_functor(Queue& work_queue_) : work_queue{work_queue_} {}
+  explicit queue_out_functor(QueuePtr work_queue_) : work_queue{work_queue_} {}
 
   auto operator()(std::stop_token stop_token, Work work) {
-    bool ret = work_queue.push(work);
+    bool ret = work_queue->push(work);
     if (!ret) [[unlikely]] {
       while (!ret) {
         if (stop_token.stop_requested()) [[unlikely]] {
@@ -69,26 +69,26 @@ class queue_out_functor {
         }
         std::this_thread::sleep_for(
             std::chrono::nanoseconds(srtb::config.thread_query_work_wait_time));
-        ret = work_queue.push(work);
+        ret = work_queue->push(work);
       }
     }
   }
 };
 
 /** @brief This functor pushes output work to work queue, but only try once */
-template <typename Queue>
+template <typename QueuePtr>
 class loose_queue_out_functor {
  protected:
-  Queue& work_queue;
-  using Work = typename Queue::work_type;
+  QueuePtr work_queue;
+  using Work = typename std::pointer_traits<QueuePtr>::element_type::work_type;
 
  public:
-  explicit loose_queue_out_functor(Queue& work_queue_)
+  explicit loose_queue_out_functor(QueuePtr work_queue_)
       : work_queue{work_queue_} {}
 
   auto operator()(std::stop_token stop_token, Work work) {
     if (!stop_token.stop_requested()) [[likely]] {
-      work_queue.push(work);
+      work_queue->push(work);
     }
   }
 };

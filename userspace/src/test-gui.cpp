@@ -12,6 +12,7 @@
 
 #include <chrono>
 #include <iostream>
+#include <memory>
 #include <thread>
 
 #include "mdspan/mdspan.hpp"
@@ -25,7 +26,7 @@
 #include "srtb/util/assert.hpp"
 
 int main(int argc, char **argv) {
-  srtb::work_queue<srtb::work::draw_spectrum_work_2> draw_spectrum_queue_2;
+  auto draw_spectrum_queue_2 = std::make_shared<srtb::work_queue<srtb::work::draw_spectrum_work_2>>();
 
   // cellular automaton
   std::jthread test_thread = std::jthread{[&draw_spectrum_queue_2](std::stop_token stop_token) {

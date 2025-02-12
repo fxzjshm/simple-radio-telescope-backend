@@ -11,6 +11,7 @@
  ******************************************************************************/
 
 #include <cstdlib>
+#include <memory>
 #include <optional>
 #include <tuple>
 
@@ -65,7 +66,7 @@ int baseband_receiver(int argc, char** argv) {
   sycl::queue q;
 
   // type mismatch; manual cast required
-  srtb::work_queue<srtb::work::copy_to_device_work> write_file_queue;
+  auto write_file_queue = std::make_shared<srtb::work_queue<srtb::work::copy_to_device_work>>();
 
   using namespace srtb::pipeline;
   std::jthread udp_receiver_thread =

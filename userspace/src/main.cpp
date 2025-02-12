@@ -20,6 +20,7 @@
 #include <chrono>
 #include <filesystem>
 #include <iostream>
+#include <memory>
 #include <vector>
 
 #include "srtb/coherent_dedispersion.hpp"
@@ -121,20 +122,19 @@ int main(int argc, char** argv) {
   }
 
   // work queues
-  srtb::work_queue<srtb::work::copy_to_device_work, /* spsc = */ false>
-      copy_to_device_queue;
-  srtb::work_queue<srtb::work::unpack_work, /* spsc = */ false> unpack_queue;
-  srtb::work_queue<srtb::work::fft_1d_r2c_work> fft_1d_r2c_queue;
-  srtb::work_queue<srtb::work::rfi_mitigation_s1_work> rfi_mitigation_s1_queue;
-  srtb::work_queue<srtb::work::dedisperse_work> dedisperse_queue;
-  srtb::work_queue<srtb::work::ifft_1d_c2c_work> ifft_1d_c2c_queue;
-  //srtb::work_queue<srtb::work::refft_1d_c2c_work> refft_1d_c2c_queue;
-  srtb::work_queue<srtb::work::rfi_mitigation_s2_work> rfi_mitigation_s2_queue;
-  srtb::work_queue<srtb::work::simplify_spectrum_work> simplify_spectrum_queue;
-  //srtb::work_queue<srtb::work::draw_spectrum_work> draw_spectrum_queue;
-  srtb::work_queue<srtb::work::draw_spectrum_work_2> draw_spectrum_queue_2;
-  srtb::work_queue<srtb::work::signal_detect_work> signal_detect_queue;
-  srtb::work_queue<srtb::work::write_signal_work> baseband_output_queue;
+  auto copy_to_device_queue = std::make_shared<srtb::work_queue<srtb::work::copy_to_device_work, /* spsc = */ false>>();
+  auto unpack_queue = std::make_shared<srtb::work_queue<srtb::work::unpack_work, /* spsc = */ false>>();
+  auto fft_1d_r2c_queue = std::make_shared<srtb::work_queue<srtb::work::fft_1d_r2c_work>>();
+  auto rfi_mitigation_s1_queue = std::make_shared<srtb::work_queue<srtb::work::rfi_mitigation_s1_work>>();
+  auto dedisperse_queue = std::make_shared<srtb::work_queue<srtb::work::dedisperse_work>>();
+  auto ifft_1d_c2c_queue = std::make_shared<srtb::work_queue<srtb::work::ifft_1d_c2c_work>>();
+  //auto refft_1d_c2c_queue = std::make_shared<srtb::work_queue<srtb::work::refft_1d_c2c_work>>();
+  auto rfi_mitigation_s2_queue = std::make_shared<srtb::work_queue<srtb::work::rfi_mitigation_s2_work>>();
+  auto simplify_spectrum_queue = std::make_shared<srtb::work_queue<srtb::work::simplify_spectrum_work>>();
+  //auto draw_spectrum_queue = std::make_shared<srtb::work_queue<srtb::work::draw_spectrum_work>>();
+  auto draw_spectrum_queue_2 = std::make_shared<srtb::work_queue<srtb::work::draw_spectrum_work_2>>();
+  auto signal_detect_queue = std::make_shared<srtb::work_queue<srtb::work::signal_detect_work>>();
+  auto baseband_output_queue = std::make_shared<srtb::work_queue<srtb::work::write_signal_work>>();
 
   /** 
    * @brief count of works in a pipeline.

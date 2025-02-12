@@ -337,14 +337,13 @@ class SimpleSpectrumImageProvider : public QObject, public QQuickImageProvider {
   // currently alpha channel of all color used are 0xFF
   static constexpr QImage::Format image_format = QImage::Format_RGB32;
   int spectrum_update_counter = 0;
-  srtb::work_queue<srtb::work::draw_spectrum_work_2>& draw_spectrum_queue_2;
+  std::shared_ptr<srtb::work_queue<srtb::work::draw_spectrum_work_2>> draw_spectrum_queue_2;
   std::jthread checker_thread;
   QPointer<QObject> parent;
 
  public:
   explicit SimpleSpectrumImageProvider(
-      QObject* parent_, srtb::work_queue<srtb::work::draw_spectrum_work_2>&
-                            draw_spectrum_queue_2_)
+      QObject* parent_, std::shared_ptr<srtb::work_queue<srtb::work::draw_spectrum_work_2>> draw_spectrum_queue_2_)
       : QObject{parent_},
         QQuickImageProvider{QQuickImageProvider::Pixmap},
         draw_spectrum_queue_2{draw_spectrum_queue_2_},
@@ -352,7 +351,7 @@ class SimpleSpectrumImageProvider : public QObject, public QQuickImageProvider {
     checker_thread = std::jthread{[this](std::stop_token stop_token) {
       while (!stop_token.stop_requested()) [[likely]] {
         srtb::work::draw_spectrum_work_2 draw_spectrum_work;
-        const bool got_work = draw_spectrum_queue_2.pop(draw_spectrum_work);
+        const bool got_work = draw_spectrum_queue_2->pop(draw_spectrum_work);
         if (got_work) {
           Q_EMIT new_pixmap_available(draw_spectrum_work);
         }
