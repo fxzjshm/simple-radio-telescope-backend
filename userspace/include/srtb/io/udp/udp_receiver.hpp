@@ -16,22 +16,20 @@
 
 #include <algorithm>
 #include <array>
-#include <boost/asio/buffer.hpp>
-#include <boost/asio/io_service.hpp>
-#include <boost/asio/ip/udp.hpp>
-#include <chrono>
+#include <cstdint>
 #include <cstring>
-#include <iostream>
 #include <limits>
 #include <span>
-#include <thread>
-#include <vector>
+#include <string>
 
-#include "srtb/commons.hpp"
+#include "srtb/log/log.hpp"
+#include "srtb/util/assert.hpp"
 
 namespace srtb {
 namespace io {
 namespace udp {
+
+inline constexpr size_t UDP_MAX_SIZE = 1 << 16;
 
 /**
  * @brief A source that receives UDP packet and unpack it. 
@@ -149,7 +147,7 @@ class continuous_udp_receiver_worker {
         }
         current_lost_packet_count += lost_packets_count;
         current_received_packet_count++;
-        assert(zeros_need_to_be_filled == 0);
+        BOOST_ASSERT(zeros_need_to_be_filled == 0);
         zeros_need_to_be_filled += data_len * lost_packets_count;
         fill_zero();
         last_counter = received_counter;

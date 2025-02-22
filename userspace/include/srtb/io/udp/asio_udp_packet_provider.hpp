@@ -35,7 +35,7 @@ class asio_packet_provider {
   boost::asio::ip::udp::socket socket;
 
  public:
-  asio_packet_provider(const std::string& address, const unsigned short port)
+  asio_packet_provider(std::string address, unsigned short port)
       : receiver_endpoint{boost::asio::ip::address::from_string(address), port}, socket{io_service, receiver_endpoint} {
     socket.set_option(boost::asio::ip::udp::socket::reuse_address{true});
     constexpr int socket_buffer_size = std::numeric_limits<int>::max();
