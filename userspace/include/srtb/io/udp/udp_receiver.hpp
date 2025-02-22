@@ -15,7 +15,6 @@
 #define __SRTB_IO_UDP_RECEIVER__
 
 #include <algorithm>
-#include <array>
 #include <cstdint>
 #include <cstring>
 #include <limits>
@@ -28,8 +27,6 @@
 namespace srtb {
 namespace io {
 namespace udp {
-
-inline constexpr size_t UDP_MAX_SIZE = 1 << 16;
 
 /**
  * @brief A source that receives UDP packet and unpack it. 
@@ -50,13 +47,9 @@ class continuous_udp_receiver_worker {
   PacketProvider packet_provider;
   Backend backend;
 
-  /**
-   * @brief buffer for receiving one UDP packet
-   * @note not directly writing to output because packet counter is in the packet.
-   */
-  std::array<std::byte, UDP_MAX_SIZE> udp_packet_buffer;
+  /** @brief view of one received packet; memory owned by packet_provider */
+  std::span<std::byte> udp_packet_buffer;
   size_t udp_packet_buffer_pos = 0;
-  size_t udp_packet_buffer_size = 0;
 
   size_t total_received_packet_count = 0;
   size_t total_lost_packet_count = 0;
@@ -79,7 +72,7 @@ class continuous_udp_receiver_worker {
   /**
    * @brief Receive given number of bytes, with counter continuity already checked
    * @param required_length length in bytes
-   * @return buffer of received data
+   * @return first counter
    */
   auto receive(std::span<std::byte> data_buffer) {
     std::byte* data_buffer_ptr = data_buffer.data();
@@ -109,8 +102,7 @@ class continuous_udp_receiver_worker {
         const size_t data_buffer_available_length =
             data_buffer_capacity - data_buffer_content_size;
         const size_t data_to_be_copied_size =
-            std::min(udp_packet_buffer_size - udp_packet_buffer_pos,
-                     data_buffer_available_length);
+            std::min(udp_packet_buffer.size() - udp_packet_buffer_pos, data_buffer_available_length);
         std::copy_n(udp_packet_buffer.begin() + udp_packet_buffer_pos,
                     data_to_be_copied_size, /* -> */
                     data_buffer_ptr + data_buffer_content_size);
@@ -120,16 +112,13 @@ class continuous_udp_receiver_worker {
 
       if (zeros_need_to_be_filled > 0) {
         fill_zero();
-      } else if (udp_packet_buffer_pos < udp_packet_buffer_size) [[unlikely]] {
+      } else if (udp_packet_buffer_pos < udp_packet_buffer.size()) [[unlikely]] {
         copy_packet();
       } else [[likely]] {
         // receive packet
-        udp_packet_buffer_size =
-            packet_provider.receive(std::span<std::byte>{udp_packet_buffer});
-        const auto [header_size, received_counter_, timestamp] =
-            backend.parse_packet(std::span<std::byte>{udp_packet_buffer.begin(),
-                                                     udp_packet_buffer_size});
-        const size_t data_len = udp_packet_buffer_size - header_size;
+        udp_packet_buffer = packet_provider.receive();
+        const auto [header_size, received_counter_, timestamp] = backend.parse_packet(udp_packet_buffer);
+        const size_t data_len = udp_packet_buffer.size() - header_size;
 
         // remember to check whether this can hold all kinds of counters
         const udp_packet_counter_type received_counter = received_counter_;
@@ -170,7 +159,7 @@ class continuous_udp_receiver_worker {
                 << "overall loss rate: " << loss_rate << srtb::endl;
     }
 
-    return std::make_pair(data_buffer, first_counter);
+    return first_counter;
   }
 };
 

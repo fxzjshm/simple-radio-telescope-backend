@@ -14,16 +14,19 @@
 #ifndef __SRTB_IO_UDP_ASIO_PACKET_PROVIDER__
 #define __SRTB_IO_UDP_ASIO_PACKET_PROVIDER__
 
+#include <array>
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/io_service.hpp>
 #include <boost/asio/ip/udp.hpp>
 #include <cstddef>
-#include <string>
 #include <span>
+#include <string>
 
 namespace srtb {
 namespace io {
 namespace udp {
+
+inline constexpr size_t UDP_MAX_SIZE = 1 << 16;
 
 /**
  * @brief Receive UDP packet using Asio
@@ -33,6 +36,8 @@ class asio_packet_provider {
   boost::asio::ip::udp::endpoint receiver_endpoint, sender_endpoint;
   boost::asio::io_service io_service;
   boost::asio::ip::udp::socket socket;
+
+  std::array<std::byte, UDP_MAX_SIZE> packet;
 
  public:
   asio_packet_provider(std::string address, unsigned short port)
@@ -47,10 +52,10 @@ class asio_packet_provider {
    * @brief Receive packet into given position
    * @param h_out (mutable) packet will be written to
    */
-  auto receive(/* mutable */ std::span<std::byte> h_out) -> size_t {
-    auto receive_buffer = boost::asio::buffer(h_out.data(), h_out.size());
+  auto receive() -> std::span<std::byte> {
+    auto receive_buffer = boost::asio::buffer(packet.data(), packet.size());
     const size_t udp_packet_size = socket.receive_from(receive_buffer, sender_endpoint);
-    return udp_packet_size;
+    return std::span{packet.data(), udp_packet_size};
   }
 };
 
