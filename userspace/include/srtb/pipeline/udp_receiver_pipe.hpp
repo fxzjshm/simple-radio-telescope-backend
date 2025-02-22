@@ -11,14 +11,18 @@
  ******************************************************************************/
 
 #pragma once
+
 #ifndef __SRTB_PIPELINE_UDP_RECEIVER_PIPE__
 #define __SRTB_PIPELINE_UDP_RECEIVER_PIPE__
 
+#include <memory>
 #include <optional>
 
+#include "srtb/global_variables.hpp"
 #include "srtb/io/backend_registry.hpp"
 #include "srtb/io/udp/asio_udp_packet_provider.hpp"
 #include "srtb/io/udp/udp_receiver.hpp"
+#include "srtb/memory/mem.hpp"
 #include "srtb/pipeline/framework/pipe.hpp"
 #include "srtb/util/thread_affinity.hpp"
 
@@ -28,7 +32,7 @@ namespace pipeline {
 /**
  * @brief receive UDP data and transfer to unpack_work_queue.
  * @see @c srtb::io::udp::udp_receiver_worker
- * TODO: separate reserving samples for coherent dedispersion
+ * TODO: add reserving samples for coherent dedispersion
  */
 template <typename UDPReceiverWorker>
 class udp_receiver_pipe {
@@ -109,11 +113,13 @@ class udp_receiver_pipe {
                                         srtb::BITS_PER_BYTE;
     const size_t data_stream_count = UDPReceiverWorker::backend_t::data_stream_count;
 
+    const size_t required_length = baseband_input_bytes * data_stream_count;
+    auto h_mem = srtb::mem_allocate_shared<std::byte>(&srtb::host_allocator, required_length);
+
     SRTB_LOGD << " [udp receiver pipe] "
               << "id = " << id << ": "
               << "start receiving" << srtb::endl;
-    auto [h_ptr, first_counter] = worker.receive(
-        /* required_length = */ baseband_input_bytes * data_stream_count);
+    auto first_counter = worker.receive(h_mem.get_span());
     SRTB_LOGD << " [udp receiver pipe] "
               << "id = " << id << ": "
               << "receive finished" << srtb::endl;
@@ -125,8 +131,7 @@ class udp_receiver_pipe {
             std::chrono::system_clock::now().time_since_epoch())
             .count();
 
-    srtb::work::baseband_data_holder baseband_data{
-        h_ptr, baseband_input_bytes * data_stream_count};
+    srtb::work::baseband_data_holder baseband_data{h_mem.ptr, required_length};
     srtb::work::copy_to_device_work copy_to_device_work;
     copy_to_device_work.ptr = nullptr;
     copy_to_device_work.count = 0;
