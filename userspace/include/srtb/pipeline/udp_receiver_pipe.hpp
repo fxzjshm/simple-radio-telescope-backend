@@ -16,7 +16,6 @@
 
 #include <optional>
 
-#include "srtb/coherent_dedispersion.hpp"
 #include "srtb/io/backend_registry.hpp"
 #include "srtb/io/udp/asio_udp_packet_provider.hpp"
 #include "srtb/io/udp/udp_receiver.hpp"
@@ -110,27 +109,11 @@ class udp_receiver_pipe {
                                         srtb::BITS_PER_BYTE;
     const size_t data_stream_count = UDPReceiverWorker::backend_t::data_stream_count;
 
-    // reserved some samples for next round
-    size_t nsamps_reserved = srtb::codd::nsamps_reserved();
-
-    if (nsamps_reserved < baseband_input_count) {
-      SRTB_LOGD << " [udp receiver pipe] "
-                << "id = " << id << ": "
-                << "reserved " << nsamps_reserved << " samples" << srtb::endl;
-    } else {
-      SRTB_LOGW << " [udp receiver pipe] "
-                << "id = " << id << ": "
-                << "baseband_input_count = " << baseband_input_count
-                << " >= nsamps_reserved = " << nsamps_reserved << srtb::endl;
-      nsamps_reserved = 0;
-    }
-
     SRTB_LOGD << " [udp receiver pipe] "
               << "id = " << id << ": "
               << "start receiving" << srtb::endl;
     auto [h_ptr, first_counter] = worker.receive(
-        /* required_length = */ baseband_input_bytes * data_stream_count,
-        /* reserved_length = */ nsamps_reserved * data_stream_count);
+        /* required_length = */ baseband_input_bytes * data_stream_count);
     SRTB_LOGD << " [udp receiver pipe] "
               << "id = " << id << ": "
               << "receive finished" << srtb::endl;

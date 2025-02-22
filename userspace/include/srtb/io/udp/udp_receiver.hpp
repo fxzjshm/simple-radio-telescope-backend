@@ -83,8 +83,7 @@ class continuous_udp_receiver_worker {
    * @param required_length length in bytes
    * @return buffer of received data
    */
-  auto receive(size_t required_length,
-               [[maybe_unused]] size_t reserved_length) {
+  auto receive(size_t required_length) {
     std::shared_ptr<std::byte> data_buffer =
         srtb::host_allocator.allocate_shared<std::byte>(required_length);
     const auto data_buffer_ptr = data_buffer.get();
