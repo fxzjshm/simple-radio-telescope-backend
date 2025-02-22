@@ -77,8 +77,7 @@ class udp_receiver_pipe {
         throw std::runtime_error{" [udp receiver pipe] no UDP port for id = " + std::to_string(id)};
       }
     }
-    const bool udp_receiver_can_restart = srtb::config.udp_receiver_can_restart;
-    opt_worker.emplace(address, port, udp_receiver_can_restart);
+    opt_worker.emplace(address, port);
 
     const auto& cpus_preferred = srtb::config.udp_receiver_cpu_preferred;
     if (0 <= id && id < cpus_preferred.size()) {

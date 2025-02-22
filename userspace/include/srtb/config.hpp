@@ -149,13 +149,6 @@ struct configs {
   std::vector<uint32_t> udp_receiver_cpu_preferred = {0};
 
   /**
-   * @brief flag to indicate the UDP receivers can skip some if too many samples are lost,
-   *        or it cannot because continuous sampling is required.
-   * @note for internal use only for now
-   */
-  bool udp_receiver_can_restart = true;
-
-  /**
    * @brief Path to the binary file to be read as baseband input.
    */
   std::string input_file_path = "";

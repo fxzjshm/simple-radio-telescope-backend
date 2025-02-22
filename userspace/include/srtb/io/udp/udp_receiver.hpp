@@ -75,8 +75,7 @@ class continuous_udp_receiver_worker {
   size_t zeros_need_to_be_filled = 0;
 
  public:
-  explicit continuous_udp_receiver_worker(const std::string& address, const unsigned short port,
-                                          [[maybe_unused]] bool can_restart_)
+  explicit continuous_udp_receiver_worker(const std::string& address, const unsigned short port)
       : packet_provider{address, port} {}
 
   /**

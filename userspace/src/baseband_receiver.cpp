@@ -57,7 +57,6 @@ namespace main {
  *        TODO: need test with real data
  */
 int baseband_receiver(int argc, char** argv) {
-  srtb::config.udp_receiver_can_restart = true;
   srtb::changed_configs = srtb::program_options::parse_arguments(
       argc, argv, std::string(srtb::config.config_file_name));
   srtb::program_options::apply_changed_configs(srtb::changed_configs,
