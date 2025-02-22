@@ -43,15 +43,15 @@ namespace udp {
  * 
  * @see @c srtb::pipeline::udp_receiver_pipe
  */
-template <typename PacketProvider, typename PacketParser>
+template <typename PacketProvider, typename Backend>
 class udp_receiver_worker {
  public:
   using packet_provider_t = PacketProvider;
-  using packet_parser_t = PacketParser;
+  using backend_t = Backend;
 
  protected:
   PacketProvider packet_provider;
-  PacketParser packet_parser;
+  Backend backend;
 
   /**
    * @brief buffer for receiving one UDP packet
@@ -161,7 +161,7 @@ class udp_receiver_worker {
         udp_packet_buffer_size =
             packet_provider.receive(std::span<std::byte>{udp_packet_buffer});
         const auto [header_size, received_counter_, timestamp] =
-            packet_parser.parse(std::span<std::byte>{udp_packet_buffer.begin(),
+            backend.parse_packet(std::span<std::byte>{udp_packet_buffer.begin(),
                                                      udp_packet_buffer_size});
         const size_t data_len = udp_packet_buffer_size - header_size;
 
@@ -231,15 +231,15 @@ class udp_receiver_worker {
  * 
  * @see @c srtb::pipeline::udp_receiver_pipe
  */
-template <typename PacketProvider, typename PacketParser>
+template <typename PacketProvider, typename Backend>
 class continuous_udp_receiver_worker {
  public:
   using packet_provider_t = PacketProvider;
-  using packet_parser_t = PacketParser;
+  using backend_t = Backend;
 
  protected:
   PacketProvider packet_provider;
-  PacketParser packet_parser;
+  Backend backend;
 
   /**
    * @brief buffer for receiving one UDP packet
@@ -322,7 +322,7 @@ class continuous_udp_receiver_worker {
         udp_packet_buffer_size =
             packet_provider.receive(std::span<std::byte>{udp_packet_buffer});
         const auto [header_size, received_counter_, timestamp] =
-            packet_parser.parse(std::span<std::byte>{udp_packet_buffer.begin(),
+            backend.parse_packet(std::span<std::byte>{udp_packet_buffer.begin(),
                                                      udp_packet_buffer_size});
         const size_t data_len = udp_packet_buffer_size - header_size;
 

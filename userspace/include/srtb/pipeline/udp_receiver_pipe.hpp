@@ -19,7 +19,6 @@
 #include "srtb/coherent_dedispersion.hpp"
 #include "srtb/io/backend_registry.hpp"
 #include "srtb/io/udp/asio_udp_packet_provider.hpp"
-#include "srtb/io/udp/packet_parser.hpp"
 #include "srtb/io/udp/udp_receiver.hpp"
 #include "srtb/pipeline/framework/pipe.hpp"
 #include "srtb/util/thread_affinity.hpp"
@@ -110,8 +109,7 @@ class udp_receiver_pipe {
     const size_t baseband_input_bytes = baseband_input_count *
                                         std::abs(baseband_input_bits) /
                                         srtb::BITS_PER_BYTE;
-    const size_t data_stream_count =
-        UDPReceiverWorker::packet_parser_t::data_stream_count;
+    const size_t data_stream_count = UDPReceiverWorker::backend_t::data_stream_count;
 
     // reserved some samples for next round
     size_t nsamps_reserved = srtb::codd::nsamps_reserved();
@@ -175,25 +173,19 @@ inline auto start_udp_receiver_pipe(std::string_view backend_name,
 
   if (backend_name == naocpsr_roach2::name) {
     using backend_t = naocpsr_roach2;
-    using worker_t =
-        srtb::io::udp::udp_receiver_worker<provider_t,
-                                           backend_t::packet_parser>;
+    using worker_t = srtb::io::udp::udp_receiver_worker<provider_t, backend_t>;
     using pipe_t = udp_receiver_pipe<worker_t>;
     return start_pipe<pipe_t>(args...);
   }
   if (backend_name == naocpsr_snap1::name) {
     using backend_t = naocpsr_snap1;
-    using worker_t =
-        srtb::io::udp::udp_receiver_worker<provider_t,
-                                           backend_t::packet_parser>;
+    using worker_t = srtb::io::udp::udp_receiver_worker<provider_t, backend_t>;
     using pipe_t = udp_receiver_pipe<worker_t>;
     return start_pipe<pipe_t>(args...);
   }
   if (backend_name == gznupsr_a1::name) {
     using backend_t = gznupsr_a1;
-    using worker_t =
-        srtb::io::udp::udp_receiver_worker<provider_t,
-                                           backend_t::packet_parser>;
+    using worker_t = srtb::io::udp::udp_receiver_worker<provider_t, backend_t>;
     using pipe_t = udp_receiver_pipe<worker_t>;
     return start_pipe<pipe_t>(args...);
   }
