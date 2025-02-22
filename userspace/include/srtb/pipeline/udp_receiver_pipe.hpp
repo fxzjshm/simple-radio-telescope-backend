@@ -173,19 +173,19 @@ inline auto start_udp_receiver_pipe(std::string_view backend_name,
 
   if (backend_name == naocpsr_roach2::name) {
     using backend_t = naocpsr_roach2;
-    using worker_t = srtb::io::udp::udp_receiver_worker<provider_t, backend_t>;
+    using worker_t = srtb::io::udp::continuous_udp_receiver_worker<provider_t, backend_t>;
     using pipe_t = udp_receiver_pipe<worker_t>;
     return start_pipe<pipe_t>(args...);
   }
   if (backend_name == naocpsr_snap1::name) {
     using backend_t = naocpsr_snap1;
-    using worker_t = srtb::io::udp::udp_receiver_worker<provider_t, backend_t>;
+    using worker_t = srtb::io::udp::continuous_udp_receiver_worker<provider_t, backend_t>;
     using pipe_t = udp_receiver_pipe<worker_t>;
     return start_pipe<pipe_t>(args...);
   }
   if (backend_name == gznupsr_a1::name) {
     using backend_t = gznupsr_a1;
-    using worker_t = srtb::io::udp::udp_receiver_worker<provider_t, backend_t>;
+    using worker_t = srtb::io::udp::continuous_udp_receiver_worker<provider_t, backend_t>;
     using pipe_t = udp_receiver_pipe<worker_t>;
     return start_pipe<pipe_t>(args...);
   }
