@@ -208,9 +208,9 @@ Baseband Options:
 Data Input/Output Options:
 
 UDP Receiver Options:
-  --udp_receiver_sender_address arg     Address(es) to receive baseband UDP 
+  --udp_receiver_address arg     Address(es) to receive baseband UDP 
                                         packets
-  --udp_receiver_sender_port arg        Port(s) to receive baseband UDP packets
+  --udp_receiver_port arg        Port(s) to receive baseband UDP packets
   --udp_receiver_cpu_preferred arg      CPU core that UDP receiver should be 
                                         bound to. 
 

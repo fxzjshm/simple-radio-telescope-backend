@@ -48,40 +48,38 @@ class udp_receiver_pipe {
   // init of worker is deferred because this pipe may not be used,
   // and failure of binding address will result in a error
   udp_receiver_pipe(sycl::queue q_, size_t id_ = 0) : q{q_}, id{id_} {
-    std::string sender_address;
+    std::string address;
     {
-      const auto& sender_addresses = srtb::config.udp_receiver_sender_address;
-      if (sender_addresses.size() == 1) {
-        sender_address = sender_addresses.at(0);
-      } else if (id < sender_addresses.size()) {
-        sender_address = sender_addresses.at(id);
+      const auto& addresses = srtb::config.udp_receiver_address;
+      if (addresses.size() == 1) {
+        // for argument broadcasting to all receivers
+        address = addresses.at(0);
+      } else if (id < addresses.size()) {
+        address = addresses.at(id);
       } else {
         SRTB_LOGE << " [udp receiver pipe] "
                   << "id = " << id << ": "
-                  << "no UDP sender address set" << srtb::endl;
-        throw std::runtime_error{
-            " [udp receiver pipe] no UDP sender address for id = " +
-            std::to_string(id)};
+                  << "no UDP address set" << srtb::endl;
+        throw std::runtime_error{" [udp receiver pipe] no UDP address for id = " + std::to_string(id)};
       }
     }
-    unsigned short sender_port;
+    unsigned short port;
     {
-      const auto& sender_ports = srtb::config.udp_receiver_sender_port;
-      if (sender_ports.size() == 1) {
-        sender_port = sender_ports.at(0);
-      } else if (id < sender_ports.size()) {
-        sender_port = sender_ports.at(id);
+      const auto& ports = srtb::config.udp_receiver_port;
+      if (ports.size() == 1) {
+        // for argument broadcasting to all receivers
+        port = ports.at(0);
+      } else if (id < ports.size()) {
+        port = ports.at(id);
       } else {
         SRTB_LOGE << " [udp receiver pipe] "
                   << "id = " << id << ": "
-                  << "no UDP sender port set" << srtb::endl;
-        throw std::runtime_error{
-            " [udp receiver pipe] no UDP sender port for id = " +
-            std::to_string(id)};
+                  << "no UDP port set" << srtb::endl;
+        throw std::runtime_error{" [udp receiver pipe] no UDP port for id = " + std::to_string(id)};
       }
     }
     const bool udp_receiver_can_restart = srtb::config.udp_receiver_can_restart;
-    opt_worker.emplace(sender_address, sender_port, udp_receiver_can_restart);
+    opt_worker.emplace(address, port, udp_receiver_can_restart);
 
     const auto& cpus_preferred = srtb::config.udp_receiver_cpu_preferred;
     if (0 <= id && id < cpus_preferred.size()) {
@@ -97,8 +95,8 @@ class udp_receiver_pipe {
 
     SRTB_LOGI << " [udp receiver pipe] "
               << "id = " << id << ": "
-              << "start reading, address = " << sender_address << ", "
-              << "port = " << sender_port << srtb::endl;
+              << "start reading, address = " << address << ", "
+              << "port = " << port << srtb::endl;
   }
 
   auto operator()([[maybe_unused]] std::stop_token stop_token,

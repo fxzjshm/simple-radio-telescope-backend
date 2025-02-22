@@ -95,9 +95,9 @@ namespace program_options {
        "if 0, baseband data will not overlap.")
     ;
     udp_receiver_options.add_options()
-      ("udp_receiver_sender_address", boost::program_options::value<std::string>(),
+      ("udp_receiver_address", boost::program_options::value<std::string>(),
        "Address(es) to receive baseband UDP packets")
-      ("udp_receiver_sender_port", boost::program_options::value<std::string>(),
+      ("udp_receiver_port", boost::program_options::value<std::string>(),
        "Port(s) to receive baseband UDP packets")
       ("udp_receiver_cpu_preferred", boost::program_options::value<std::string>(),
        "CPU core that UDP receiver should be bound to. ")
@@ -258,8 +258,8 @@ inline void evaluate_and_apply_changed_config(const std::string& name,
   SRTB_PARSE(baseband_sample_rate)
   SRTB_PARSE(baseband_reserve_sample)
   SRTB_PARSE(dm)
-  SRTB_SPLIT_ASSIGN(udp_receiver_sender_address, /* delimiter = */ ",")
-  SRTB_SPLIT_PARSE(udp_receiver_sender_port, /* delimiter = */ ",")
+  SRTB_SPLIT_ASSIGN(udp_receiver_address, /* delimiter = */ ",")
+  SRTB_SPLIT_PARSE(udp_receiver_port, /* delimiter = */ ",")
   SRTB_SPLIT_PARSE(udp_receiver_cpu_preferred, /* delimiter = */ ",")
   SRTB_ASSIGN(input_file_path)
   SRTB_PARSE(input_file_offset_bytes)

@@ -80,10 +80,8 @@ class udp_receiver_worker {
   bool can_restart;
 
  public:
-  udp_receiver_worker(const std::string& sender_address,
-                      const unsigned short sender_port, bool can_restart_)
-      : packet_provider{sender_address, sender_port},
-        can_restart{can_restart_} {}
+  udp_receiver_worker(const std::string& address, const unsigned short port, bool can_restart_)
+      : packet_provider{address, port}, can_restart{can_restart_} {}
 
   /**
    * @brief Receive given number of bytes, with counter continuity already checked
@@ -266,10 +264,9 @@ class continuous_udp_receiver_worker {
   size_t zeros_need_to_be_filled = 0;
 
  public:
-  explicit continuous_udp_receiver_worker(const std::string& sender_address,
-                                          const unsigned short sender_port,
+  explicit continuous_udp_receiver_worker(const std::string& address, const unsigned short port,
                                           [[maybe_unused]] bool can_restart_)
-      : packet_provider{sender_address, sender_port} {}
+      : packet_provider{address, port} {}
 
   /**
    * @brief Receive given number of bytes, with counter continuity already checked

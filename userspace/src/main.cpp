@@ -231,8 +231,8 @@ int main(int argc, char** argv) {
 
   // TODO: maybe multiple file input or something else
   size_t input_pipe_count =
-      std::max(std::max(srtb::config.udp_receiver_sender_address.size(),
-                        srtb::config.udp_receiver_sender_port.size()),
+      std::max(std::max(srtb::config.udp_receiver_address.size(),
+                        srtb::config.udp_receiver_port.size()),
                size_t{1});
 
   std::vector<std::jthread> input_thread;

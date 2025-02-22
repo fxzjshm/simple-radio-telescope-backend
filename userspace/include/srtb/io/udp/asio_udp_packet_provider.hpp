@@ -30,16 +30,13 @@ namespace udp {
  */
 class asio_packet_provider {
  protected:
-  boost::asio::ip::udp::endpoint sender_endpoint, ep2;
+  boost::asio::ip::udp::endpoint receiver_endpoint, sender_endpoint;
   boost::asio::io_service io_service;
   boost::asio::ip::udp::socket socket;
 
  public:
-  asio_packet_provider(const std::string& sender_address,
-                       const unsigned short sender_port)
-      : sender_endpoint{boost::asio::ip::address::from_string(sender_address),
-                        sender_port},
-        socket{io_service, sender_endpoint} {
+  asio_packet_provider(const std::string& address, const unsigned short port)
+      : receiver_endpoint{boost::asio::ip::address::from_string(address), port}, socket{io_service, receiver_endpoint} {
     socket.set_option(boost::asio::ip::udp::socket::reuse_address{true});
     constexpr int socket_buffer_size = std::numeric_limits<int>::max();
     socket.set_option(
@@ -52,7 +49,7 @@ class asio_packet_provider {
    */
   auto receive(/* mutable */ std::span<std::byte> h_out) -> size_t {
     auto receive_buffer = boost::asio::buffer(h_out.data(), h_out.size());
-    const size_t udp_packet_size = socket.receive_from(receive_buffer, ep2);
+    const size_t udp_packet_size = socket.receive_from(receive_buffer, sender_endpoint);
     return udp_packet_size;
   }
 };

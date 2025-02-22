@@ -136,12 +136,12 @@ struct configs {
   /**
    * @brief Address to receive baseband UDP packets.
    */
-  std::vector<std::string> udp_receiver_sender_address = {"10.0.1.2"};
+  std::vector<std::string> udp_receiver_address = {"10.0.1.2"};
 
   /**
    * @brief Port to receive baseband UDP packets.
    */
-  std::vector<unsigned short> udp_receiver_sender_port = {12004};
+  std::vector<unsigned short> udp_receiver_port = {12004};
 
   /**
    * @brief CPU core that UDP receiver should be bound to.
