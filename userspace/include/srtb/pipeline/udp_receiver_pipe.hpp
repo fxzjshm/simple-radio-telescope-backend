@@ -21,6 +21,7 @@
 #include "srtb/global_variables.hpp"
 #include "srtb/io/backend_registry.hpp"
 #include "srtb/io/udp/asio_udp_packet_provider.hpp"
+#include "srtb/io/udp/packet_mmap_v3_provider.hpp"
 #include "srtb/io/udp/recvfrom_packet_provider.hpp"
 #include "srtb/io/udp/udp_receiver.hpp"
 #include "srtb/memory/mem.hpp"
