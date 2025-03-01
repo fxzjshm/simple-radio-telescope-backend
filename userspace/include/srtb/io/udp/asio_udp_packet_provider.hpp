@@ -22,11 +22,11 @@
 #include <span>
 #include <string>
 
+#include "srtb/io/udp/udp_common.hpp"
+
 namespace srtb {
 namespace io {
 namespace udp {
-
-inline constexpr size_t UDP_MAX_SIZE = 1 << 16;
 
 /**
  * @brief Receive UDP packet using Asio
@@ -37,7 +37,7 @@ class asio_packet_provider {
   boost::asio::io_service io_service;
   boost::asio::ip::udp::socket socket;
 
-  std::array<std::byte, UDP_MAX_SIZE> packet;
+  std::array<std::byte, UDP_MAX_SIZE> udp_buffer;
 
  public:
   asio_packet_provider(std::string address, unsigned short port)
@@ -53,9 +53,9 @@ class asio_packet_provider {
    * @param h_out (mutable) packet will be written to
    */
   auto receive() -> std::span<std::byte> {
-    auto receive_buffer = boost::asio::buffer(packet.data(), packet.size());
-    const size_t udp_packet_size = socket.receive_from(receive_buffer, sender_endpoint);
-    return std::span{packet.data(), udp_packet_size};
+    auto receive_buffer = boost::asio::buffer(udp_buffer.data(), udp_buffer.size());
+    const size_t packet_size = socket.receive_from(receive_buffer, sender_endpoint);
+    return std::span{udp_buffer.data(), packet_size};
   }
 };
 

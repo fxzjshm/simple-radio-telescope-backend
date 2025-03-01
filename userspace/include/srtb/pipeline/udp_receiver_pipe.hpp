@@ -21,6 +21,7 @@
 #include "srtb/global_variables.hpp"
 #include "srtb/io/backend_registry.hpp"
 #include "srtb/io/udp/asio_udp_packet_provider.hpp"
+#include "srtb/io/udp/recvfrom_packet_provider.hpp"
 #include "srtb/io/udp/udp_receiver.hpp"
 #include "srtb/memory/mem.hpp"
 #include "srtb/pipeline/framework/pipe.hpp"
@@ -156,7 +157,7 @@ template <typename... Args>
 inline auto start_udp_receiver_pipe(std::string_view backend_name,
                                     Args... args) {
   using namespace srtb::io::backend_registry;
-  using provider_t = srtb::io::udp::asio_packet_provider;
+  using provider_t = srtb::io::udp::recvfrom_packet_provider;
 
   if (backend_name == naocpsr_roach2::name) {
     using backend_t = naocpsr_roach2;
