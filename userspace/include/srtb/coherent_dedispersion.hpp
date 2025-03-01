@@ -157,7 +157,7 @@ inline C phase_factor_v2_1(const phase_real f, const phase_real f_c, const phase
   const phase_real delta_phi = -T{2 * M_PI} * D * 1e6 * dm * ((delta_f * delta_f) / (f * f_c * f_c));
   phase_real cos_delta_phi, sin_delta_phi;
   // &cos_delta_phi cannot be used here, not in specification
-  sin_delta_phi = sycl::sincos(delta_phi, sycl::private_ptr<phase_real>{&cos_delta_phi});
+  sin_delta_phi = sycl::sincos(delta_phi, sycl::decorated_private_ptr<phase_real>{&cos_delta_phi});
   const C factor = C(cos_delta_phi, sin_delta_phi);
   return factor;
 }

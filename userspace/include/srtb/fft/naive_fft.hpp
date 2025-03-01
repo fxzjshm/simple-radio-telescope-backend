@@ -244,7 +244,7 @@ inline void fft_1d_r2c(const size_t k, InputAccessor input,
      //const T theta = -T{2.0 * M_PI} * k / n_real;
      const T theta_k = -T{M_PI} * k / N;
      T w_k_re, w_k_im;
-     w_k_im = sycl::sincos(theta_k, sycl::private_ptr<T>{&w_k_re});
+     w_k_im = sycl::sincos(theta_k, sycl::decorated_private_ptr<T>{&w_k_re});
      const C w_k = C{w_k_re, w_k_im};
      //const T theta_N_k = -T{M_PI} * (N - k) / N;
      //const T w_N_k_re = sycl::cos(theta_N_k), w_N_k_im = sycl::sin(theta_N_k);

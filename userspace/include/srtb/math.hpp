@@ -97,11 +97,11 @@ inline constexpr T abs(const T x) noexcept {
 template <typename T>
 inline constexpr T modf(const T a, T* iptr) noexcept {
   if constexpr (std::is_floating_point_v<T>) {
-    return sycl::modf(a, sycl::private_ptr<T>{iptr});
+    return sycl::modf(a, sycl::decorated_private_ptr<T>{iptr});
   } else if constexpr (std::is_same_v<T, dsmath::df64>) {
     float xi, xf, yi, yf;
-    xf = sycl::modf(a.x, sycl::private_ptr<float>{&xi});
-    yf = sycl::modf(a.y, sycl::private_ptr<float>{&yi});
+    xf = sycl::modf(a.x, sycl::decorated_private_ptr<float>{&xi});
+    yf = sycl::modf(a.y, sycl::decorated_private_ptr<float>{&yi});
     dsmath::df64 i, f;
     i = dsmath::df64{xi} + dsmath::df64{yi};
     f = dsmath::df64{xf} + dsmath::df64{yf};
