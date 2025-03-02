@@ -37,8 +37,8 @@ namespace udp {
  */
 class recvfrom_packet_provider {
  protected:
+  alignas(UDP_PACKET_ALIGNMENT) std::array<std::byte, UDP_MAX_SIZE> udp_buffer;
   socket_wrapper sock;
-  std::array<std::byte, UDP_MAX_SIZE> udp_buffer;
 
  public:
   recvfrom_packet_provider(std::string address, unsigned short port) {

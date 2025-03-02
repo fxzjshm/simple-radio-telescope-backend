@@ -24,6 +24,7 @@ namespace io {
 namespace udp {
 
 inline constexpr size_t UDP_MAX_SIZE = 1 << 16;
+inline constexpr size_t UDP_PACKET_ALIGNMENT = 64;
 
 struct socket_wrapper {
   int sock;

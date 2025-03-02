@@ -33,11 +33,11 @@ namespace udp {
  */
 class asio_packet_provider {
  protected:
+  alignas(UDP_PACKET_ALIGNMENT) std::array<std::byte, UDP_MAX_SIZE> udp_buffer;
+
   boost::asio::ip::udp::endpoint receiver_endpoint, sender_endpoint;
   boost::asio::io_service io_service;
   boost::asio::ip::udp::socket socket;
-
-  std::array<std::byte, UDP_MAX_SIZE> udp_buffer;
 
  public:
   asio_packet_provider(std::string address, unsigned short port)
