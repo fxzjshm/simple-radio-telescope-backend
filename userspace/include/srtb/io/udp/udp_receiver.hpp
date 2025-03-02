@@ -29,7 +29,7 @@ namespace io {
 namespace udp {
 
 /**
- * @brief A source that receives UDP packet and unpack it. 
+ * @brief A source that receives UDP packet and extract payload. 
  *        Removed auto-restart and reserve to make sure data stream is continuous.
  *        For original version, see git history of this file.
  * 
@@ -117,8 +117,8 @@ class continuous_udp_receiver_worker {
       } else [[likely]] {
         // receive packet
         udp_packet_buffer = packet_provider.receive();
-        const auto [header_size, received_counter_, timestamp] = backend.parse_packet(udp_packet_buffer);
-        const size_t data_len = udp_packet_buffer.size() - header_size;
+        const auto [received_counter_, timestamp] = backend.parse_packet(udp_packet_buffer);
+        const size_t data_len = udp_packet_buffer.size() - Backend::packet_header_size;
 
         // remember to check whether this can hold all kinds of counters
         const udp_packet_counter_type received_counter = received_counter_;
@@ -141,7 +141,7 @@ class continuous_udp_receiver_worker {
         fill_zero();
         last_counter = received_counter;
 
-        udp_packet_buffer_pos = header_size;
+        udp_packet_buffer_pos = Backend::packet_header_size;
         copy_packet();
       }
     }

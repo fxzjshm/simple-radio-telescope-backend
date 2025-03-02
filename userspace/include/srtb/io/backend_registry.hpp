@@ -55,6 +55,8 @@ struct naocpsr_roach2 {
   constexpr static size_t data_stream_count = 1;
   using counter_type = uint64_t;
   static inline constexpr size_t counter_size = sizeof(counter_type);
+  static inline constexpr size_t packet_header_size = counter_size;
+  static inline constexpr size_t packet_payload_size = 4104;
 
   static inline constexpr auto parse_packet(std::span<std::byte> udp_packet_buffer) {
     // what if packet_size < counter_size ?
@@ -65,8 +67,7 @@ struct naocpsr_roach2 {
     for (size_t i = size_t(0); i < counter_size; ++i) {
       received_counter |= (static_cast<counter_type>(udp_packet_buffer[i]) << (CHAR_BIT * i));
     }
-    return std::make_tuple(/* header_size = */ counter_size, received_counter,
-                           /* timestamp = */ received_counter);
+    return std::make_tuple(received_counter, /* timestamp = */ received_counter);
   }
 };
 
@@ -119,8 +120,9 @@ struct gznupsr_a1 {
   static constexpr auto vdif_word_size = vdif_header::vdif_word_size;
   static constexpr auto vdif_word_count = vdif_header::vdif_word_count;
 
-  static constexpr size_t packet_header_size = 64;
+  static inline constexpr size_t packet_header_size = 64;
   static_assert(vdif_word_size * vdif_word_count + counter_2_size == packet_header_size);
+  static inline constexpr size_t packet_payload_size = 8256;
 
   static inline constexpr auto parse_packet(std::span<std::byte> udp_packet_buffer) {
     // what if packet_size < counter_size ?
@@ -144,8 +146,7 @@ struct gznupsr_a1 {
     const vdif_header vh = std::bit_cast<vdif_header>(word);
 
     // TODO: timestamp
-    return std::make_tuple(/* header_size = */ packet_header_size, received_counter,
-                           /* timestamp = */ received_counter);
+    return std::make_tuple(received_counter, /* timestamp = */ received_counter);
   }
 };
 
