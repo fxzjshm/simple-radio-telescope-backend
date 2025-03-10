@@ -117,6 +117,9 @@ class continuous_udp_receiver_worker {
       } else [[likely]] {
         // receive packet
         udp_packet_buffer = packet_provider.receive();
+#if __has_builtin(__builtin_prefetch)
+      __builtin_prefetch(udp_packet_buffer.data(), /* rw = read */ 0, /* locality = no */ 0);
+#endif
         const auto [received_counter_, timestamp] = backend.parse_packet(udp_packet_buffer);
         const size_t data_len = udp_packet_buffer.size() - Backend::packet_header_size;
 
