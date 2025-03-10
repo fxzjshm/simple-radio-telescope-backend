@@ -284,7 +284,7 @@ include_directories(SYSTEM "3rdparty/mdspan/include/")
 
 ## Qt (optional)
 ### ref: https://doc.qt.io/qt-6/cmake-qt5-and-qt6-compatibility.html
-find_package(QT NAMES Qt6 Qt5 COMPONENTS Core)
+find_package(QT NAMES Qt5 COMPONENTS Core)
 message(STATUS "QT_VERSION_MAJOR = ${QT_VERSION_MAJOR}")
 find_package(Qt${QT_VERSION_MAJOR} COMPONENTS Core Quick Gui)
 option(SRTB_ENABLE_GUI "option to enable GUI" ${Qt${QT_VERSION_MAJOR}_FOUND})
