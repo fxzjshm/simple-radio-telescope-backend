@@ -23,6 +23,7 @@
 #include "srtb/io/udp/asio_udp_packet_provider.hpp"
 #include "srtb/io/udp/packet_mmap_v3_provider.hpp"
 #include "srtb/io/udp/recvfrom_packet_provider.hpp"
+#include "srtb/io/udp/recvmmsg_packet_provider.hpp"
 #include "srtb/io/udp/udp_receiver.hpp"
 #include "srtb/memory/mem.hpp"
 #include "srtb/pipeline/framework/pipe.hpp"
@@ -158,23 +159,23 @@ template <typename... Args>
 inline auto start_udp_receiver_pipe(std::string_view backend_name,
                                     Args... args) {
   using namespace srtb::io::backend_registry;
-  using provider_t = srtb::io::udp::recvfrom_packet_provider;
+  using provider_t = srtb::io::udp::recvmmsg_packet_provider;
 
   if (backend_name == naocpsr_roach2::name) {
     using backend_t = naocpsr_roach2;
-    using worker_t = srtb::io::udp::continuous_udp_receiver_worker<provider_t, backend_t>;
+    using worker_t = srtb::io::udp::udp_receive_block_worker<provider_t, backend_t>;
     using pipe_t = udp_receiver_pipe<worker_t>;
     return start_pipe<pipe_t>(args...);
   }
   if (backend_name == naocpsr_snap1::name) {
     using backend_t = naocpsr_snap1;
-    using worker_t = srtb::io::udp::continuous_udp_receiver_worker<provider_t, backend_t>;
+    using worker_t = srtb::io::udp::udp_receive_block_worker<provider_t, backend_t>;
     using pipe_t = udp_receiver_pipe<worker_t>;
     return start_pipe<pipe_t>(args...);
   }
   if (backend_name == gznupsr_a1::name) {
     using backend_t = gznupsr_a1;
-    using worker_t = srtb::io::udp::continuous_udp_receiver_worker<provider_t, backend_t>;
+    using worker_t = srtb::io::udp::udp_receive_block_worker<provider_t, backend_t>;
     using pipe_t = udp_receiver_pipe<worker_t>;
     return start_pipe<pipe_t>(args...);
   }
