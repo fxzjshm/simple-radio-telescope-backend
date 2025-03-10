@@ -19,6 +19,7 @@
 #include <cstring>
 #include <limits>
 #include <span>
+#include <stdexcept>
 #include <string>
 
 #include "srtb/log/log.hpp"
@@ -163,6 +164,110 @@ class continuous_udp_receiver_worker {
     }
 
     return first_counter;
+  }
+};
+
+/**
+ * @brief A source that receives UDP packet and extract payload. 
+ *        Removed auto-restart and reserve to make sure data stream is continuous.
+ *        For original version, see git history of this file.
+ * 
+ * TODO: simultaneously receive 2 polars (i.e. 2 addresses) and *sync*
+ * 
+ * @see @c srtb::pipeline::udp_receiver_pipe
+ */
+template <typename PacketProvider, typename Backend>
+class udp_receive_block_worker {
+ public:
+  using packet_provider_t = PacketProvider;
+  using backend_t = Backend;
+
+  PacketProvider packet_provider;
+  Backend backend;
+
+  static constexpr size_t expected_packet_data_size = Backend::packet_payload_size - Backend::packet_header_size;
+
+  size_t total_received_packet_count = 0;
+  size_t total_lost_packet_count = 0;
+
+  /** @brief this type should be able to hold all kinds of counters from different senders */
+  using udp_packet_counter_type = uint64_t;
+  /** @brief first block should begin with this counter */
+  std::optional<udp_packet_counter_type> begin_counter;
+
+  explicit udp_receive_block_worker(const std::string& address, const unsigned short port,
+                                    std::optional<udp_packet_counter_type> begin_counter_ = {})
+      : packet_provider{address, port}, begin_counter{begin_counter_} {}
+
+  /**
+   * @brief Receive given number of bytes, with counter continuity already checked
+   * @param required_length length in bytes
+   * @return first counter
+   */
+  auto receive(std::span<std::byte> data_buffer) {
+    std::byte* data_buffer_ptr = data_buffer.data();
+    const size_t data_buffer_capacity = data_buffer.size();
+    const size_t expected_packet_count = data_buffer_capacity / expected_packet_data_size;
+    size_t current_received_packet_count = 0;
+
+    if (expected_packet_count * expected_packet_data_size != data_buffer_capacity) [[unlikely]] {
+      throw std::invalid_argument{"Packet of size " + std::to_string(expected_packet_data_size) +
+                                  " cannot fit into input buffer of size " + std::to_string(data_buffer_capacity)};
+    }
+
+    while (true) {
+      // receive packet
+      std::span<std::byte> udp_packet_buffer = packet_provider.receive();
+#if __has_builtin(__builtin_prefetch)
+      __builtin_prefetch(udp_packet_buffer.data(), /* rw = read */ 0, /* locality = no */ 0);
+#endif
+
+      // deal with unexpected packet
+      if (udp_packet_buffer.size() - Backend::packet_header_size != expected_packet_data_size) [[unlikely]] {
+        SRTB_LOGW << " [udp receiver worker] " << "received packet of unexpected size " << udp_packet_buffer.size()
+                  << srtb::endl;
+        udp_packet_buffer = packet_provider.receive();
+      }
+      current_received_packet_count += 1;
+      const auto [received_counter_, timestamp] = backend.parse_packet(udp_packet_buffer);
+
+      // wait until start line
+      if (!begin_counter.has_value()) {
+        begin_counter = received_counter_;
+      }
+      if (received_counter_ < begin_counter.value()) [[unlikely]] {
+        continue;
+      }
+
+      // if in range, copy content; this is expensive
+      if (begin_counter.value() <= received_counter_ &&
+          received_counter_ < begin_counter.value() + expected_packet_count) {
+        std::copy_n(udp_packet_buffer.begin() + Backend::packet_header_size, expected_packet_data_size,
+                    data_buffer_ptr + expected_packet_data_size * (received_counter_ - begin_counter.value()));
+      }
+
+      // last packet of this block or out of range, break
+      if (received_counter_ >= begin_counter.value() + expected_packet_count - 1) {
+        break;
+      }
+    }
+
+    // packet statistics & warning if lost
+    const size_t current_lost_packet_count = expected_packet_count - current_received_packet_count;
+    total_lost_packet_count += current_lost_packet_count;
+    total_received_packet_count += current_received_packet_count;
+    if (current_lost_packet_count > 0) {
+      const auto loss_rate = 1.0 * total_lost_packet_count / (total_lost_packet_count + total_received_packet_count);
+      SRTB_LOGW << " [udp receiver worker] "
+                << "data loss detected: " << current_lost_packet_count << " packets this round. "
+                << "loss rate: current " << 1.0 * current_lost_packet_count / expected_packet_count << ", "
+                << "overall " << loss_rate << srtb::endl;
+    }
+
+    const udp_packet_counter_type block_first_counter = begin_counter.value();
+    // update begin counter for next block
+    begin_counter.value() += expected_packet_count;
+    return block_first_counter;
   }
 };
 
