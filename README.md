@@ -264,23 +264,31 @@ Operation Options:
 
 ```ini
 # /etc/sysctl.d/98-net.conf
-net.core.rmem_max = 536870912
-net.core.wmem_max = 536870912
-net.core.rmem_default = 536870912
+net.core.rmem_max = 2147483647
+net.core.wmem_max = 2147483647
+net.core.rmem_default = 2147483647
 net.core.netdev_max_backlog = 5000
 net.ipv4.tcp_window_scaling = 1
-net.ipv4.udp_rmem_min = 8388608
+net.ipv4.udp_rmem_min = 2147483647
 ```
 
-* check MTU setting of network interface, default is usually 1500, but typical packet size from FPGAs are ~4096 or ~8192
+* check MTU setting of network interface & switch, default is usually 1500, but typical packet size from FPGAs are ~4096 or ~8192
+* disable reverse path filter `net.ipv4.conf.<all/interface>.rp_filter`, if required
+```ini
+# eth0 is network interface to receive packet
+net.ipv4.conf.eth0.rp_filter = 0
+```
 * move network interface and GPU to same NUMA node, topology can be viewed using tools like `lstopo` from hwloc
 * force running on this NUMA node ("`$NODE`") using `numactl` & set process priority (nice value, "`$NICE`"):
 ```bash
 numactl --preferred $NODE nice $NICE simple-radio-telescope-backend
 ```
-
 * set thread affinity of UDP receiver thread(s), using `udp_receiver_cpu_preferred` option
-
+* disable firewall, at least for network interface that receiving data stream, e.g.
+```bash
+sudo systemctl disable --now ufw
+sudo systemctl disable --now firewalld
+```
 
 ## Code structure
 
