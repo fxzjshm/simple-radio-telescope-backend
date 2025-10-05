@@ -18,8 +18,6 @@
 #include <mutex>
 
 #include "srtb/fft/fft_wrapper.hpp"
-#include "srtb/memory/mem.hpp"
-#include "srtb/memory/sycl_device_allocator.hpp"
 
 #define SRTB_CHECK_CUFFT_LIKE_WRAPPER(expr, expected)                      \
   SRTB_CHECK(expr, expected,                                               \
@@ -43,13 +41,13 @@ struct cufft_like_trait;
 inline std::mutex cufft_like_mutex;
 #ifdef SRTB_FFT_SHARE_WORK_AREA
 struct shared_work_area {
-  srtb::mem<std::shared_ptr<std::byte>> mem;
+  std::byte* ptr;
+  size_t size;
   size_t user_count;
 };
 using work_area_slot_t = std::pair<sycl::backend, /* device index */ int>;
 /** apparently, different devices uses different shared work area */
 std::map<work_area_slot_t, shared_work_area> shared_work_area_map;
-std::map<work_area_slot_t, srtb::memory::device_allocator<std::byte>> device_allocator_map;
 #endif  // SRTB_FFT_SHARE_WORK_AREA
 
 /** @brief common wrapper for different vendor's FFT libraries that has a cufft-like API design. */
@@ -151,21 +149,15 @@ class cufft_like_1d_wrapper
 
 #ifdef SRTB_FFT_SHARE_WORK_AREA
     const size_t required_work_area_bytes = workSize;
-    if (!device_allocator_map.contains(work_area_slot)) {
-      device_allocator_map.insert({work_area_slot, srtb::memory::device_allocator<std::byte>{q}});
-    }
-    // if (!shared_work_area_map.contains(work_area_slot)) {
-    //   shared_work_area_map.insert(std::pair{work_area_slot, shared_work_area{}});
-    //   shared_work_area_map[work_area_slot].mem.count = 0;
-    // }
-    if (required_work_area_bytes > shared_work_area_map[work_area_slot].mem.count) {
-      shared_work_area_map[work_area_slot].mem =
-          srtb::mem_allocate_shared<std::byte>(device_allocator_map.at(work_area_slot), required_work_area_bytes);
+    if (required_work_area_bytes > shared_work_area_map[work_area_slot].size) {
+      sycl::free(shared_work_area_map[work_area_slot].ptr, this->q);
+      shared_work_area_map[work_area_slot].ptr = static_cast<std::byte*>(sycl::malloc_device(required_work_area_bytes, this->q));
+      shared_work_area_map[work_area_slot].size = required_work_area_bytes;
     }
     shared_work_area_map[work_area_slot].user_count++;
     // set this first, so internal buffer is destroyed
     // will re-set each execution in case it changes (TODO: does this affect performance ?)
-    set_work_area_impl(reinterpret_cast<void*>(shared_work_area_map[work_area_slot].mem.ptr.get()));
+    set_work_area_impl(reinterpret_cast<void*>(shared_work_area_map[work_area_slot].ptr));
 #endif  // SRTB_FFT_SHARE_WORK_AREA
 
     SRTB_LOGI << " [cufft_like_wrapper] "
@@ -178,7 +170,8 @@ class cufft_like_1d_wrapper
 #ifdef SRTB_FFT_SHARE_WORK_AREA
     shared_work_area_map.at(work_area_slot).user_count--;
     if (shared_work_area_map.at(work_area_slot).user_count == 0) {
-      shared_work_area_map.at(work_area_slot).mem = {};
+      sycl::free(shared_work_area_map.at(work_area_slot).ptr, this->q);
+      shared_work_area_map.at(work_area_slot).size = 0;
     }
 #endif  // SRTB_FFT_SHARE_WORK_AREA
   }
@@ -230,7 +223,7 @@ class cufft_like_1d_wrapper
 
   void set_work_area() {
     std::lock_guard lock{srtb::fft::cufft_like_mutex};
-    return set_work_area_impl(reinterpret_cast<void*>(shared_work_area_map.at(work_area_slot).mem.ptr.get()));
+    return set_work_area_impl(reinterpret_cast<void*>(shared_work_area_map.at(work_area_slot).ptr));
   }
 
   bool has_inited_impl() {
