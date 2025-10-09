@@ -161,8 +161,10 @@ inline auto start_udp_receiver_pipe(std::string_view backend_name,
   using namespace srtb::io::backend_registry;
   using provider_t = srtb::io::udp::recvmmsg_packet_provider;
 
-  if (backend_name == naocpsr_roach2::name) {
-    using backend_t = naocpsr_roach2;
+  backend_name = resolve_alias_name(backend_name);
+
+  if (backend_name == fastmb_roach2::name) {
+    using backend_t = fastmb_roach2;
     using worker_t = srtb::io::udp::udp_receive_block_worker<provider_t, backend_t>;
     using pipe_t = udp_receiver_pipe<worker_t>;
     return start_pipe<pipe_t>(args...);

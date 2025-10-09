@@ -48,9 +48,11 @@ struct simple {
  *     |<--1->| |<------2---......-->|
  *   1. counter of UDP packets of type (u)int64_t, should be sequencially increasing if no packet is lost.
  *   2. real "baseband" data, typical length is 4096 bytes, data type int8_t
+ *
+ * @see https://github.com/zhuyangh/fastmb_roach2/
  */
-struct naocpsr_roach2 {
-  constexpr static std::string_view name = "naocpsr_roach2";
+struct fastmb_roach2 {
+  constexpr static std::string_view name = "fastmb_roach2";
   /** @brief number of polarizations in a single data stream. */
   constexpr static size_t data_stream_count = 1;
   using counter_type = uint64_t;
@@ -81,7 +83,7 @@ struct naocpsr_roach2 {
  *   1. 2. real "baseband" data for ADC 1 & 2, typical length is 2 * 2 * 1024 bytes, 
  *         two polarizations interleaved, each with 2 int8_t samples.
  */
-struct naocpsr_snap1 : public naocpsr_roach2 {
+struct naocpsr_snap1 : public fastmb_roach2 {
   constexpr static std::string_view name = "naocpsr_snap1";
   /** @brief number of polarizations in a single data stream. */
   constexpr static size_t data_stream_count = 2;
@@ -150,7 +152,7 @@ struct gznupsr_a1 {
   }
 };
 
-inline std::tuple<simple, naocpsr_roach2, naocpsr_snap1, gznupsr_a1> backends;
+inline std::tuple<simple, fastmb_roach2, naocpsr_snap1, gznupsr_a1> backends;
 
 // helper function
 
@@ -169,6 +171,13 @@ inline auto get_data_stream_count(std::string_view backend_name) {
                                 std::string{backend_name} +
                                 "\" when getting data stream count"};
   }
+}
+
+inline auto resolve_alias_name(std::string_view backend_name) {
+  if (backend_name == "naocpsr_roach2") {
+    return fastmb_roach2::name;
+  }
+  return backend_name;
 }
 
 }  // namespace backend_registry

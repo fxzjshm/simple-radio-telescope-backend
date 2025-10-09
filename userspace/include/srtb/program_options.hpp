@@ -81,7 +81,7 @@ namespace program_options {
        "Currently supported: 1(uint1), 2(uint2), 4(uint4), 8(uint8), -8(int8), 32(float), 64(double)")
       ("baseband_format_type", boost::program_options::value<std::string>(),
        "Type of baseband format: "
-       "simple, naocpsr_roach2, naocpsr_snap1, gznupsr_a1")
+       "simple, fastmb_roach2, naocpsr_snap1, gznupsr_a1")
       ("baseband_freq_low", boost::program_options::value<std::string>(),
        "Lowerest frequency of received baseband signal, in MHz. ")
       ("baseband_bandwidth", boost::program_options::value<std::string>(),

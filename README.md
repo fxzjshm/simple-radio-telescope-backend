@@ -189,7 +189,7 @@ Baseband Options:
                                         1(uint1), 2(uint2), 4(uint4), 8(uint8),
                                         -8(int8), 32(float), 64(double)
   --baseband_format_type arg            Type of baseband format: 
-                                        naocpsr_roach2, naocpsr_snap1, 
+                                        fastmb_roach2, naocpsr_snap1, 
                                         gznupsr_a1
   --baseband_freq_low arg               Lowerest frequency of received baseband
                                         signal, in MHz. 

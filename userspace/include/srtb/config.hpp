@@ -98,7 +98,7 @@ struct configs {
 
   /**
    * @brief Type of baseband format: 
-   *        simple, naocpsr_roach2, naocpsr_snap1, gznupsr_a1
+   *        simple, fastmb_roach2, naocpsr_snap1, gznupsr_a1
    */
   std::string baseband_format_type = "simple";
 

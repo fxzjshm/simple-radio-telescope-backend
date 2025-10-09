@@ -394,10 +394,12 @@ inline auto start_unpack_pipe(std::string_view format_name, InFunctor in_functor
                               Args... args) {
   using namespace srtb::io::backend_registry;
 
+  format_name = resolve_alias_name(format_name);
+
   if (format_name == simple::name) {
     return start_pipe<unpack_pipe>(in_functor, out_functor, args...);
   }
-  if (format_name == naocpsr_roach2::name) {
+  if (format_name == fastmb_roach2::name) {
     return start_pipe<unpack_pipe>(in_functor, out_functor, args...);
   }
   if (format_name == naocpsr_snap1::name) {
