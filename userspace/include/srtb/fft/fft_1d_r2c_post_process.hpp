@@ -81,6 +81,48 @@ void fft_1d_r2c_in_place_post_process(DeviceComplexInputIterator d_in,
    }).wait();
 }
 
+template <typename DeviceComplexInputIterator>
+void fft_1d_c2r_in_place_pre_process(DeviceComplexInputIterator d_in, size_t count, size_t batch_size, sycl::queue& q) {
+  const size_t N = count;
+
+  const auto X = d_in;
+  // operate in-place
+  const auto out = d_in;
+  // drop highest: not N / 2 + 1 here
+  q.parallel_for(sycl::range<1>{N / 2 * batch_size}, [=](sycl::item<1> id) {
+     using C = typename std::remove_cvref<decltype(d_in[0])>::type;
+     using T = typename std::remove_cvref<decltype(d_in[0].real())>::type;
+
+     constexpr C i = C{T{0}, T{1}};
+
+     const size_t N_div2 = N / 2;
+     const size_t idx = id.get_id(0);
+     const size_t l = idx / N_div2;
+     const size_t k = idx - l * N_div2;
+     const C X_k = X[l * N + k];
+     const C X_N_k = ((k == 0) ? (0) : (X[l * N + N - k]));
+
+     //const T theta = -T{2.0 * M_PI} * k / n_real;
+     const T theta_k = -T{M_PI} * k / N;
+     T w_k_re, w_k_im;
+     w_k_im = sycl::sincos(theta_k, sycl::decorated_private_ptr<T>{&w_k_re});
+    //  const C w_k = C{w_k_re, w_k_im};
+     const C w_k_conj = C{w_k_re, -w_k_im};
+
+     const C X_N_k_conj = srtb::conj(X_N_k);
+     const C F_k = (X_k + X_N_k_conj); // / T{2};
+     const C G_k = (X_k - X_N_k_conj) * w_k_conj; // * (T{1} / T{2});
+
+     const C H_k = F_k + G_k * i;
+     const C H_N_k_conj = F_k - G_k * i;
+     const C H_N_k = srtb::conj(H_N_k_conj);
+     out[l * N + k] = H_k;
+     if (k != 0) [[likely]] {
+       out[l * N + N - k] = H_N_k;
+     }
+   }).wait();
+}
+
 }  // namespace fft
 }  // namespace srtb
 
